@@ -60,6 +60,24 @@ Antes de aplicar:
 
 MySQL ejecuta `schema.sql` y crea el primer administrador solo cuando el volumen de datos está vacío. Las imágenes subidas viven en un PVC separado. Como ese PVC usa `ReadWriteOnce`, la app queda deliberadamente en una réplica; para escalar horizontalmente hay que mover uploads a almacenamiento de objetos o usar un volumen `ReadWriteMany`.
 
+### Prueba local con Docker Desktop
+
+En Windows, habilitar WSL 2 e instalar Docker Desktop. Desde la vista **Kubernetes** de Docker Desktop, crear un clúster local; para una prueba sencilla se recomienda un nodo. Luego ejecutar:
+
+```powershell
+.\scripts\deploy-local-k8s.ps1
+kubectl -n cantina port-forward service/cantina 3000:80
+```
+
+La app queda en `http://localhost:3000`, con `admin` / `admin123` solo para la prueba local. El overlay `k8s/overlays/local` usa `cantina-app:local`, no crea Ingress y no publica la imagen en ningún registro.
+
+Para inspeccionar el despliegue:
+
+```powershell
+kubectl -n cantina get pods,services,pvc
+kubectl -n cantina logs deployment/cantina
+```
+
 ## CI/CD con GitHub Actions
 
 El workflow `.github/workflows/ci-cd.yml` hace lo siguiente:

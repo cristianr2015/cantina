@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - ingress.yaml
+images:
+  - name: cantina-app
+    newName: ghcr.io/cristianr2015/pena
+    newTag: latest

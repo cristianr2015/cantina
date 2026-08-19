@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_dev_change_this';
+const { jwtSecret } = require('../config');
 
 function authMiddleware(requiredRoles = []){
   return (req, res, next) => {
@@ -7,7 +7,7 @@ function authMiddleware(requiredRoles = []){
     if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'No autorizado' });
     const token = auth.slice(7);
     try {
-      const payload = jwt.verify(token, JWT_SECRET);
+      const payload = jwt.verify(token, jwtSecret);
       req.user = payload;
       if (requiredRoles.length && !requiredRoles.includes(payload.role)) return res.status(403).json({ error: 'Acceso denegado' });
       next();

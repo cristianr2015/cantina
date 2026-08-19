@@ -1,84 +1,97 @@
-# Cantina / Bufet — Aplicación mínima
+# Cantina / Bufet
 
-Pequeña app para administrar productos, ventas y eventos, y generar reportes de ventas por evento.
+Aplicación Node.js/Express para administrar productos, ventas, entradas, socios y eventos. Usa MySQL y sirve el frontend desde `public/`.
 
-Requisitos
-- Node.js 16+
-- MySQL
+## Desarrollo local
 
-Instalación
-
-1. Clonar/abrir el proyecto y entrar en la carpeta del repo.
-2. Instalar dependencias:
+Requisitos: Node.js 24 y MySQL 8.
 
 ```bash
-npm install
-```
-
-3. Crear la base de datos y tablas ejecutando `schema.sql` en tu servidor MySQL (por ejemplo con `mysql -u root -p < schema.sql`).
-
-4. Configurar variables de entorno opcionales (o usar los valores por defecto):
-
-- `DB_HOST` (por defecto `localhost`)
-- `DB_USER` (por defecto `root`)
-- `DB_PASSWORD` (por defecto ``)
-- `DB_NAME` (por defecto `cantina_db`)
-- `DB_PORT` (por defecto `3306`)
-
-Puedes crear un archivo `.env` y usar `dotenv` si lo deseas (no incluido por defecto).
-
-Ejecutar
-
-```bash
+cp .env.example .env
+npm ci
+mysql -u root -p < schema.sql
 npm start
-# o en desarrollo
-npm run dev
 ```
 
-Abrir en el navegador: `http://localhost:3000`.
+La app queda disponible en `http://localhost:3000`. Las variables soportadas están documentadas en `.env.example`; el proyecto no carga `.env` automáticamente, por lo que deben exportarse en la terminal o inyectarse con el entorno de ejecución.
 
-Archivos importantes
-- [server.js](server.js#L1) : punto de entrada del servidor.
-- [db.js](db.js#L1) : conexión con MySQL.
-- [routes/products.js](routes/products.js#L1) : API productos.
-- [routes/events.js](routes/events.js#L1) : API eventos.
-- [routes/sales.js](routes/sales.js#L1) : API ventas.
-- [routes/reports.js](routes/reports.js#L1) : Reportes (ventas por evento).
-- [schema.sql](schema.sql#L1) : esquema y datos de ejemplo.
-- [public/index.html](public/index.html#L1) : interfaz mínima.
+Endpoints de operación:
 
-Autenticación
-- Endpoint de login: `POST /api/auth/login` con body `{ "username": "...", "password": "..." }`.
-- Responde `{ token, user }` donde `token` es un JWT que debes enviar en el header `Authorization: Bearer <token>` para proteger rutas.
+- `GET /health/live`: confirma que el proceso está vivo.
+- `GET /health/ready`: confirma que la app puede consultar MySQL.
+- `GET /ping`: endpoint de compatibilidad con chequeo de base de datos.
 
-Seeds
-- Archivo `seeds.sql` añade usuarios de ejemplo (contraseñas almacenadas en texto plano como solicitaste). Ejecuta:
+## Imagen Docker
 
 ```bash
-mysql -u root -p < seeds.sql
+docker build -t cantina:local .
+docker run --rm -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e DB_HOST=host.docker.internal \
+  -e DB_USER=root \
+  -e DB_PASSWORD=secret \
+  -e DB_NAME=cantina_db \
+  -e JWT_SECRET=un-valor-largo-y-aleatorio \
+  cantina:local
 ```
 
-Seguridad importante: almacenar contraseñas en texto plano es inseguro. Considerá usar hashing (bcrypt) en producción.
+La imagen usa Node.js 24 LTS, instala solo dependencias de producción y se ejecuta como usuario sin privilegios.
 
-Frontend protegido
-- La interfaz web ahora requiere login. Abre `http://localhost:3000` y autenticate con los usuarios del seed.
-- El `admin` puede crear productos, eventos, asignar ventas a usuarios y ver reportes por evento y por usuario.
-- Los `seller` pueden registrar ventas y ver sólo sus propias ventas.
+## Kubernetes
 
-Nuevo endpoint de reportes:
-- `GET /api/reports/sales-by-user` (solo `admin`) — acepta `start` y `end` como query params YYYY-MM-DD y devuelve ventas agregadas por usuario.
+`k8s/base` contiene la app, MySQL 8.4, almacenamiento persistente, probes y servicios. `k8s/overlays/production` agrega el Ingress y la imagen de GHCR.
 
-Configuración
-- Página de configuración en la interfaz (visible solo para `admin`): permite subir el logo de la empresa, guardar el `CUIT`, y crear/editar/eliminar usuarios.
-- Endpoints:
-	- `GET /api/settings` (admin) — obtener CUIT y logo.
-	- `PUT /api/settings` (admin) — actualizar `{ cuit }`.
-	- `POST /api/settings/logo` (admin) — subir archivo `logo` (multipart/form-data).
+Para un despliegue manual:
 
+```bash
+kubectl apply -f k8s/base/namespace.yaml
+kubectl apply -f k8s/secret.example.yaml  # editar antes; nunca confirmar valores reales
+kubectl apply -k k8s/overlays/production
+kubectl -n cantina rollout status statefulset/mysql
+kubectl -n cantina rollout status deployment/cantina
+```
 
+Antes de aplicar:
 
-Siguientes pasos posibles
-- Añadir autenticación/roles
-- Control de stock
-- Exportar reportes a CSV/PDF
-- Mejorar UI/UX
+1. Cambiar `cantina.example.com` en `k8s/overlays/production/ingress.yaml`.
+2. Cambiar la imagen de GHCR en `k8s/overlays/production/kustomization.yaml` si el repositorio cambia.
+3. Configurar un Ingress Controller compatible con la clase `nginx`.
+4. Ajustar almacenamiento y recursos a las StorageClasses/cuotas del clúster.
+
+MySQL ejecuta `schema.sql` y crea el primer administrador solo cuando el volumen de datos está vacío. Las imágenes subidas viven en un PVC separado. Como ese PVC usa `ReadWriteOnce`, la app queda deliberadamente en una réplica; para escalar horizontalmente hay que mover uploads a almacenamiento de objetos o usar un volumen `ReadWriteMany`.
+
+## CI/CD con GitHub Actions
+
+El workflow `.github/workflows/ci-cd.yml` hace lo siguiente:
+
+1. En pull requests: instala con `npm ci`, ejecuta chequeos, renderiza Kustomize y construye la imagen sin publicarla.
+2. En `main`: publica `ghcr.io/<owner>/<repo>:<commit>` y `:latest` en GHCR.
+3. Si `K8S_DEPLOY_ENABLED=true`: actualiza secretos, aplica Kubernetes y espera ambos rollouts.
+
+Configurar en **Settings > Environments > production** (o como secretos del repositorio):
+
+| Nombre | Tipo | Uso |
+|---|---|---|
+| `KUBE_CONFIG_B64` | Secret | kubeconfig codificado con `base64 -w0` |
+| `DB_PASSWORD` | Secret | usuario MySQL `cantina` |
+| `MYSQL_ROOT_PASSWORD` | Secret | administración del MySQL incluido |
+| `JWT_SECRET` | Secret | firma de tokens; usar un valor aleatorio largo |
+| `ADMIN_USERNAME` | Secret | administrador inicial |
+| `ADMIN_PASSWORD` | Secret | contraseña del administrador inicial |
+| `K8S_DEPLOY_ENABLED` | Variable | debe valer `true` para habilitar CD |
+| `APP_HOST` | Variable | dominio del Ingress, por ejemplo `cantina.midominio.com` |
+
+Ejemplo para generar valores:
+
+```bash
+openssl rand -base64 48                  # JWT_SECRET
+base64 -w0 ~/.kube/config                # KUBE_CONFIG_B64 en Linux
+```
+
+El paquete GHCR debe ser público para que Kubernetes lo descargue sin credenciales. Si se mantiene privado, crear un `imagePullSecret` de larga duración en el namespace `cantina` y referenciarlo desde el Pod.
+
+## Base de datos y seguridad
+
+`schema.sql` crea las tablas para una instalación nueva. Las contraseñas de usuarios de la aplicación siguen el modelo heredado y se almacenan en texto plano; antes de exponer el servicio a Internet se recomienda migrarlas a hashes con Argon2 o bcrypt. Los secretos de infraestructura y JWT ya no tienen valores productivos embebidos en el código.
+
+El dump `cantina.sql` fue saneado en el árbol de trabajo porque contenía credenciales y datos personales. Si una versión anterior ya fue subida a un remoto, hay que rotar esas credenciales y limpiar el historial de Git; borrarlas en un commit nuevo no las elimina de commits anteriores.

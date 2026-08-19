@@ -1,0 +1,16 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.android-env
+android
+node_modules
+npm-debug.log*
+coverage
+k8s
+README.md
+cantina.sql
+seeds.sql
+Imagenes productos
+WhatsApp Image*.jpeg

@@ -220,7 +220,7 @@ CREATE TABLE `settings` (
 
 LOCK TABLES `settings` WRITE;
 /*!40000 ALTER TABLE `settings` DISABLE KEYS */;
-INSERT INTO `settings` VALUES (1,'20349963958','/uploads/logo_1774538458749.png','2026-03-26 15:21:15','La peña de Rio Lujan');
+-- Datos de configuración omitidos para no publicar CUIT ni información productiva.
 /*!40000 ALTER TABLE `settings` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -254,7 +254,7 @@ CREATE TABLE `tickets_sold` (
 
 LOCK TABLES `tickets_sold` WRITE;
 /*!40000 ALTER TABLE `tickets_sold` DISABLE KEYS */;
-INSERT INTO `tickets_sold` VALUES (18,'Luis','Gonzalez','1',0,'2026-03-26 11:46:30',NULL,'mercadopago','anticipada',6),(19,'Luisito','Gonzalez','2',0,'2026-03-26 11:46:53',NULL,'mercadopago','anticipada',6),(22,'Maria Isabel','Iarregle','2',0,'2026-03-26 11:47:47',NULL,'mercadopago','anticipada',6),(23,'Bienvenido','Medrano','1',0,'2026-03-26 12:29:12',NULL,'mercadopago','anticipada',5),(24,'Mariela','Quevedo','1',0,'2026-03-26 12:29:31',NULL,'mercadopago','anticipada',5),(32,'Venta','en Puerta','0',1,'2026-03-26 12:54:18','2026-03-26 12:54:18','cash','puerta',4),(33,'Cristian','Ramirez','34996395',0,'2026-03-26 13:11:47',NULL,'cash','anticipada',1),(34,'Venta','en Puerta','0',1,'2026-03-26 16:34:48','2026-03-26 16:34:48','cash','puerta',4),(35,'Cristian Gabriel','Ramirez','11111111',0,'2026-03-26 16:47:34',NULL,'mercadopago','anticipada',1);
+-- Datos de entradas omitidos para no publicar nombres ni documentos personales.
 /*!40000 ALTER TABLE `tickets_sold` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -282,7 +282,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Cristian','Neron2019!!','admin','2026-03-24 20:00:09'),(4,'admin','admin123','admin','2026-03-25 21:05:47'),(5,'Mili','Porotitos2026','admin','2026-03-25 21:06:03'),(6,'Luli','admin123','seller','2026-03-26 11:45:14');
+-- Usuarios y contraseñas omitidos. Se crean mediante secretos del entorno.
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

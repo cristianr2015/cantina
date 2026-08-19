@@ -1,5 +1,4 @@
--- Esquema para la aplicación Cantina/Bufet
-CREATE DATABASE IF NOT EXISTS cantina_db;
+CREATE DATABASE IF NOT EXISTS cantina_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE cantina_db;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -26,20 +25,6 @@ CREATE TABLE IF NOT EXISTS events (
   name VARCHAR(255) NOT NULL,
   date DATE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS tickets_sold (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  first_name VARCHAR(100) NOT NULL,
-  last_name VARCHAR(100) NOT NULL,
-  dni VARCHAR(50) NOT NULL,
-  payment_method ENUM('cash','mercadopago') DEFAULT 'cash',
-  ticket_type ENUM('anticipada','puerta') DEFAULT 'anticipada',
-  user_id INT,
-  entered TINYINT(1) NOT NULL DEFAULT 0,
-  sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  entered_at TIMESTAMP NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS discounts (
@@ -75,6 +60,20 @@ CREATE TABLE IF NOT EXISTS sales (
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS tickets_sold (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  dni VARCHAR(50) NOT NULL,
+  payment_method ENUM('cash','mercadopago') DEFAULT 'cash',
+  ticket_type ENUM('anticipada','puerta') DEFAULT 'anticipada',
+  user_id INT,
+  entered TINYINT(1) NOT NULL DEFAULT 0,
+  sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  entered_at TIMESTAMP NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS partner_contributions (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT,
@@ -85,17 +84,6 @@ CREATE TABLE IF NOT EXISTS partner_contributions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Datos de ejemplo
-INSERT INTO products (name, price_cost, price_sale, profit_pct) VALUES
-('Bebida Cola 500ml', 0.80, 1.50, ((1.50-0.80)/0.80)*100),
-('Choripán', 1.50, 3.50, ((3.50-1.50)/1.50)*100),
-('Sándwich de jamón', 1.00, 2.50, ((2.50-1.00)/1.00)*100);
-
-INSERT INTO events (name, date) VALUES
-('Partido vs Rival', CURDATE()),
-('Evento Corporativo', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
-
--- Tabla de configuración global (un solo registro)
 CREATE TABLE IF NOT EXISTS settings (
   id INT PRIMARY KEY DEFAULT 1,
   cuit VARCHAR(50),
@@ -104,4 +92,5 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-INSERT IGNORE INTO settings (id, cuit, company_name, logo_path) VALUES (1, '', 'Mi Empresa', NULL);
+INSERT IGNORE INTO settings (id, cuit, company_name, logo_path)
+VALUES (1, '', 'Mi Empresa', NULL);

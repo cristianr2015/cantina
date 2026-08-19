@@ -41,6 +41,20 @@ app.get('/ping', async (req, res) => {
   }
 });
 
+// Kubernetes: liveness verifica el proceso; readiness verifica también MySQL.
+app.get('/health/live', (req, res) => {
+  res.json({ ok: true });
+});
+
+app.get('/health/ready', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ ok: true, db: true });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: false });
+  }
+});
+
 app.get('/api/public-settings', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT company_name, logo_path FROM settings WHERE id = 1 LIMIT 1');
@@ -224,6 +238,24 @@ app.get('/api/public-settings', async (req, res) => {
   }
 })();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} recibido; cerrando conexiones...`);
+  server.close(async () => {
+    try {
+      await db.end();
+    } finally {
+      process.exit(0);
+    }
+  });
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

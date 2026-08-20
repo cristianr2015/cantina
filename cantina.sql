@@ -269,7 +269,7 @@ CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('admin','seller') NOT NULL DEFAULT 'seller',
+  `role` enum('admin','seller','puerta') NOT NULL DEFAULT 'seller',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)

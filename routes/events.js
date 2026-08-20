@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 
-router.get('/', async (req, res) => {
+router.get('/', auth(['admin', 'seller']), async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM events ORDER BY date DESC');
     res.json(rows);

@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const allowedRoles = new Set(['admin', 'seller', 'puerta']);
+
+function isValidRole(role) {
+  return allowedRoles.has(role);
+}
 
 // Listar usuarios (solo admin)
 router.get('/', auth(['admin']), async (req, res) => {
@@ -18,7 +23,9 @@ router.post('/', auth(['admin']), async (req, res) => {
   try {
     const { username, password, role } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
-    const [result] = await db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, password, role || 'seller']);
+    const selectedRole = role || 'seller';
+    if (!isValidRole(selectedRole)) return res.status(400).json({ error: 'Rol invalido' });
+    const [result] = await db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, password, selectedRole]);
     const [rows] = await db.query('SELECT id, username, role, created_at FROM users WHERE id = ?', [result.insertId]);
     res.json(rows[0]);
   } catch (err) {
@@ -31,7 +38,12 @@ router.put('/:id', auth(['admin']), async (req, res) => {
   try {
     const id = req.params.id;
     const { username, password, role } = req.body;
-    await db.query('UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?', [username, password, role, id]);
+    if (!username || !isValidRole(role)) return res.status(400).json({ error: 'Usuario o rol invalido' });
+    if (password) {
+      await db.query('UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?', [username, password, role, id]);
+    } else {
+      await db.query('UPDATE users SET username = ?, role = ? WHERE id = ?', [username, role, id]);
+    }
     const [rows] = await db.query('SELECT id, username, role, created_at FROM users WHERE id = ?', [id]);
     res.json(rows[0]);
   } catch (err) {

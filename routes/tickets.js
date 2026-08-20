@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const ticketRoles = ['admin', 'seller', 'puerta'];
 
-router.get('/', auth(['admin','seller']), async (req, res) => {
+router.get('/', auth(ticketRoles), async (req, res) => {
   try {
     const search = (req.query.search || '').trim();
     let sql = 'SELECT t.*, u.username as sold_by FROM tickets_sold t LEFT JOIN users u ON t.user_id = u.id';
@@ -21,12 +22,17 @@ router.get('/', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.post('/', auth(['admin','seller']), async (req, res) => {
+router.post('/', auth(ticketRoles), async (req, res) => {
   try {
     const { first_name, last_name, dni, payment_method, ticket_type, user_id, entered } = req.body;
     if (!first_name || !last_name || !dni) return res.status(400).json({ error: 'Faltan datos requeridos' });
 
-    const userIdInt = user_id ? parseInt(user_id) : null;
+    // Solo el administrador puede asignar la venta a otra persona. Los demas
+    // roles siempre quedan asociados al usuario autenticado.
+    const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
+    const userIdInt = req.user.role === 'admin'
+      ? (Number.isInteger(requestedUserId) ? requestedUserId : req.user.id)
+      : req.user.id;
     const enteredValue = entered ? 1 : 0;
     const enteredAt = enteredValue ? new Date() : null;
 
@@ -42,18 +48,26 @@ router.post('/', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin','seller']), async (req, res) => {
+router.put('/:id', auth(ticketRoles), async (req, res) => {
   try {
     const { first_name, last_name, dni, user_id } = req.body;
     const { id } = req.params;
     if (!first_name || !last_name || !dni) return res.status(400).json({ error: 'Faltan datos requeridos' });
 
-    const userIdInt = user_id ? parseInt(user_id) : null;
-
-    const [update] = await db.query(
-      'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ?, user_id = ? WHERE id = ?',
-      [first_name, last_name, dni, userIdInt, id]
-    );
+    let update;
+    if (req.user.role === 'admin') {
+      const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
+      const userIdInt = Number.isInteger(requestedUserId) ? requestedUserId : req.user.id;
+      [update] = await db.query(
+        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ?, user_id = ? WHERE id = ?',
+        [first_name, last_name, dni, userIdInt, id]
+      );
+    } else {
+      [update] = await db.query(
+        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ? WHERE id = ?',
+        [first_name, last_name, dni, id]
+      );
+    }
 
     if (update.affectedRows === 0) return res.status(404).json({ error: 'Entrada no encontrada' });
 
@@ -64,7 +78,7 @@ router.put('/:id', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.patch('/:id/enter', auth(['admin','seller']), async (req, res) => {
+router.patch('/:id/enter', auth(ticketRoles), async (req, res) => {
   try {
     const { id } = req.params;
     const { entered } = req.body;
@@ -85,7 +99,7 @@ router.patch('/:id/enter', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin','seller']), async (req, res) => {
+router.delete('/:id', auth(ticketRoles), async (req, res) => {
   try {
     const { id } = req.params;
     const [result] = await db.query('DELETE FROM tickets_sold WHERE id = ?', [id]);

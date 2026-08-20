@@ -21,6 +21,12 @@ Endpoints operativos:
 - `GET /health/ready`: confirma que la aplicacion puede consultar MySQL.
 - `GET /ping`: endpoint de compatibilidad con chequeo de base de datos.
 
+Roles de la aplicacion:
+
+- `admin`: acceso completo y administracion de usuarios.
+- `seller`: ventas de cantina, entradas y consultas operativas.
+- `puerta`: acceso exclusivo a las operaciones de entradas; las ventas quedan asociadas automaticamente a su usuario.
+
 ## Contenedor
 
 ```powershell

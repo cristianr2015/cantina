@@ -8,7 +8,7 @@ const path = require('path');
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-router.get('/', async (req, res) => {
+router.get('/', auth(['admin', 'seller']), async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM products ORDER BY id');
     res.json(rows);

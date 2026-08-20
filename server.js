@@ -64,6 +64,27 @@ app.get('/api/public-settings', async (req, res) => {
   }
 });
 
+// Migracion idempotente: habilitar el rol limitado a operaciones de entradas.
+(async () => {
+  try {
+    const [rows] = await db.query(`
+      SELECT COLUMN_TYPE
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        AND COLUMN_NAME = 'role'
+      LIMIT 1
+    `);
+    const columnType = rows[0]?.COLUMN_TYPE || '';
+    if (!columnType.includes("'puerta'")) {
+      await db.query("ALTER TABLE users MODIFY COLUMN role ENUM('admin','seller','puerta') NOT NULL DEFAULT 'seller'");
+      console.log("Rol 'puerta' habilitado en la tabla users.");
+    }
+  } catch (err) {
+    console.error("No se pudo habilitar el rol 'puerta':", err.message);
+  }
+})();
+
 // Auto-fix: Verificar y crear columna image_path si falta
 (async () => {
   try {

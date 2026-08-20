@@ -1,6 +1,11 @@
 const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
+const ROLE_LABELS = {
+  admin: 'Administrador',
+  seller: 'Vendedor',
+  puerta: 'Puerta'
+};
 
 function normalizeBaseUrl(value) {
   if (!value) return '';
@@ -442,6 +447,38 @@ async function loadSales(){
 
 let currentTicketEditId = null;
 
+async function populateTicketUserSelect(select, selectedUser = null) {
+  if (!select) return;
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!currentUser) return;
+
+  if (currentUser.role === 'admin') {
+    const users = await api('/users');
+    if (!Array.isArray(users)) throw new Error('No se pudo cargar la lista de usuarios');
+    select.disabled = false;
+    select.innerHTML = '<option value="">-- Seleccionar Vendedor --</option>';
+    users.forEach(user => {
+      const option = document.createElement('option');
+      option.value = user.id;
+      option.textContent = `${user.username} (${ROLE_LABELS[user.role] || user.role})`;
+      select.appendChild(option);
+    });
+    select.value = selectedUser?.id || currentUser.id;
+    return;
+  }
+
+  const assignedUser = selectedUser?.id
+    ? selectedUser
+    : { id: currentUser.id, username: currentUser.username };
+  select.innerHTML = '';
+  const option = document.createElement('option');
+  option.value = assignedUser.id;
+  option.textContent = assignedUser.username || currentUser.username;
+  select.appendChild(option);
+  select.value = assignedUser.id;
+  select.disabled = true;
+}
+
 async function loadTickets(search = '') {
   const tbody = document.getElementById('tickets-body');
   if (!tbody) return;
@@ -542,11 +579,10 @@ window.editTicket = async function(id) {
 
     const userSel = document.getElementById('edit-ticket-user');
     if (userSel) {
-      const users = await api('/users');
-      if (!Array.isArray(users)) throw new Error("No se pudo cargar la lista de usuarios");
-      userSel.innerHTML = '<option value="">-- Seleccionar Vendedor --</option>';
-      users.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.username; userSel.appendChild(opt); });
-      userSel.value = ticket.user_id || '';
+      await populateTicketUserSelect(userSel, {
+        id: ticket.user_id,
+        username: ticket.sold_by
+      });
     }
 
     document.getElementById('edit-ticket-qty').value = 1;
@@ -1005,17 +1041,8 @@ document.getElementById('close-pos').addEventListener('click', () => {
 
 // Modal Entrada Rápida
 document.getElementById('open-quick-ticket-btn').addEventListener('click', async () => {
-  // Cargar lista de usuarios vendedores
   const userSel = document.getElementById('quick-ticket-user');
-  if (userSel) {
-    const users = await api('/users');
-    userSel.innerHTML = '<option value="">-- Seleccionar Vendedor --</option>';
-    users.forEach(u => {
-      const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.username; userSel.appendChild(opt);
-    });
-    const currentUser = JSON.parse(localStorage.getItem('user'));
-    if (currentUser) userSel.value = currentUser.id;
-  }
+  await populateTicketUserSelect(userSel);
   document.getElementById('quick-ticket-modal').classList.remove('hidden');
 });
 
@@ -1591,8 +1618,8 @@ async function loadUsersForMgmt(){
       <tr style="border-bottom:1px solid rgba(15,23,42,0.08)">
         <td style="padding:12px;color:#1f2937">${u.username}</td>
         <td style="padding:12px;color:#1f2937">
-          <span style="padding:4px 8px;background:${u.role === 'admin' ? '#fca5a5' : '#d1fae5'};color:${u.role === 'admin' ? '#7f1d1d' : '#065f46'};border-radius:4px;font-size:12px;font-weight:600">
-            ${u.role === 'admin' ? 'Administrador' : 'Vendedor'}
+          <span style="padding:4px 8px;background:${u.role === 'admin' ? '#fca5a5' : (u.role === 'puerta' ? '#dbeafe' : '#d1fae5')};color:${u.role === 'admin' ? '#7f1d1d' : (u.role === 'puerta' ? '#1e40af' : '#065f46')};border-radius:4px;font-size:12px;font-weight:600">
+            ${ROLE_LABELS[u.role] || u.role}
           </span>
         </td>
         <td style="padding:12px;text-align:center;display:flex;gap:6px;justify-content:center">
@@ -1667,6 +1694,7 @@ async function initAfterLogin(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   if (!user) return;
   showAppForUser(user);
+  if (user.role === 'puerta') return;
   await loadProducts();
   await loadEvents();
   await loadSales();
@@ -1683,6 +1711,8 @@ async function initAfterLogin(){
 
 // --- simple client-side navigation (hash-based) ---
 function showPage(id){
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  if (user?.role === 'puerta' && id !== 'tickets') id = 'tickets';
   // hide others
   document.querySelectorAll('.page').forEach(p => {
     if (p.id === 'page-' + id) return;
@@ -1705,7 +1735,12 @@ function showPage(id){
 }
 
 function navigateToHash(){
-  const hash = location.hash.replace('#','') || 'dashboard'; // Dashboard por defecto
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  let hash = location.hash.replace('#','') || (user?.role === 'puerta' ? 'tickets' : 'dashboard');
+  if (user?.role === 'puerta' && hash !== 'tickets') {
+    hash = 'tickets';
+    history.replaceState(null, '', '#tickets');
+  }
   // load data for page
   if (hash === 'dashboard') { loadDashboard(); }
   if (hash === 'products') { loadProducts(); }
@@ -1739,13 +1774,17 @@ document.addEventListener('click', (e) => {
 async function showAppForUser(user){
   document.getElementById('login-area').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('current-user').textContent = user.username + ' (' + user.role + ')';
+  document.getElementById('current-user').textContent = user.username + ' (' + (ROLE_LABELS[user.role] || user.role) + ')';
   // hide admin-only elements for non-admins
   if (user.role !== 'admin'){
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
   } else {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
   }
+  document.querySelectorAll('.sidebar a[data-nav]').forEach(link => {
+    const menuItem = link.closest('li');
+    if (menuItem) menuItem.style.display = user.role === 'puerta' && link.getAttribute('href') !== '#tickets' ? 'none' : '';
+  });
   // navigate to current or default
   navigateToHash();
 }
@@ -2114,15 +2153,11 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
   
   document.getElementById('door-sale-modal').classList.add('hidden');
 
-  showConfirm(`¿Registrar ${qty} venta(s) rápida(s) en puerta? (Vendedor: Admin)`, async () => {
-    try {
-      let adminId = null;
-      try {
-        const users = await api('/users');
-        const admin = users.find(u => u.role === 'admin');
-        if (admin) adminId = admin.id;
-      } catch (e) { /* Fallback si el usuario no tiene permisos para listar */ }
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!currentUser) return showToast('Sesión inválida', 'error');
 
+  showConfirm(`¿Registrar ${qty} venta(s) rápida(s) en puerta? (Vendedor: ${currentUser.username})`, async () => {
+    try {
       let successCount = 0;
       for (let i = 0; i < qty; i++) {
         const res = await api('/tickets', {
@@ -2133,7 +2168,7 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
             dni: '0',
             payment_method: 'cash',
             ticket_type: 'puerta',
-            user_id: adminId,
+            user_id: currentUser.id,
             entered: true
           })
         });

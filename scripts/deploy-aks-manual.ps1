@@ -86,6 +86,7 @@ if ($worktreeChanges) {
 $toolsDirectory = Join-Path $env:LOCALAPPDATA 'pena-aks-tools'
 $localKubectl = Join-Path $toolsDirectory 'kubectl.exe'
 $localKubelogin = Join-Path $toolsDirectory 'kubelogin.exe'
+$manualKubeconfig = Join-Path $toolsDirectory 'kubeconfig'
 
 if (-not (Get-Command 'kubelogin' -ErrorAction SilentlyContinue)) {
   if (-not (Test-Path -LiteralPath $localKubelogin)) {
@@ -170,11 +171,13 @@ try {
   az aks get-credentials `
     --name $AksCluster `
     --resource-group $ResourceGroup `
+    --file $manualKubeconfig `
     --overwrite-existing `
     --output none `
     --only-show-errors
   Assert-LastExit 'No se pudieron obtener credenciales de AKS.'
 
+  $env:KUBECONFIG = $manualKubeconfig
   & $kubeloginCommand convert-kubeconfig -l azurecli
   Assert-LastExit 'No se pudo configurar kubelogin.'
 

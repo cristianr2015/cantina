@@ -167,9 +167,7 @@ jobs:
               echo "APP_HOST no es un nombre DNS valido" >&2
               exit 1
             fi
-            sed -i "s|cantina.example.com|${APP_HOST}|" k8s/overlays/production/ingress.yaml
-          else
-            sed -i '/host: cantina.example.com/d' k8s/overlays/production/ingress.yaml
+            sed -i "s|    - http:|    - host: ${APP_HOST}\n      http:|" k8s/overlays/production/ingress.yaml
           fi
 
           kubectl apply -k k8s/overlays/production

@@ -121,24 +121,44 @@ El environment `production` contiene:
 | `AZURE_ACR_NAME` | Variable |
 | `APP_HOST` | Variable opcional |
 
-Para disparar el primer despliegue, confirmar estos archivos y hacer push a `main`:
+## Despliegue y actualizaciones manuales
+
+Si GitHub Actions no esta disponible, se puede desplegar directamente desde una terminal autenticada. El script construye la imagen local, la publica en ACR con el SHA del commit, obtiene acceso temporal a AKS, aplica Kubernetes, espera los rollouts y retira el acceso temporal.
+
+Requisitos:
 
 ```powershell
-git add .
-git commit -m "Configure AKS deployment with GitHub OIDC"
+az login
+docker version
+```
+
+Confirmar primero los cambios para que la imagen sea trazable y ejecutar:
+
+```powershell
+git add <archivos>
+git commit -m "Descripcion del cambio"
 git push origin main
+.\scripts\deploy-aks-manual.ps1
+```
+
+En la primera ejecucion genera los secretos, los guarda en Kubernetes y sincroniza GitHub si `gh` esta autenticado. La contrasena inicial de `admin` se copia al portapapeles sin imprimirse. En actualizaciones posteriores reutiliza el Secret existente y no rota la clave de MySQL.
+
+Con un dominio configurado:
+
+```powershell
+.\scripts\deploy-aks-manual.ps1 -AppHost 'cantina.midominio.com'
+```
+
+Aunque el deployment sea manual, conviene conservar `.github/workflows/ci-cd.yml` deshabilitado para poder reactivarlo cuando la facturacion de GitHub vuelva a estar disponible.
+
+Cuando GitHub vuelva a estar habilitado, reactivar y disparar CI/CD manualmente:
+
+```powershell
+gh workflow enable ci-cd.yml --repo cristianr2015/pena
+gh workflow run ci-cd.yml --repo cristianr2015/pena --ref main
 ```
 
 Sin `APP_HOST`, el Ingress acepta cualquier host y se puede probar por la IP publica. Con dominio, pasar `-AppHost 'cantina.midominio.com'` y crear un registro DNS `A` hacia la IP del Ingress.
-
-Consultar el estado sin instalar credenciales locales de Kubernetes:
-
-```powershell
-az aks command invoke `
-  --resource-group rg-pena-prod `
-  --name aks-pena-prod `
-  --command "kubectl -n cantina get pods,services,ingress,pvc"
-```
 
 ## Kubernetes local
 

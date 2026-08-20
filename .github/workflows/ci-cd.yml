@@ -1,4 +1,4 @@
-name: CI/CD
+name: CI/CD AKS
 
 on:
   pull_request:
@@ -7,22 +7,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
-
 concurrency:
   group: production-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Test, build and publish
+  ci:
+    name: Test and validate
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    outputs:
-      image: ${{ steps.image.outputs.name }}
-      tag: ${{ steps.image.outputs.tag }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -36,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Static checks
+      - name: Run tests
         run: npm test
 
       - name: Audit production dependencies
@@ -45,63 +40,91 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Validate Kubernetes render
+      - name: Validate Kubernetes manifests
         run: kubectl kustomize k8s/overlays/production > /tmp/cantina-rendered.yaml
-
-      - name: Resolve image name
-        id: image
-        shell: bash
-        run: |
-          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build container image
+      - name: Validate container build
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Build, publish and deploy
+    needs: ci
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CORE_OUTPUT: none
+      IMAGE_REPOSITORY: cantina
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log in to Azure with GitHub OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve ACR image
+        id: image
+        shell: bash
+        env:
+          ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+        run: |
+          set -euo pipefail
+          login_server="$(az acr show --name "$ACR_NAME" --query loginServer --output tsv)"
+          echo "registry=$login_server" >> "$GITHUB_OUTPUT"
+          echo "name=$login_server/$IMAGE_REPOSITORY" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ACR
+        env:
+          ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and publish immutable image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
           tags: |
-            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
             ${{ steps.image.outputs.name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
 
-  deploy:
-    name: Deploy to Kubernetes
-    needs: build
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.K8S_DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Configure cluster access
-        shell: bash
+      - name: Set up kubelogin
+        uses: azure/use-kubelogin@v1
         env:
-          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
-        run: |
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBE_CONFIG_B64" | base64 --decode > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          kubectl cluster-info
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          kubelogin-version: v0.2.18
+
+      - name: Configure AKS access
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AKS_CLUSTER: ${{ vars.AZURE_AKS_CLUSTER }}
+        run: az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "$AKS_CLUSTER" --overwrite-existing
 
       - name: Apply runtime secrets
         shell: bash
@@ -112,7 +135,12 @@ jobs:
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
-          kubectl apply -f k8s/base/namespace.yaml
+          set -euo pipefail
+          test -n "$DB_PASSWORD"
+          test -n "$MYSQL_ROOT_PASSWORD"
+          test -n "$JWT_SECRET"
+          test -n "$ADMIN_USERNAME"
+          test -n "$ADMIN_PASSWORD"
           admin_username_b64="$(printf '%s' "$ADMIN_USERNAME" | base64 -w0)"
           admin_password_b64="$(printf '%s' "$ADMIN_PASSWORD" | base64 -w0)"
           kubectl -n cantina create secret generic cantina-secrets \
@@ -123,18 +151,28 @@ jobs:
             --from-literal=ADMIN_PASSWORD_B64="$admin_password_b64" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Deploy manifests
+      - name: Deploy to AKS
         shell: bash
         env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_TAG: ${{ github.sha }}
           APP_HOST: ${{ vars.APP_HOST }}
-          IMAGE_NAME: ${{ needs.build.outputs.image }}
-          IMAGE_TAG: ${{ needs.build.outputs.tag }}
         run: |
+          set -euo pipefail
           sed -i "s|newName: .*|newName: ${IMAGE_NAME}|" k8s/overlays/production/kustomization.yaml
           sed -i "s|newTag: .*|newTag: ${IMAGE_TAG}|" k8s/overlays/production/kustomization.yaml
+
           if [ -n "$APP_HOST" ]; then
-            sed -i "s|host: cantina.example.com|host: ${APP_HOST}|" k8s/overlays/production/ingress.yaml
+            if ! [[ "$APP_HOST" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$ ]]; then
+              echo "APP_HOST no es un nombre DNS valido" >&2
+              exit 1
+            fi
+            sed -i "s|cantina.example.com|${APP_HOST}|" k8s/overlays/production/ingress.yaml
+          else
+            sed -i '/host: cantina.example.com/d' k8s/overlays/production/ingress.yaml
           fi
+
           kubectl apply -k k8s/overlays/production
-          kubectl -n cantina rollout status statefulset/mysql --timeout=5m
-          kubectl -n cantina rollout status deployment/cantina --timeout=5m
+          kubectl -n cantina rollout status statefulset/mysql --timeout=10m
+          kubectl -n cantina rollout status deployment/cantina --timeout=10m
+          kubectl -n cantina get ingress cantina

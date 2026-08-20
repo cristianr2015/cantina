@@ -1,116 +1,161 @@
 # Cantina / Bufet
 
-Aplicación Node.js/Express para administrar productos, ventas, entradas, socios y eventos. Usa MySQL y sirve el frontend desde `public/`.
+Aplicacion Node.js/Express para administrar productos, ventas, entradas, socios y eventos. Usa MySQL y sirve el frontend desde `public/`.
 
 ## Desarrollo local
 
 Requisitos: Node.js 24 y MySQL 8.
 
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 npm ci
 mysql -u root -p < schema.sql
 npm start
 ```
 
-La app queda disponible en `http://localhost:3000`. Las variables soportadas están documentadas en `.env.example`; el proyecto no carga `.env` automáticamente, por lo que deben exportarse en la terminal o inyectarse con el entorno de ejecución.
+La aplicacion queda disponible en `http://localhost:3000`. El proyecto no carga `.env` automaticamente: hay que exportar esas variables o inyectarlas desde el entorno de ejecucion.
 
-Endpoints de operación:
+Endpoints operativos:
 
-- `GET /health/live`: confirma que el proceso está vivo.
-- `GET /health/ready`: confirma que la app puede consultar MySQL.
+- `GET /health/live`: confirma que el proceso esta vivo.
+- `GET /health/ready`: confirma que la aplicacion puede consultar MySQL.
 - `GET /ping`: endpoint de compatibilidad con chequeo de base de datos.
 
-## Imagen Docker
+## Contenedor
 
-```bash
+```powershell
 docker build -t cantina:local .
-docker run --rm -p 3000:3000 \
-  -e NODE_ENV=production \
-  -e DB_HOST=host.docker.internal \
-  -e DB_USER=root \
-  -e DB_PASSWORD=secret \
-  -e DB_NAME=cantina_db \
-  -e JWT_SECRET=un-valor-largo-y-aleatorio \
+docker run --rm -p 3000:3000 `
+  -e NODE_ENV=production `
+  -e DB_HOST=host.docker.internal `
+  -e DB_USER=root `
+  -e DB_PASSWORD=secret `
+  -e DB_NAME=cantina_db `
+  -e JWT_SECRET=un-valor-largo-y-aleatorio `
   cantina:local
 ```
 
-La imagen usa Node.js 24 LTS, instala solo dependencias de producción y se ejecuta como usuario sin privilegios.
+La imagen usa Node.js 24, instala solo dependencias de produccion y se ejecuta como usuario sin privilegios.
 
-## Kubernetes
+## Arquitectura en Azure
 
-`k8s/base` contiene la app, MySQL 8.4, almacenamiento persistente, probes y servicios. `k8s/overlays/production` agrega el Ingress y la imagen de GHCR.
+El despliegue automatizado crea y usa:
 
-Para un despliegue manual:
+- AKS con identidad administrada, Microsoft Entra ID, Azure RBAC y cuentas locales deshabilitadas.
+- Azure Container Registry (ACR) privado para las imagenes.
+- Application Routing de AKS como Ingress NGINX administrado.
+- Identidad administrada dedicada a GitHub Actions con federacion OIDC, sin client secret ni kubeconfig permanente.
+- Rol `AcrPush` sobre ACR, acceso de usuario al AKS y rol `AKS RBAC Writer` limitado al namespace `cantina`.
+- Azure Disk mediante PVC para MySQL y uploads.
 
-```bash
-kubectl apply -f k8s/base/namespace.yaml
-kubectl apply -f k8s/secret.example.yaml  # editar antes; nunca confirmar valores reales
-kubectl apply -k k8s/overlays/production
-kubectl -n cantina rollout status statefulset/mysql
-kubectl -n cantina rollout status deployment/cantina
+El script usa por defecto el tier gratuito de administracion de AKS, un nodo `Standard_D2s_v5`, autoscaling de 1 a 3 nodos y ACR Basic. Los nodos, discos, IP publica y ACR generan cargos en Azure.
+
+## Aprovisionar AKS y conectar GitHub
+
+Requisitos en Windows:
+
+- Azure CLI.
+- GitHub CLI (`winget install --id GitHub.cli`).
+- Permisos de Azure para crear recursos y asignar roles, normalmente `Owner` o `Contributor` junto con `User Access Administrator`.
+
+Iniciar sesion y ejecutar el aprovisionamiento idempotente:
+
+```powershell
+az login
+gh auth login
+.\scripts\provision-aks.ps1 -ConfigureGitHub
 ```
 
-Antes de aplicar:
+Valores predeterminados:
 
-1. Cambiar `cantina.example.com` en `k8s/overlays/production/ingress.yaml`.
-2. Cambiar la imagen de GHCR en `k8s/overlays/production/kustomization.yaml` si el repositorio cambia.
-3. Configurar un Ingress Controller compatible con la clase `nginx`.
-4. Ajustar almacenamiento y recursos a las StorageClasses/cuotas del clúster.
+| Recurso | Valor |
+|---|---|
+| Repositorio | `cristianr2015/pena` |
+| Region | `brazilsouth` |
+| Resource group | `rg-pena-prod` |
+| AKS | `aks-pena-prod` |
+| Identidad de CI/CD | `id-github-pena-cd` |
+| GitHub environment | `production` |
 
-MySQL ejecuta `schema.sql` y crea el primer administrador solo cuando el volumen de datos está vacío. Las imágenes subidas viven en un PVC separado. Como ese PVC usa `ReadWriteOnce`, la app queda deliberadamente en una réplica; para escalar horizontalmente hay que mover uploads a almacenamiento de objetos o usar un volumen `ReadWriteMany`.
+Se pueden sobrescribir, por ejemplo:
 
-### Prueba local con Docker Desktop
+```powershell
+.\scripts\provision-aks.ps1 `
+  -GitHubRepository 'cristianr2015/pena' `
+  -SubscriptionId '<subscription-id>' `
+  -Location 'brazilsouth' `
+  -ResourceGroup 'rg-pena-prod' `
+  -AksCluster 'aks-pena-prod' `
+  -AcrName 'un-nombre-globalmente-unico' `
+  -NodeVmSize 'Standard_D2s_v5' `
+  -ConfigureGitHub
+```
 
-En Windows, habilitar WSL 2 e instalar Docker Desktop. Desde la vista **Kubernetes** de Docker Desktop, crear un clúster local; para una prueba sencilla se recomienda un nodo. Luego ejecutar:
+`-ConfigureGitHub` crea el environment, configura los identificadores de Azure, genera secretos de aplicacion aleatorios solo si todavia no existen y copia la contrasena inicial del administrador al portapapeles sin imprimirla. Volver a ejecutar el script no rota secretos existentes ni recrea los recursos.
+
+Si se omite `-ConfigureGitHub`, el script muestra los valores que deben cargarse en GitHub. Tambien se puede ejecutar `scripts/configure-github.ps1` por separado con esos valores.
+
+## CI/CD
+
+El unico workflow es `.github/workflows/ci-cd.yml`:
+
+1. En cada pull request y push ejecuta `npm ci`, tests, auditoria de dependencias, render de Kustomize y build de Docker sin publicar.
+2. En `main`, GitHub obtiene un token temporal de Azure mediante OIDC.
+3. Publica `cantina:<commit-sha>` y `cantina:latest` en ACR.
+4. Obtiene credenciales temporales de AKS, aplica los secretos y manifiestos, y espera los rollouts de MySQL y la aplicacion.
+
+El environment `production` contiene:
+
+| Nombre | Tipo |
+|---|---|
+| `AZURE_CLIENT_ID` | Secret |
+| `AZURE_TENANT_ID` | Secret |
+| `AZURE_SUBSCRIPTION_ID` | Secret |
+| `DB_PASSWORD` | Secret |
+| `MYSQL_ROOT_PASSWORD` | Secret |
+| `JWT_SECRET` | Secret |
+| `ADMIN_USERNAME` | Secret |
+| `ADMIN_PASSWORD` | Secret |
+| `AZURE_RESOURCE_GROUP` | Variable |
+| `AZURE_AKS_CLUSTER` | Variable |
+| `AZURE_ACR_NAME` | Variable |
+| `APP_HOST` | Variable opcional |
+
+Para disparar el primer despliegue, confirmar estos archivos y hacer push a `main`:
+
+```powershell
+git add .
+git commit -m "Configure AKS deployment with GitHub OIDC"
+git push origin main
+```
+
+Sin `APP_HOST`, el Ingress acepta cualquier host y se puede probar por la IP publica. Con dominio, pasar `-AppHost 'cantina.midominio.com'` y crear un registro DNS `A` hacia la IP del Ingress.
+
+Consultar el estado sin instalar credenciales locales de Kubernetes:
+
+```powershell
+az aks command invoke `
+  --resource-group rg-pena-prod `
+  --name aks-pena-prod `
+  --command "kubectl -n cantina get pods,services,ingress,pvc"
+```
+
+## Kubernetes local
+
+`k8s/base` contiene la aplicacion, MySQL 8.4, almacenamiento persistente, probes y servicios. `k8s/overlays/production` agrega el Ingress de AKS; `k8s/overlays/local` publica la app y MySQL solo para Docker Desktop.
+
+Con Kubernetes de Docker Desktop habilitado:
 
 ```powershell
 .\scripts\deploy-local-k8s.ps1
 ```
 
-La app queda publicada permanentemente en `http://localhost:3000`, con `admin` / `admin123` solo para la prueba local. MySQL queda disponible en `127.0.0.1:3307`, base `cantina_db`, usuario `cantina` y contraseña `cantina-local-db-password`. No hace falta mantener una consola con `kubectl port-forward`; ambos puertos permanecen disponibles mientras Kubernetes de Docker Desktop esté activo.
+La aplicacion queda en `http://localhost:3000` y MySQL en `127.0.0.1:3307`. Las credenciales incluidas en ese script son exclusivamente locales.
 
-El overlay `k8s/overlays/local` usa servicios `LoadBalancer` exclusivos del entorno local, usa `cantina-app:local`, no crea Ingress y no publica la imagen en ningún registro. No se debe reutilizar este overlay para producción porque expone MySQL.
+## Limites de esta primera topologia
 
-Para inspeccionar el despliegue:
-
-```powershell
-kubectl -n cantina get pods,services,pvc
-kubectl -n cantina logs deployment/cantina
-```
-
-## CI/CD con GitHub Actions
-
-El workflow `.github/workflows/ci-cd.yml` hace lo siguiente:
-
-1. En pull requests: instala con `npm ci`, ejecuta chequeos, renderiza Kustomize y construye la imagen sin publicarla.
-2. En `main`: publica `ghcr.io/<owner>/<repo>:<commit>` y `:latest` en GHCR.
-3. Si `K8S_DEPLOY_ENABLED=true`: actualiza secretos, aplica Kubernetes y espera ambos rollouts.
-
-Configurar en **Settings > Environments > production** (o como secretos del repositorio):
-
-| Nombre | Tipo | Uso |
-|---|---|---|
-| `KUBE_CONFIG_B64` | Secret | kubeconfig codificado con `base64 -w0` |
-| `DB_PASSWORD` | Secret | usuario MySQL `cantina` |
-| `MYSQL_ROOT_PASSWORD` | Secret | administración del MySQL incluido |
-| `JWT_SECRET` | Secret | firma de tokens; usar un valor aleatorio largo |
-| `ADMIN_USERNAME` | Secret | administrador inicial |
-| `ADMIN_PASSWORD` | Secret | contraseña del administrador inicial |
-| `K8S_DEPLOY_ENABLED` | Variable | debe valer `true` para habilitar CD |
-| `APP_HOST` | Variable | dominio del Ingress, por ejemplo `cantina.midominio.com` |
-
-Ejemplo para generar valores:
-
-```bash
-openssl rand -base64 48                  # JWT_SECRET
-base64 -w0 ~/.kube/config                # KUBE_CONFIG_B64 en Linux
-```
-
-El paquete GHCR debe ser público para que Kubernetes lo descargue sin credenciales. Si se mantiene privado, crear un `imagePullSecret` de larga duración en el namespace `cantina` y referenciarlo desde el Pod.
-
-## Base de datos y seguridad
-
-`schema.sql` crea las tablas para una instalación nueva. Las contraseñas de usuarios de la aplicación siguen el modelo heredado y se almacenan en texto plano; antes de exponer el servicio a Internet se recomienda migrarlas a hashes con Argon2 o bcrypt. Los secretos de infraestructura y JWT ya no tienen valores productivos embebidos en el código.
-
-El dump `cantina.sql` fue saneado en el árbol de trabajo porque contenía credenciales y datos personales. Si una versión anterior ya fue subida a un remoto, hay que rotar esas credenciales y limpiar el historial de Git; borrarlas en un commit nuevo no las elimina de commits anteriores.
+- MySQL tiene una replica y un Azure Disk. El disco persiste ante reinicios de Pod, pero no reemplaza backups ni alta disponibilidad.
+- Los uploads usan `ReadWriteOnce`, por eso la aplicacion tiene una replica. Para escalar horizontalmente conviene moverlos a Azure Blob Storage.
+- El Ingress inicial usa HTTP. Antes de ingresar credenciales reales por Internet hay que configurar un dominio y TLS.
+- El modelo heredado guarda contrasenas de usuarios de la aplicacion en texto plano. Antes de uso productivo debe migrarse a Argon2 o bcrypt.
+- Los secretos de MySQL no deben rotarse solo en GitHub: tambien hay que cambiar los usuarios dentro de MySQL de forma coordinada.

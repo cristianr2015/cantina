@@ -5,5 +5,5 @@ resources:
   - ingress.yaml
 images:
   - name: cantina-app
-    newName: ghcr.io/cristianr2015/pena
+    newName: example.azurecr.io/cantina
     newTag: latest

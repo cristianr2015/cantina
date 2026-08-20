@@ -58,5 +58,7 @@ Write-Host ''
 Write-Host 'Despliegue local listo.' -ForegroundColor Green
 Write-Host "Usuario: $AdminUsername"
 Write-Host "Contraseña: $AdminPassword"
-Write-Host 'Ejecutá en otra terminal: kubectl -n cantina port-forward service/cantina 3000:80'
-Write-Host 'Luego abrí: http://localhost:3000'
+Write-Host 'Aplicación: http://localhost:3000'
+Write-Host 'MySQL: 127.0.0.1:3307 (base: cantina_db, usuario: cantina)'
+Write-Host "Contraseña de MySQL: $databasePassword"
+Write-Host 'Los puertos permanecen publicados mientras Kubernetes de Docker Desktop esté activo.'

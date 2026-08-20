@@ -66,10 +66,11 @@ En Windows, habilitar WSL 2 e instalar Docker Desktop. Desde la vista **Kubernet
 
 ```powershell
 .\scripts\deploy-local-k8s.ps1
-kubectl -n cantina port-forward service/cantina 3000:80
 ```
 
-La app queda en `http://localhost:3000`, con `admin` / `admin123` solo para la prueba local. El overlay `k8s/overlays/local` usa `cantina-app:local`, no crea Ingress y no publica la imagen en ningún registro.
+La app queda publicada permanentemente en `http://localhost:3000`, con `admin` / `admin123` solo para la prueba local. MySQL queda disponible en `127.0.0.1:3307`, base `cantina_db`, usuario `cantina` y contraseña `cantina-local-db-password`. No hace falta mantener una consola con `kubectl port-forward`; ambos puertos permanecen disponibles mientras Kubernetes de Docker Desktop esté activo.
+
+El overlay `k8s/overlays/local` usa servicios `LoadBalancer` exclusivos del entorno local, usa `cantina-app:local`, no crea Ingress y no publica la imagen en ningún registro. No se debe reutilizar este overlay para producción porque expone MySQL.
 
 Para inspeccionar el despliegue:
 

@@ -2334,8 +2334,39 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
 
 // --- QR Scanner Logic ---
 let html5QrCode = null;
+let qrScanInProgress = false;
+
+async function stopQrScanner() {
+  if (!html5QrCode) return;
+  try {
+    const state = html5QrCode.getState();
+    if (state === 2 || state === 3) {
+      await html5QrCode.stop();
+    }
+  } catch (error) {
+    console.warn('No se pudo detener el lector QR', error);
+  }
+  try {
+    html5QrCode.clear();
+  } catch (_) {}
+  html5QrCode = null;
+}
+
+async function closeQrScanner() {
+  await stopQrScanner();
+  document.getElementById('qr-scanner-modal').classList.add('hidden');
+}
+
+function showQrScanResult({ ok, title, message, detail }) {
+  document.getElementById('qr-result-icon').textContent = ok ? '✅' : '⛔';
+  document.getElementById('qr-result-title').textContent = title;
+  document.getElementById('qr-result-message').textContent = message;
+  document.getElementById('qr-result-detail').textContent = detail || '';
+  document.getElementById('qr-result-modal').classList.remove('hidden');
+}
 
 document.getElementById('btn-scan-qr')?.addEventListener('click', async () => {
+  qrScanInProgress = false;
   document.getElementById('qr-scanner-modal').classList.remove('hidden');
   if (!html5QrCode) {
     html5QrCode = new Html5Qrcode("reader");
@@ -2349,7 +2380,7 @@ document.getElementById('btn-scan-qr')?.addEventListener('click', async () => {
       config, 
       async (decodedText) => {
         // El QR contiene un token aleatorio; nunca expone ni acepta un ID secuencial.
-        if (decodedText.startsWith('PENA_TICKET:')) {
+        if (!qrScanInProgress && decodedText.startsWith('PENA_TICKET:')) {
           const token = decodedText.slice('PENA_TICKET:'.length);
           await processQRScan(token);
         }
@@ -2357,11 +2388,13 @@ document.getElementById('btn-scan-qr')?.addEventListener('click', async () => {
     );
   } catch (err) {
     showToast('Error al iniciar cámara: ' + err, 'error');
-    document.getElementById('qr-scanner-modal').classList.add('hidden');
+    await closeQrScanner();
   }
 });
 
 async function processQRScan(token) {
+  if (qrScanInProgress) return;
+  qrScanInProgress = true;
   try {
     // Detener escáner temporalmente para no procesar múltiples veces
     if (html5QrCode && html5QrCode.getState() === 2) { // 2 = SCANNING
@@ -2372,26 +2405,48 @@ async function processQRScan(token) {
       method: 'POST',
       body: JSON.stringify({ token })
     });
+    await closeQrScanner();
     
     if (res.ok) {
-      showToast(`¡Ingreso exitoso! ${res.ticket.first_name} ${res.ticket.last_name}`, 'success');
       // Sonido o vibración podría ir aquí
       if (navigator.vibrate) navigator.vibrate(200);
-      await loadTickets();
+      showQrScanResult({
+        ok: true,
+        title: 'Ingreso registrado',
+        message: `${res.ticket.first_name} ${res.ticket.last_name}`,
+        detail: `DNI: ${res.ticket.dni}`
+      });
+      loadTickets();
     } else {
-      showToast(res.error || 'Ticket inválido', 'error');
+      showQrScanResult({
+        ok: false,
+        title: 'Entrada rechazada',
+        message: res.error || 'Ticket inválido',
+        detail: res.entered_at ? `Ingreso anterior: ${formatDateTime(res.entered_at)}` : ''
+      });
     }
     
-    // Reanudar después de 2 segundos para el siguiente
-    setTimeout(() => {
-      if (html5QrCode && html5QrCode.getState() === 3) html5QrCode.resume(); // 3 = PAISED
-    }, 2000);
-  } catch (e) { showToast('Error al procesar scan', 'error'); }
+    // Queda listo para iniciar un nuevo escaneo desde la app.
+    qrScanInProgress = false;
+  } catch (e) {
+    await closeQrScanner();
+    showQrScanResult({
+      ok: false,
+      title: 'No se pudo validar',
+      message: 'Ocurrió un error al procesar la entrada',
+      detail: 'Volvé a intentarlo.'
+    });
+  }
 }
 
 document.getElementById('close-scanner')?.addEventListener('click', async () => {
-  if (html5QrCode) await html5QrCode.stop();
-  document.getElementById('qr-scanner-modal').classList.add('hidden');
+  await closeQrScanner();
+  qrScanInProgress = false;
+});
+
+document.getElementById('qr-result-close')?.addEventListener('click', () => {
+  document.getElementById('qr-result-modal').classList.add('hidden');
+  qrScanInProgress = false;
 });
 
 // --- Inicialización Pública (Carga antes de Login) ---

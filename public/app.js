@@ -24,6 +24,31 @@ function assetUrl(path, fallback = '') {
   return buildUrl(path);
 }
 
+function applyCompanyBranding(settings = {}) {
+  const companyName = settings.company_name || 'Cantina';
+  const logoPath = settings.logo_path || '';
+  const resolvedLogo = assetUrl(logoPath, '/uploads/default-logo.png');
+
+  const loginName = document.getElementById('login-company-name');
+  if (loginName) loginName.textContent = companyName;
+
+  const loginLogo = document.getElementById('login-logo');
+  if (loginLogo) {
+    if (logoPath) {
+      loginLogo.src = resolvedLogo;
+      loginLogo.style.display = 'inline-block';
+    } else {
+      loginLogo.style.display = 'none';
+    }
+  }
+
+  const sidebarName = document.getElementById('sidebar-company-name');
+  if (sidebarName) sidebarName.textContent = companyName;
+
+  const sidebarLogo = document.getElementById('sidebar-logo');
+  if (sidebarLogo) sidebarLogo.src = resolvedLogo;
+}
+
 function setSessionCookie(name, value) {
   document.cookie = name + "=" + (value || "") + "; path=/; SameSite=Lax";
 }
@@ -1531,11 +1556,8 @@ async function loadSettings(){
     const name = cfg.company_name || 'Mi Empresa';
     
     const img = document.getElementById('logo-preview');
-    const sideLogo = document.getElementById('sidebar-logo');
     if (logo) { img.src = assetUrl(logo); img.style.display = 'block'; } else { img.style.display = 'none'; }
-    if (sideLogo) sideLogo.src = assetUrl(logo, '/uploads/default-logo.png');
-    const sideName = document.getElementById('sidebar-company-name');
-    if (sideName) sideName.textContent = name;
+    applyCompanyBranding({ company_name: name, logo_path: logo });
 
   } catch (e) {
     console.error(e);
@@ -2270,12 +2292,7 @@ async function initPublicInfo() {
     // 2. Cargar Logo y Nombre Público
     const settingsRes = await requestJson(buildUrl('/api/public-settings'));
     const settings = settingsRes.data || {};
-    if (settings.logo_path) {
-      const logoImg = document.getElementById('login-logo');
-      logoImg.src = assetUrl(settings.logo_path);
-      logoImg.style.display = 'inline-block';
-    }
-    document.getElementById('login-company-name').textContent = settings.company_name || 'Cantina';
+    applyCompanyBranding(settings);
     showDebugInfo([]);
   } catch (e) {
     console.error('Error en inicialización pública:', e);

@@ -11,7 +11,8 @@ param(
   [ValidateRange(1, 10)]
   [int]$NodeCount = 1,
   [switch]$ConfigureGitHub,
-  [string]$AppHost = ''
+  [string]$AppHost = '',
+  [string]$AzurePrincipalObjectId = ''
 )
 
 # Azure CLI puede escribir avisos en stderr incluso con exit code 0. Cada llamada
@@ -28,6 +29,46 @@ function Require-Command([string]$Name, [string]$InstallHint) {
 function Assert-LastExit([string]$Message) {
   if ($LASTEXITCODE -ne 0) {
     throw $Message
+  }
+}
+
+function Get-CurrentAzurePrincipal([object]$Account, [string]$ObjectIdOverride) {
+  $principalType = if ($Account.user.type -eq 'servicePrincipal') { 'ServicePrincipal' } else { 'User' }
+  if ($ObjectIdOverride) {
+    $parsedId = [Guid]::Empty
+    if (-not [Guid]::TryParse($ObjectIdOverride, [ref]$parsedId)) {
+      throw 'AzurePrincipalObjectId debe ser un GUID valido.'
+    }
+    return [pscustomobject]@{ Id = $parsedId.ToString(); Type = $principalType }
+  }
+
+  $accessToken = az account get-access-token `
+    --resource 'https://management.azure.com/' `
+    --query accessToken `
+    --output tsv `
+    --only-show-errors
+  Assert-LastExit 'No se pudo obtener un token ARM para identificar la sesion de Azure.'
+
+  try {
+    $parts = $accessToken.Split('.')
+    if ($parts.Count -lt 2) {
+      throw 'El token ARM no tiene formato JWT.'
+    }
+    $payload = $parts[1].Replace('-', '+').Replace('_', '/')
+    switch ($payload.Length % 4) {
+      2 { $payload += '==' }
+      3 { $payload += '=' }
+      1 { throw 'El payload del token ARM no tiene un formato Base64 valido.' }
+    }
+    $claimsJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload))
+    $claims = $claimsJson | ConvertFrom-Json
+    $parsedId = [Guid]::Empty
+    if (-not $claims.oid -or -not [Guid]::TryParse([string]$claims.oid, [ref]$parsedId)) {
+      throw "El token ARM no contiene el claim 'oid'. Usa -AzurePrincipalObjectId con el object ID de tu identidad."
+    }
+    return [pscustomobject]@{ Id = $parsedId.ToString(); Type = $principalType }
+  } finally {
+    $accessToken = $null
   }
 }
 
@@ -114,6 +155,7 @@ $selectedAccountJson = az account show --output json --only-show-errors
 Assert-LastExit 'No se pudo leer la suscripcion seleccionada.'
 $account = $selectedAccountJson | ConvertFrom-Json
 $TenantId = $account.tenantId
+$currentPrincipal = Get-CurrentAzurePrincipal -Account $account -ObjectIdOverride $AzurePrincipalObjectId
 
 foreach ($providerNamespace in @(
   'Microsoft.ContainerRegistry',
@@ -357,13 +399,11 @@ if ($credentialProbe.ExitCode -ne 0 -or -not $credentialId) {
 }
 
 Write-Host "Creando y verificando el namespace 'cantina'..."
-$currentUserId = az ad signed-in-user show --query id --output tsv --only-show-errors
-Assert-LastExit 'No se pudo obtener el object ID del usuario conectado a Azure.'
 
 $clusterAdminRole = 'Azure Kubernetes Service RBAC Cluster Admin'
 $existingAdminProbe = Invoke-ExternalProbe {
   az role assignment list `
-    --assignee-object-id $currentUserId `
+    --assignee-object-id $currentPrincipal.Id `
     --fill-principal-name false `
     --role $clusterAdminRole `
     --scope $aksId `
@@ -376,8 +416,8 @@ $temporaryAdminAssignmentId = $null
 if (-not $existingAdminProbe.Output) {
   Write-Host 'Asignando acceso Kubernetes temporal al usuario que aprovisiona...'
   $temporaryAdminAssignmentId = az role assignment create `
-    --assignee-object-id $currentUserId `
-    --assignee-principal-type User `
+    --assignee-object-id $currentPrincipal.Id `
+    --assignee-principal-type $currentPrincipal.Type `
     --role $clusterAdminRole `
     --scope $aksId `
     --query id `

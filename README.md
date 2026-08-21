@@ -164,6 +164,14 @@ Con un dominio configurado:
 .\scripts\deploy-aks-manual.ps1 -AppHost 'cantina.midominio.com'
 ```
 
+El despliegue identifica al usuario desde el claim `oid` del token ARM de Azure CLI, sin consultar Microsoft Graph. Esto evita que una politica de Acceso Condicional o CAE interrumpa el proceso con `InteractionRequired` despues de publicar la imagen. Si la identidad usada no emite ese claim, se puede indicar explicitamente:
+
+```powershell
+.\scripts\deploy-aks-manual.ps1 `
+  -AppHost 'cantina.midominio.com' `
+  -AzurePrincipalObjectId '<object-id-de-la-identidad>'
+```
+
 Aunque el deployment sea manual, conviene conservar `.github/workflows/ci-cd.yml` deshabilitado para poder reactivarlo cuando la facturacion de GitHub vuelva a estar disponible.
 
 Cuando GitHub vuelva a estar habilitado, reactivar y disparar CI/CD manualmente:

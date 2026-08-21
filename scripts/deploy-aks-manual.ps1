@@ -5,7 +5,8 @@ param(
   [string]$AcrName = 'penacrd03db297',
   [string]$GitHubRepository = 'cristianr2015/pena',
   [string]$AppHost = '',
-  [string]$AdminUsername = 'admin'
+  [string]$AdminUsername = 'admin',
+  [string]$AzurePrincipalObjectId = ''
 )
 
 # Azure CLI puede escribir progreso en stderr con exit code 0. Las llamadas
@@ -57,6 +58,48 @@ function ConvertTo-Base64([string]$Value) {
   return [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value))
 }
 
+function Get-CurrentAzurePrincipal([object]$Account, [string]$ObjectIdOverride) {
+  $principalType = if ($Account.user.type -eq 'servicePrincipal') { 'ServicePrincipal' } else { 'User' }
+  if ($ObjectIdOverride) {
+    $parsedId = [Guid]::Empty
+    if (-not [Guid]::TryParse($ObjectIdOverride, [ref]$parsedId)) {
+      throw 'AzurePrincipalObjectId debe ser un GUID valido.'
+    }
+    return [pscustomobject]@{ Id = $parsedId.ToString(); Type = $principalType }
+  }
+
+  # Evita depender de Microsoft Graph, que puede exigir un desafio adicional
+  # de Acceso Condicional aunque la sesion ARM de Azure CLI siga vigente.
+  $accessToken = az account get-access-token `
+    --resource 'https://management.azure.com/' `
+    --query accessToken `
+    --output tsv `
+    --only-show-errors
+  Assert-LastExit 'No se pudo obtener un token ARM para identificar la sesion de Azure.'
+
+  try {
+    $parts = $accessToken.Split('.')
+    if ($parts.Count -lt 2) {
+      throw 'El token ARM no tiene formato JWT.'
+    }
+    $payload = $parts[1].Replace('-', '+').Replace('_', '/')
+    switch ($payload.Length % 4) {
+      2 { $payload += '==' }
+      3 { $payload += '=' }
+      1 { throw 'El payload del token ARM no tiene un formato Base64 valido.' }
+    }
+    $claimsJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload))
+    $claims = $claimsJson | ConvertFrom-Json
+    $parsedId = [Guid]::Empty
+    if (-not $claims.oid -or -not [Guid]::TryParse([string]$claims.oid, [ref]$parsedId)) {
+      throw "El token ARM no contiene el claim 'oid'. Usa -AzurePrincipalObjectId con el object ID de tu identidad."
+    }
+    return [pscustomobject]@{ Id = $parsedId.ToString(); Type = $principalType }
+  } finally {
+    $accessToken = $null
+  }
+}
+
 function Sync-GitHubSecret([string]$GhCommand, [string]$Name, [string]$Value) {
   $Value | & $GhCommand secret set $Name `
     --repo $GitHubRepository `
@@ -72,6 +115,8 @@ $accountProbe = Invoke-ExternalProbe { az account show --output json --only-show
 if ($accountProbe.ExitCode -ne 0 -or -not $accountProbe.Output) {
   throw "No hay una sesion de Azure activa. Ejecuta 'az login'."
 }
+$account = $accountProbe.Output | ConvertFrom-Json
+$currentPrincipal = Get-CurrentAzurePrincipal -Account $account -ObjectIdOverride $AzurePrincipalObjectId
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $originalLocation = Get-Location
@@ -112,6 +157,29 @@ $loginServer = az acr show `
   --only-show-errors
 Assert-LastExit "No se encontro ACR '$AcrName'."
 
+$aksId = az aks show `
+  --name $AksCluster `
+  --resource-group $ResourceGroup `
+  --query id `
+  --output tsv `
+  --only-show-errors
+Assert-LastExit "No se encontro AKS '$AksCluster'."
+
+$clusterAdminRole = 'Azure Kubernetes Service RBAC Cluster Admin'
+$existingAdminProbe = Invoke-ExternalProbe {
+  az role assignment list `
+    --assignee-object-id $currentPrincipal.Id `
+    --fill-principal-name false `
+    --role $clusterAdminRole `
+    --scope $aksId `
+    --query '[0].id' `
+    --output tsv `
+    --only-show-errors
+}
+if ($existingAdminProbe.ExitCode -ne 0) {
+  throw 'No se pudieron consultar los permisos del usuario actual sobre AKS.'
+}
+
 $commitSha = git rev-parse HEAD
 Assert-LastExit 'No se pudo obtener el commit actual.'
 $imageName = "$loginServer/cantina"
@@ -129,28 +197,6 @@ Assert-LastExit 'No se pudo publicar la imagen inmutable.'
 docker push "$imageName`:latest"
 Assert-LastExit 'No se pudo actualizar la etiqueta latest.'
 
-$aksId = az aks show `
-  --name $AksCluster `
-  --resource-group $ResourceGroup `
-  --query id `
-  --output tsv `
-  --only-show-errors
-Assert-LastExit "No se encontro AKS '$AksCluster'."
-
-$currentUserId = az ad signed-in-user show --query id --output tsv --only-show-errors
-Assert-LastExit 'No se pudo obtener el usuario conectado a Azure.'
-
-$clusterAdminRole = 'Azure Kubernetes Service RBAC Cluster Admin'
-$existingAdminProbe = Invoke-ExternalProbe {
-  az role assignment list `
-    --assignee-object-id $currentUserId `
-    --fill-principal-name false `
-    --role $clusterAdminRole `
-    --scope $aksId `
-    --query '[0].id' `
-    --output tsv `
-    --only-show-errors
-}
 $temporaryAdminAssignmentId = $null
 $newAdminPassword = $null
 
@@ -158,8 +204,8 @@ try {
   if (-not $existingAdminProbe.Output) {
     Write-Host 'Asignando acceso temporal de despliegue al usuario actual...'
     $temporaryAdminAssignmentId = az role assignment create `
-      --assignee-object-id $currentUserId `
-      --assignee-principal-type User `
+      --assignee-object-id $currentPrincipal.Id `
+      --assignee-principal-type $currentPrincipal.Type `
       --role $clusterAdminRole `
       --scope $aksId `
       --query id `

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('./db');
 
 const productsRouter = require('./routes/products');
@@ -21,6 +22,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/vendor/html5-qrcode', express.static(path.join(__dirname, 'node_modules', 'html5-qrcode')));
 
 app.use('/api/products', productsRouter);
 app.use('/api/events', eventsRouter);
@@ -127,7 +129,7 @@ app.get('/api/public-settings', async (req, res) => {
 })();
 
 // Auto-fix: Crear tabla tickets_sold si falta
-(async () => {
+const legacyTicketMigration = (async () => {
   try {
     await db.query("SELECT 1 FROM tickets_sold LIMIT 1");
   } catch (err) {
@@ -139,7 +141,9 @@ app.get('/api/public-settings', async (req, res) => {
         last_name VARCHAR(100) NOT NULL,
         dni VARCHAR(50) NOT NULL,
         payment_method ENUM('cash','mercadopago') DEFAULT 'cash',
-        ticket_type ENUM('anticipada','puerta') DEFAULT 'anticipada',
+        ticket_type ENUM('anticipada','puerta','cortesia') DEFAULT 'anticipada',
+        price_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
+        qr_token CHAR(64) UNIQUE,
         user_id INT,
         entered TINYINT(1) NOT NULL DEFAULT 0,
         sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -166,7 +170,7 @@ app.get('/api/public-settings', async (req, res) => {
       // Asegurar también payment_method y ticket_type para tablas antiguas
       const cols = [
         { name: 'payment_method', def: "ENUM('cash','mercadopago') DEFAULT 'cash'" },
-        { name: 'ticket_type', def: "ENUM('anticipada','puerta') DEFAULT 'anticipada'" }
+        { name: 'ticket_type', def: "ENUM('anticipada','puerta','cortesia') DEFAULT 'anticipada'" }
       ];
       for (const col of cols) {
         try {
@@ -183,7 +187,7 @@ app.get('/api/public-settings', async (req, res) => {
 })();
 
 // Auto-fix: Agregar columna company_name a settings si falta
-(async () => {
+const legacySettingsMigration = (async () => {
   try {
     await db.query("SELECT company_name FROM settings LIMIT 1");
   } catch (err) {
@@ -194,6 +198,87 @@ app.get('/api/public-settings', async (req, res) => {
     }
   }
 })();
+
+// Migración idempotente del sistema de entradas: cortesías, precios y QR seguro.
+const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMigration]).then(async () => {
+  try {
+    await db.query(
+      "ALTER TABLE tickets_sold MODIFY COLUMN ticket_type ENUM('anticipada','puerta','cortesia') DEFAULT 'anticipada'"
+    );
+
+    const ticketColumns = [
+      { name: 'price_paid', definition: 'DECIMAL(10,2) NOT NULL DEFAULT 0' },
+      { name: 'qr_token', definition: 'CHAR(64) NULL UNIQUE' }
+    ];
+    let priceColumnAdded = false;
+    for (const column of ticketColumns) {
+      const [rows] = await db.query(
+        `SELECT 1 FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tickets_sold' AND COLUMN_NAME = ?`,
+        [column.name]
+      );
+      if (!rows.length) {
+        await db.query(`ALTER TABLE tickets_sold ADD COLUMN ${column.name} ${column.definition}`);
+        if (column.name === 'price_paid') priceColumnAdded = true;
+      }
+    }
+    const [qrIndexes] = await db.query(
+      `SELECT 1 FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tickets_sold'
+         AND COLUMN_NAME = 'qr_token' AND NON_UNIQUE = 0`
+    );
+    if (!qrIndexes.length) {
+      await db.query('ALTER TABLE tickets_sold ADD UNIQUE INDEX uq_tickets_qr_token (qr_token)');
+    }
+
+    const settingsColumns = [
+      { name: 'address', definition: 'VARCHAR(255)' },
+      { name: 'phone', definition: 'VARCHAR(100)' },
+      { name: 'email', definition: 'VARCHAR(255)' },
+      { name: 'ticket_price_advance', definition: 'DECIMAL(10,2) NOT NULL DEFAULT 10000' },
+      { name: 'ticket_price_door', definition: 'DECIMAL(10,2) NOT NULL DEFAULT 12000' }
+    ];
+    for (const column of settingsColumns) {
+      const [rows] = await db.query(
+        `SELECT 1 FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'settings' AND COLUMN_NAME = ?`,
+        [column.name]
+      );
+      if (!rows.length) {
+        await db.query(`ALTER TABLE settings ADD COLUMN ${column.name} ${column.definition}`);
+      }
+    }
+    await db.query(
+      `INSERT IGNORE INTO settings
+        (id, cuit, company_name, logo_path, address, phone, email,
+         ticket_price_advance, ticket_price_door)
+       VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 10000, 12000)`
+    );
+
+    if (priceColumnAdded) {
+      await db.query(
+        `UPDATE tickets_sold
+         SET price_paid = CASE
+           WHEN ticket_type = 'anticipada' THEN 10000
+           WHEN ticket_type = 'puerta' THEN 12000
+           ELSE 0
+         END`
+      );
+    }
+    const [withoutTokens] = await db.query(
+      "SELECT id FROM tickets_sold WHERE ticket_type = 'anticipada' AND qr_token IS NULL"
+    );
+    for (const ticket of withoutTokens) {
+      await db.query(
+        'UPDATE tickets_sold SET qr_token = ? WHERE id = ? AND qr_token IS NULL',
+        [crypto.randomBytes(32).toString('hex'), ticket.id]
+      );
+    }
+    console.log('Sistema de entradas, precios y QR configurado.');
+  } catch (err) {
+    console.error('No se pudo migrar el sistema de entradas:', err.message);
+  }
+});
 
 // Auto-fix: Crear tabla partner_contributions si falta
 (async () => {
@@ -259,8 +344,11 @@ app.get('/api/public-settings', async (req, res) => {
   }
 })();
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+let server;
+ticketingMigration.finally(() => {
+  server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });
 
 let shuttingDown = false;
@@ -268,6 +356,14 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`${signal} recibido; cerrando conexiones...`);
+  if (!server) {
+    try {
+      await db.end();
+    } finally {
+      process.exit(0);
+    }
+    return;
+  }
   server.close(async () => {
     try {
       await db.end();

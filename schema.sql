@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS tickets_sold (
   last_name VARCHAR(100) NOT NULL,
   dni VARCHAR(50) NOT NULL,
   payment_method ENUM('cash','mercadopago') DEFAULT 'cash',
-  ticket_type ENUM('anticipada','puerta') DEFAULT 'anticipada',
+  ticket_type ENUM('anticipada','puerta','cortesia') DEFAULT 'anticipada',
+  price_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
+  qr_token CHAR(64) UNIQUE,
   user_id INT,
   entered TINYINT(1) NOT NULL DEFAULT 0,
   sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -101,7 +103,15 @@ CREATE TABLE IF NOT EXISTS settings (
   cuit VARCHAR(50),
   company_name VARCHAR(255),
   logo_path VARCHAR(255),
+  address VARCHAR(255),
+  phone VARCHAR(100),
+  email VARCHAR(255),
+  ticket_price_advance DECIMAL(10,2) NOT NULL DEFAULT 10000,
+  ticket_price_door DECIMAL(10,2) NOT NULL DEFAULT 12000,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-INSERT IGNORE INTO settings (id, cuit, company_name, logo_path) VALUES (1, '', 'Mi Empresa', NULL);
+INSERT IGNORE INTO settings (
+  id, cuit, company_name, logo_path, address, phone, email,
+  ticket_price_advance, ticket_price_door
+) VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 10000, 12000);

@@ -9,20 +9,48 @@ const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // Obtener settings (any authenticated user can read)
-router.get('/', auth(['admin']), async (req, res) => {
+router.get('/', auth(['admin', 'seller', 'puerta']), async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM settings WHERE id = 1 LIMIT 1');
-    res.json(rows[0] || { id:1, cuit:'', logo_path: null });
+    res.json(rows[0] || {
+      id: 1,
+      cuit: '',
+      company_name: 'Mi Empresa',
+      logo_path: null,
+      address: '',
+      phone: '',
+      email: '',
+      ticket_price_advance: 10000,
+      ticket_price_door: 12000
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Actualizar cuit
+// Actualizar datos de la peña y precios vigentes de entradas.
 router.put('/', auth(['admin']), async (req, res) => {
   try {
-    const { cuit, company_name } = req.body;
-    await db.query('UPDATE settings SET cuit = ?, company_name = ? WHERE id = 1', [cuit, company_name]);
+    const {
+      cuit, company_name, address, phone, email,
+      ticket_price_advance, ticket_price_door
+    } = req.body;
+    const advancePrice = Number(ticket_price_advance);
+    const doorPrice = Number(ticket_price_door);
+    if (!company_name || !Number.isFinite(advancePrice) || advancePrice < 0 ||
+        !Number.isFinite(doorPrice) || doorPrice < 0) {
+      return res.status(400).json({ error: 'Nombre y precios válidos son requeridos' });
+    }
+    await db.query(
+      `UPDATE settings
+       SET cuit = ?, company_name = ?, address = ?, phone = ?, email = ?,
+           ticket_price_advance = ?, ticket_price_door = ?
+       WHERE id = 1`,
+      [
+        String(cuit || '').trim(), String(company_name).trim(), String(address || '').trim(),
+        String(phone || '').trim(), String(email || '').trim(), advancePrice, doorPrice
+      ]
+    );
     const [rows] = await db.query('SELECT * FROM settings WHERE id = 1');
     res.json(rows[0]);
   } catch (err) {

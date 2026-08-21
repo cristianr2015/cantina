@@ -27,6 +27,15 @@ Roles de la aplicacion:
 - `seller`: ventas de cantina, entradas y consultas operativas.
 - `puerta`: acceso exclusivo a las operaciones de entradas; las ventas quedan asociadas automaticamente a su usuario.
 
+## Entradas y control de ingreso
+
+- Tipos disponibles: anticipada, en puerta y cortesia.
+- Los precios de anticipada y puerta se administran en `Configuracion > Precios de Entradas`; cortesia siempre vale cero.
+- El valor queda guardado en cada venta para que los reportes historicos no cambien al actualizar precios.
+- Al registrar anticipadas, el sistema genera un PDF imprimible con una pagina y un QR unico por entrada.
+- El lector de puerta valida el token en el servidor. El primer escaneo registra el ingreso y cualquier intento posterior se rechaza como entrada ya utilizada.
+- Nombre, CUIT, direccion, telefono, correo y logo de la pena se toman de Configuracion para armar el PDF.
+
 ## Contenedor
 
 ```powershell

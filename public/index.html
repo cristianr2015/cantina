@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="html5-qrcode.min.js"></script>
+    <script src="vendor/html5-qrcode/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -616,9 +616,35 @@
                     
                     <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">CUIT</label>
                     <input id="cfg-cuit" type="text" placeholder="20123456789" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+
+                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Dirección</label>
+                    <input id="cfg-address" type="text" placeholder="Dirección de la peña" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+
+                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Teléfono</label>
+                    <input id="cfg-phone" type="text" placeholder="Teléfono de contacto" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+
+                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Correo electrónico</label>
+                    <input id="cfg-email" type="email" placeholder="contacto@mipeña.com" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
                   </div>
                   <button id="save-cfg" style="width:100%;padding:10px 20px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s">Guardar</button>
                 </div>
+              </div>
+
+              <!-- Sección: Precios de entradas -->
+              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
+                <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Precios de Entradas</h3>
+                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Los cambios se aplican a ventas nuevas. Las entradas de cortesía siempre tienen valor $0.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:500px">
+                  <div>
+                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada anticipada $</label>
+                    <input id="cfg-ticket-price-advance" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+                  </div>
+                  <div>
+                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada en puerta $</label>
+                    <input id="cfg-ticket-price-door" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+                  </div>
+                </div>
+                <button id="save-ticket-prices" style="margin-top:16px;max-width:500px;width:100%;padding:10px 20px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600">Guardar precios</button>
               </div>
               
               <!-- Sección: Logo -->
@@ -952,7 +978,9 @@
             <select id="quick-ticket-type" style="width:100%" required>
               <option value="anticipada">Anticipada</option>
               <option value="puerta">En Puerta</option>
+              <option value="cortesia">Entrada de cortesía</option>
             </select>
+            <small id="quick-ticket-price" style="display:block;margin-top:6px;color:var(--muted)">Valor: -</small>
           </div>
           <div>
             <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Vendedor</label>

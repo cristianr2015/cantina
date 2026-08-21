@@ -6,6 +6,15 @@ const ROLE_LABELS = {
   seller: 'Vendedor',
   puerta: 'Puerta'
 };
+const TICKET_TYPE_LABELS = {
+  anticipada: '🎟️ Anticipada',
+  puerta: '🚪 En puerta',
+  cortesia: '🎁 Cortesía'
+};
+let ticketSettings = {
+  ticket_price_advance: 10000,
+  ticket_price_door: 12000
+};
 
 function normalizeBaseUrl(value) {
   if (!value) return '';
@@ -255,6 +264,17 @@ function formatMoney(val) {
   return '$' + parseFloat(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function ticketPrice(type, row = null) {
+  if (row && row.price_paid !== undefined && row.price_paid !== null) return Number(row.price_paid);
+  if (type === 'anticipada') return Number(ticketSettings.ticket_price_advance || 0);
+  if (type === 'puerta') return Number(ticketSettings.ticket_price_door || 0);
+  return 0;
+}
+
+function ticketTypeLabel(type) {
+  return TICKET_TYPE_LABELS[type] || type;
+}
+
 // Toast notification function
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
@@ -336,6 +356,47 @@ async function api(path, opts = {}){
 
   showDebugInfo([]);
   return res.data;
+}
+
+async function printTicketPdf(ids) {
+  const response = await fetch(buildUrl('/api/tickets/pdf'), {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + getSessionToken()
+    },
+    body: JSON.stringify({ ids })
+  });
+  if (!response.ok) {
+    let message = 'No se pudo generar el PDF';
+    try {
+      const data = await response.json();
+      if (data.error) message = data.error;
+    } catch (_) {}
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  frame.onload = () => {
+    setTimeout(() => {
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      } catch (_) {
+        window.open(url, '_blank', 'noopener');
+      }
+    }, 300);
+    setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, 60000);
+  };
+  frame.src = url;
+  document.body.appendChild(frame);
 }
 
 const readFileAsBase64 = (file) => {
@@ -522,22 +583,21 @@ async function loadTickets(search = '') {
     }
 
   const grouped = rows.reduce((acc, r) => {
-    const key = `${r.dni}-${r.ticket_type}`;
+    const key = `${r.dni}-${r.ticket_type}-${r.price_paid}`;
     if (!acc[key]) {
       acc[key] = { ...r, qty: 0, entered_count: 0, ticket_ids: [] };
     }
     acc[key].qty++;
-    acc[key].ticket_ids.push({ id: r.id, entered: !!r.entered });
+    acc[key].ticket_ids.push({ id: r.id, entered: !!r.entered, qr_token: r.qr_token });
     if (r.entered) acc[key].entered_count++;
     return acc;
   }, {});
 
   Object.values(grouped).forEach(r => {
-      const price = r.ticket_type === 'anticipada' ? 10000 : 12000;
-      const typeStr = r.ticket_type === 'anticipada' ? '🎟️ Anticipada' : '🚪 Puerta';
+      const price = ticketPrice(r.ticket_type, r);
+      const typeStr = ticketTypeLabel(r.ticket_type);
       const tr = document.createElement('tr');
       const nextUnentered = r.ticket_ids.find(t => !t.entered);
-      const lastEntered = r.ticket_ids.find(t => t.entered);
     const statusIngreso = r.qty > 1 ? `${r.entered_count}/${r.qty}` : (r.entered ? 'SI' : 'NO');
 
       tr.innerHTML = `
@@ -552,9 +612,9 @@ async function loadTickets(search = '') {
         <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);text-align:center">${statusIngreso}</td>
         <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap">
           <button onclick="editTicket(${r.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Editar</button>
-          <button onclick="showTicketQR(${r.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">QR</button>
+          ${r.ticket_type === 'anticipada' && nextUnentered ? `<button onclick="showTicketQR(${nextUnentered.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">QR</button>` : ''}
+          ${r.ticket_type === 'anticipada' ? `<button onclick="printTicketPdf([${r.ticket_ids.map(t => t.id).join(',')}]).catch(err => showToast(err.message, 'error'))" style="padding:6px 12px;font-size:12px;font-weight:600;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">PDF</button>` : ''}
           ${nextUnentered ? `<button onclick="toggleEntry(${nextUnentered.id}, true)" style="padding:6px 12px;font-size:12px;font-weight:600;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Entró</button>` : ''}
-          ${lastEntered ? `<button onclick="toggleEntry(${lastEntered.id}, false)" style="padding:6px 12px;font-size:12px;font-weight:600;background:#64748b;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Desmarcar</button>` : ''}
           <button onclick="deleteTicket(${r.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Eliminar</button>
         </td>
       `;
@@ -571,13 +631,19 @@ window.showTicketQR = async function(id) {
     const rows = await api('/tickets');
     const ticket = rows.find(t => t.id === id);
     if (!ticket) return;
+    if (ticket.ticket_type !== 'anticipada' || !ticket.qr_token) {
+      return showToast('Esta entrada no posee QR de ingreso', 'error');
+    }
+    if (ticket.entered) {
+      return showToast('Esta entrada ya fue utilizada', 'error');
+    }
 
     document.getElementById('qr-viewer-title').textContent = `${ticket.first_name} ${ticket.last_name}`;
     document.getElementById('qr-viewer-desc').textContent = `DNI: ${ticket.dni} - Tipo: ${ticket.ticket_type}`;
     
     const container = document.getElementById('qrcode-container');
     container.innerHTML = '';
-    new QRCode(container, { text: `PEÑA_TICKET_${ticket.id}`, width: 200, height: 200 });
+    new QRCode(container, { text: `PENA_TICKET:${ticket.qr_token}`, width: 200, height: 200 });
     
     document.getElementById('qr-viewer-modal').classList.remove('hidden');
   } catch (err) {
@@ -641,17 +707,26 @@ document.getElementById('edit-ticket-save').addEventListener('click', async () =
 
   if (res.error) return showToast(res.error, 'error');
 
-  // 2. Si se pidió más de 1, crear las adicionales como nuevas filas
+  // 2. Si se pidió más de 1, crear las adicionales en una operación atómica.
   if (qty > 1) {
     const modal = document.getElementById('edit-ticket-modal');
     const payment = modal.dataset.paymentMethod || 'cash';
     const type = modal.dataset.ticketType || 'anticipada';
     
-    for (let i = 0; i < qty - 1; i++) {
-      await api('/tickets', {
-        method: 'POST',
-        body: JSON.stringify({ first_name: firstName, last_name: lastName, dni, payment_method: payment, ticket_type: type, user_id: userId })
-      });
+    const created = await api('/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        first_name: firstName, last_name: lastName, dni,
+        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty - 1
+      })
+    });
+    if (created.error) return showToast(created.error, 'error');
+    if (type === 'anticipada') {
+      try {
+        await printTicketPdf(created.tickets.map(ticket => ticket.id));
+      } catch (error) {
+        showToast('Las entradas se crearon, pero no se pudo imprimir el PDF: ' + error.message, 'error');
+      }
     }
   }
 
@@ -661,9 +736,10 @@ document.getElementById('edit-ticket-save').addEventListener('click', async () =
   showToast(qty > 1 ? `Entrada actualizada y ${qty-1} adicionales creadas` : 'Entrada actualizada correctamente', 'success');
 });
 
-window.toggleEntry = async function(id, enter) {
+window.toggleEntry = async function(id) {
   try {
-    await api('/tickets/' + id + '/enter', { method: 'PATCH', body: JSON.stringify({ entered: !!enter }) });
+    const result = await api('/tickets/' + id + '/enter', { method: 'PATCH', body: JSON.stringify({ entered: true }) });
+    if (result.error) return showToast(result.error, 'error');
     const searchInput = document.getElementById('ticket-search');
     await loadTickets(searchInput ? searchInput.value.trim() : '');
     showToast('Estado de ingreso actualizado', 'success');
@@ -1068,8 +1144,17 @@ document.getElementById('close-pos').addEventListener('click', () => {
 document.getElementById('open-quick-ticket-btn').addEventListener('click', async () => {
   const userSel = document.getElementById('quick-ticket-user');
   await populateTicketUserSelect(userSel);
+  updateQuickTicketPrice();
   document.getElementById('quick-ticket-modal').classList.remove('hidden');
 });
+
+function updateQuickTicketPrice() {
+  const type = document.getElementById('quick-ticket-type')?.value || 'anticipada';
+  const output = document.getElementById('quick-ticket-price');
+  if (output) output.textContent = `Valor unitario: ${formatMoney(ticketPrice(type))}`;
+}
+
+document.getElementById('quick-ticket-type')?.addEventListener('change', updateQuickTicketPrice);
 
 document.getElementById('quick-ticket-cancel').addEventListener('click', () => {
   document.getElementById('quick-ticket-modal').classList.add('hidden');
@@ -1095,14 +1180,15 @@ document.getElementById('quick-ticket-confirm').addEventListener('click', async 
   }
 
   try {
-    let successCount = 0;
-    for (let i = 0; i < qty; i++) {
-      const res = await api('/tickets', {
-        method: 'POST',
-        body: JSON.stringify({ first_name: firstName, last_name: lastName, dni, payment_method: payment, ticket_type: type, user_id: userId })
-      });
-      if (res.ok) successCount++;
-    }
+    const res = await api('/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        first_name: firstName, last_name: lastName, dni,
+        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty
+      })
+    });
+    if (res.error) return showToast(res.error, 'error');
+    const successCount = res.quantity || 0;
     
     if (successCount > 0) {
       showToast(`${successCount} entrada(s) agregada(s) correctamente`, 'success');
@@ -1114,6 +1200,13 @@ document.getElementById('quick-ticket-confirm').addEventListener('click', async 
       document.getElementById('quick-ticket-lastname').value = '';
       document.getElementById('quick-ticket-dni').value = '';
       document.getElementById('quick-ticket-qty').value = 1;
+      if (type === 'anticipada') {
+        try {
+          await printTicketPdf(res.tickets.map(ticket => ticket.id));
+        } catch (error) {
+          showToast('La venta quedó registrada, pero no se pudo imprimir el PDF: ' + error.message, 'error');
+        }
+      }
     } else {
       showToast('Error al agregar entradas', 'error');
     }
@@ -1209,12 +1302,12 @@ async function loadReport(type) {
     endpoint = '/reports/tickets-detail' + (queryStr ? '?' + queryStr : '');
     title = 'Reporte Integral de Ventas de Entradas';
     renderFn = (rows) => {
-      const totalRecaudado = rows.reduce((sum, r) => sum + (r.ticket_type === 'anticipada' ? 10000 : 12000), 0);
+      const totalRecaudado = rows.reduce((sum, r) => sum + ticketPrice(r.ticket_type, r), 0);
       return '<tr><th>Fecha/Hora</th><th>Vendedor</th><th>Cliente (Nombre y DNI)</th><th>Tipo Entrada</th><th>Método Pago</th><th>Precio</th><th>Estado Ingreso</th></tr>' +
       rows.map(r => {
         const pm = r.payment_method === 'mercadopago' ? '📱 MercadoPago' : '💵 Efectivo';
-        const tt = r.ticket_type === 'anticipada' ? '🎟️ Anticipada' : '🚪 Puerta';
-        const price = r.ticket_type === 'anticipada' ? 10000 : 12000;
+        const tt = ticketTypeLabel(r.ticket_type);
+        const price = ticketPrice(r.ticket_type, r);
         const ing = r.entered ? '<span style="color:#10b981;font-weight:bold">✓ INGRESÓ</span>' : '<span style="color:#6b7280">NO INGRESÓ</span>';
         return `
           <tr>
@@ -1237,7 +1330,7 @@ async function loadReport(type) {
     endpoint = '/reports/attendance-summary' + (queryStr ? '?' + queryStr : '');
     title = 'Resumen de Asistencia y Afluencia';
     renderFn = (rows) => {
-      const r = rows[0] || { anticipadas: 0, puerta: 0, total: 0 };
+      const r = rows[0] || { anticipadas: 0, puerta: 0, cortesias: 0, total: 0 };
       return `
         <thead>
           <tr style="background:rgba(15,23,42,0.05)">
@@ -1253,6 +1346,10 @@ async function loadReport(type) {
           <tr>
             <td style="padding:12px;border-bottom:1px solid rgba(15,23,42,0.08)">🚪 Entradas de Puerta (Ingresadas)</td>
             <td style="padding:12px;border-bottom:1px solid rgba(15,23,42,0.08);text-align:center;font-weight:700;font-size:18px">${r.puerta}</td>
+          </tr>
+          <tr>
+            <td style="padding:12px;border-bottom:1px solid rgba(15,23,42,0.08)">🎁 Entradas de Cortesía (Ingresadas)</td>
+            <td style="padding:12px;border-bottom:1px solid rgba(15,23,42,0.08);text-align:center;font-weight:700;font-size:18px">${r.cortesias}</td>
           </tr>
           <tr style="background:rgba(16,185,129,0.1);font-weight:800;font-size:20px">
             <td style="padding:16px;text-align:right">TOTAL ASISTENTES ACTUALES:</td>
@@ -1379,8 +1476,8 @@ function exportReport() {
         'Nombre': r.first_name,
         'Apellido': r.last_name,
         'DNI': r.dni,
-        'Tipo Entrada': r.ticket_type === 'anticipada' ? 'Anticipada' : 'Puerta',
-        'Precio': r.ticket_type === 'anticipada' ? 10000 : 12000,
+        'Tipo Entrada': ticketTypeLabel(r.ticket_type).replace(/^\S+\s/, ''),
+        'Precio': ticketPrice(r.ticket_type, r),
         'Método Pago': r.payment_method === 'mercadopago' ? 'MercadoPago' : 'Efectivo',
         'Ingresó': r.entered ? 'SI' : 'NO'
       };
@@ -1388,6 +1485,7 @@ function exportReport() {
       return {
         'Anticipadas Ingresadas': r.anticipadas,
         'Puerta Ingresadas': r.puerta,
+        'Cortesías Ingresadas': r.cortesias,
         'Total Asistentes': r.total
       };
     } else if (activeReportType === 'sales-recon' || activeReportType === 'tickets-recon') {
@@ -1551,6 +1649,13 @@ async function loadSettings(){
     // Actualizar campos en el modal de configuración
     document.getElementById('cfg-cuit').value = cfg.cuit || '';
     document.getElementById('cfg-company-name').value = cfg.company_name || '';
+    document.getElementById('cfg-address').value = cfg.address || '';
+    document.getElementById('cfg-phone').value = cfg.phone || '';
+    document.getElementById('cfg-email').value = cfg.email || '';
+    document.getElementById('cfg-ticket-price-advance').value = Number(cfg.ticket_price_advance || 0);
+    document.getElementById('cfg-ticket-price-door').value = Number(cfg.ticket_price_door || 0);
+    ticketSettings = Object.assign({}, ticketSettings, cfg);
+    updateQuickTicketPrice();
     
     const logo = cfg.logo_path || '';
     const name = cfg.company_name || 'Mi Empresa';
@@ -1598,10 +1703,30 @@ document.getElementById('add-dsc-btn')?.addEventListener('click', async () => {
 document.getElementById('save-cfg').addEventListener('click', async () => {
   const cuit = document.getElementById('cfg-cuit').value;
   const company_name = document.getElementById('cfg-company-name').value;
+  const address = document.getElementById('cfg-address').value;
+  const phone = document.getElementById('cfg-phone').value;
+  const email = document.getElementById('cfg-email').value;
+  const ticket_price_advance = Number(document.getElementById('cfg-ticket-price-advance').value);
+  const ticket_price_door = Number(document.getElementById('cfg-ticket-price-door').value);
+  if (!company_name || !Number.isFinite(ticket_price_advance) || ticket_price_advance < 0 ||
+      !Number.isFinite(ticket_price_door) || ticket_price_door < 0) {
+    return showToast('Ingresá un nombre y precios válidos', 'error');
+  }
   
-  await api('/settings', { method: 'PUT', body: JSON.stringify({ cuit, company_name }) });
+  const result = await api('/settings', {
+    method: 'PUT',
+    body: JSON.stringify({
+      cuit, company_name, address, phone, email,
+      ticket_price_advance, ticket_price_door
+    })
+  });
+  if (result.error) return showToast(result.error, 'error');
   await loadSettings();
   showToast('Configuración guardada', 'success');
+});
+
+document.getElementById('save-ticket-prices')?.addEventListener('click', () => {
+  document.getElementById('save-cfg').click();
 });
 
 document.getElementById('upload-logo').addEventListener('click', async () => {
@@ -1716,12 +1841,12 @@ async function initAfterLogin(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   if (!user) return;
   showAppForUser(user);
+  await loadSettings();
   if (user.role === 'puerta') return;
   await loadProducts();
   await loadEvents();
   await loadSales();
   await loadUsersSelect();
-  await loadSettings();
   await loadDashboard(); // Cargar datos del dashboard
   if (user.role === 'seller') {
     await loadMySales();
@@ -2180,22 +2305,21 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
 
   showConfirm(`¿Registrar ${qty} venta(s) rápida(s) en puerta? (Vendedor: ${currentUser.username})`, async () => {
     try {
-      let successCount = 0;
-      for (let i = 0; i < qty; i++) {
-        const res = await api('/tickets', {
-          method: 'POST',
-          body: JSON.stringify({
-            first_name: 'Venta',
-            last_name: 'en Puerta',
-            dni: '0',
-            payment_method: 'cash',
-            ticket_type: 'puerta',
-            user_id: currentUser.id,
-            entered: true
-          })
-        });
-        if (res.ok) successCount++;
-      }
+      const res = await api('/tickets', {
+        method: 'POST',
+        body: JSON.stringify({
+          first_name: 'Venta',
+          last_name: 'en Puerta',
+          dni: '0',
+          payment_method: 'cash',
+          ticket_type: 'puerta',
+          user_id: currentUser.id,
+          quantity: qty,
+          entered: true
+        })
+      });
+      if (res.error) return showToast(res.error, 'error');
+      const successCount = res.quantity || 0;
 
       if (successCount > 0) {
         showToast(`${successCount} entrada(s) registrada(s) correctamente`, 'success');
@@ -2224,10 +2348,10 @@ document.getElementById('btn-scan-qr')?.addEventListener('click', async () => {
       { facingMode: "environment" }, 
       config, 
       async (decodedText) => {
-        // Formato esperado: PEÑA_TICKET_123
-        if (decodedText.startsWith('PEÑA_TICKET_')) {
-          const ticketId = decodedText.replace('PEÑA_TICKET_', '');
-          await processQRScan(ticketId);
+        // El QR contiene un token aleatorio; nunca expone ni acepta un ID secuencial.
+        if (decodedText.startsWith('PENA_TICKET:')) {
+          const token = decodedText.slice('PENA_TICKET:'.length);
+          await processQRScan(token);
         }
       }
     );
@@ -2237,17 +2361,20 @@ document.getElementById('btn-scan-qr')?.addEventListener('click', async () => {
   }
 });
 
-async function processQRScan(id) {
+async function processQRScan(token) {
   try {
     // Detener escáner temporalmente para no procesar múltiples veces
     if (html5QrCode && html5QrCode.getState() === 2) { // 2 = SCANNING
       await html5QrCode.pause();
     }
     
-    const res = await api(`/tickets/${id}/enter`, { method: 'PATCH', body: JSON.stringify({ entered: true }) });
+    const res = await api('/tickets/validate', {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    });
     
     if (res.ok) {
-      showToast('¡Ingreso EXITOSO!', 'success');
+      showToast(`¡Ingreso exitoso! ${res.ticket.first_name} ${res.ticket.last_name}`, 'success');
       // Sonido o vibración podría ir aquí
       if (navigator.vibrate) navigator.vibrate(200);
       await loadTickets();

@@ -210,6 +210,11 @@ CREATE TABLE `settings` (
   `logo_path` varchar(255) DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `company_name` varchar(255) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `phone` varchar(100) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `ticket_price_advance` decimal(10,2) NOT NULL DEFAULT '10000.00',
+  `ticket_price_door` decimal(10,2) NOT NULL DEFAULT '12000.00',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -240,9 +245,12 @@ CREATE TABLE `tickets_sold` (
   `sold_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `entered_at` timestamp NULL DEFAULT NULL,
   `payment_method` enum('cash','mercadopago') DEFAULT 'cash',
-  `ticket_type` enum('anticipada','puerta') DEFAULT 'anticipada',
+  `ticket_type` enum('anticipada','puerta','cortesia') DEFAULT 'anticipada',
   `user_id` int DEFAULT NULL,
+  `price_paid` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `qr_token` char(64) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `qr_token` (`qr_token`),
   KEY `fk_ticket_user` (`user_id`),
   CONSTRAINT `fk_ticket_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

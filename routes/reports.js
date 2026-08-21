@@ -136,6 +136,7 @@ router.get('/tickets-detail', auth(['admin', 'seller']), async (req, res) => {
         u.username as vendedor,
         t.ticket_type,
         t.payment_method,
+        t.price_paid,
         t.entered
       FROM tickets_sold t
       LEFT JOIN users u ON t.user_id = u.id
@@ -161,6 +162,7 @@ router.get('/attendance-summary', auth(['admin', 'seller']), async (req, res) =>
     let sql = `SELECT 
         COALESCE(SUM(CASE WHEN ticket_type = 'anticipada' THEN 1 ELSE 0 END), 0) as anticipadas,
         COALESCE(SUM(CASE WHEN ticket_type = 'puerta' THEN 1 ELSE 0 END), 0) as puerta,
+        COALESCE(SUM(CASE WHEN ticket_type = 'cortesia' THEN 1 ELSE 0 END), 0) as cortesias,
         COUNT(*) as total
       FROM tickets_sold 
       WHERE entered = 1`;
@@ -180,7 +182,7 @@ router.get('/tickets-by-payment', auth(['admin', 'seller']), async (req, res) =>
   try {
     const { start, end } = req.query;
     let sql = `SELECT payment_method,
-        SUM(CASE WHEN ticket_type = 'anticipada' THEN 10000 ELSE 12000 END) as total_revenue,
+        SUM(price_paid) as total_revenue,
         COUNT(*) as total_count
       FROM tickets_sold WHERE 1=1`;
     const params = [];

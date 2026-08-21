@@ -2337,24 +2337,53 @@ let html5QrCode = null;
 let qrScanInProgress = false;
 
 async function stopQrScanner() {
-  if (!html5QrCode) return;
+  const scanner = html5QrCode;
+  const reader = document.getElementById('reader');
+  const videos = Array.from(reader?.querySelectorAll('video') || []);
+  const streams = videos.map(video => video.srcObject).filter(Boolean);
+  html5QrCode = null;
+
   try {
-    const state = html5QrCode.getState();
-    if (state === 2 || state === 3) {
-      await html5QrCode.stop();
+    if (scanner) {
+      const state = scanner.getState();
+      if (state === 2 || state === 3) {
+        const stopAttempt = scanner.stop().catch(error => {
+          console.warn('La librería no pudo detener el lector QR', error);
+        });
+        await Promise.race([
+          stopAttempt,
+          new Promise(resolve => setTimeout(resolve, 1200))
+        ]);
+      }
     }
   } catch (error) {
     console.warn('No se pudo detener el lector QR', error);
+  } finally {
+    // Algunos navegadores móviles no liberan la cámara al pausar/cerrar
+    // la librería. Se detienen también las pistas MediaStream directamente.
+    streams.forEach(stream => {
+      if (typeof stream.getTracks === 'function') {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    });
+    videos.forEach(video => {
+      try {
+        video.pause();
+        video.srcObject = null;
+        video.removeAttribute('src');
+        video.load();
+      } catch (_) {}
+    });
   }
   try {
-    html5QrCode.clear();
+    if (scanner) scanner.clear();
   } catch (_) {}
-  html5QrCode = null;
+  if (reader) reader.replaceChildren();
 }
 
 async function closeQrScanner() {
-  await stopQrScanner();
   document.getElementById('qr-scanner-modal').classList.add('hidden');
+  await stopQrScanner();
 }
 
 function showQrScanResult({ ok, title, message, detail }) {
@@ -2396,11 +2425,7 @@ async function processQRScan(token) {
   if (qrScanInProgress) return;
   qrScanInProgress = true;
   try {
-    // Detener escáner temporalmente para no procesar múltiples veces
-    if (html5QrCode && html5QrCode.getState() === 2) { // 2 = SCANNING
-      await html5QrCode.pause();
-    }
-    
+    // qrScanInProgress bloquea nuevas lecturas sin dejar la cámara pausada.
     const res = await api('/tickets/validate', {
       method: 'POST',
       body: JSON.stringify({ token })

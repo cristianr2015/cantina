@@ -14,6 +14,13 @@ function parseQuantity(value) {
   return Number.isInteger(quantity) && quantity >= 1 && quantity <= 50 ? quantity : null;
 }
 
+function parseTicketIds(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 1000) return null;
+  const ids = value.map(id => Number(id));
+  if (ids.some(id => !Number.isInteger(id) || id < 1)) return null;
+  return Array.from(new Set(ids));
+}
+
 function priceForType(type, settings) {
   if (type === 'anticipada') return Number(settings.ticket_price_advance || 0);
   if (type === 'puerta') return Number(settings.ticket_price_door || 0);
@@ -232,6 +239,40 @@ router.post('/validate', auth(ticketRoles), async (req, res) => {
   }
 });
 
+router.post('/delete-batch', auth(ticketRoles), async (req, res) => {
+  let connection;
+  try {
+    const ids = parseTicketIds(req.body.ids);
+    if (!ids) {
+      return res.status(400).json({ error: 'Se requieren entre 1 y 1000 entradas válidas' });
+    }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const placeholders = ids.map(() => '?').join(',');
+    const [tickets] = await connection.query(
+      `SELECT id FROM tickets_sold WHERE id IN (${placeholders}) FOR UPDATE`,
+      ids
+    );
+    if (tickets.length !== ids.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Una o más entradas ya no existen' });
+    }
+
+    const [result] = await connection.query(
+      `DELETE FROM tickets_sold WHERE id IN (${placeholders})`,
+      ids
+    );
+    await connection.commit();
+    res.json({ ok: true, deleted: result.affectedRows });
+  } catch (err) {
+    if (connection) await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
 router.delete('/:id', auth(ticketRoles), async (req, res) => {
   try {
     const [result] = await db.query('DELETE FROM tickets_sold WHERE id = ?', [req.params.id]);
@@ -243,4 +284,4 @@ router.delete('/:id', auth(ticketRoles), async (req, res) => {
 });
 
 module.exports = router;
-module.exports.__test = { parseQuantity, priceForType, createQrToken };
+module.exports.__test = { parseQuantity, parseTicketIds, priceForType, createQrToken };

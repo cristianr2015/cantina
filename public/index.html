@@ -960,6 +960,22 @@
       </div>
     </div>
 
+    <!-- Modal para eliminar una cantidad de entradas vendidas -->
+    <div id="delete-ticket-modal" class="modal-overlay hidden">
+      <div class="modal" style="width:400px;text-align:center">
+        <h3>Eliminar entradas vendidas</h3>
+        <p id="delete-ticket-message" style="color:var(--muted);margin-bottom:18px"></p>
+        <label for="delete-ticket-qty" style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted)">Cantidad a eliminar</label>
+        <input id="delete-ticket-qty" type="number" value="1" min="1" max="1"
+               style="width:100%;font-size:24px;text-align:center;padding:10px;font-weight:700" />
+        <p style="font-size:12px;color:var(--muted);margin-top:10px">Esta acción es irreversible.</p>
+        <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
+          <button id="delete-ticket-cancel" class="btn-ghost" style="flex:1">Cancelar</button>
+          <button id="delete-ticket-confirm" style="flex:1;background:#ef4444;color:#fff">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal Agregar Entrada Rápida -->
     <div id="quick-ticket-modal" class="modal-overlay hidden">
       <div class="modal" style="width:400px">

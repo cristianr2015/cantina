@@ -3,7 +3,7 @@ const test = require('node:test');
 const ticketsRouter = require('../routes/tickets');
 const { buildTicketPdf } = require('../lib/ticketPdf');
 
-const { parseQuantity, priceForType, createQrToken } = ticketsRouter.__test;
+const { parseQuantity, parseTicketIds, priceForType, createQrToken } = ticketsRouter.__test;
 
 test('valida cantidades y determina el precio por tipo', () => {
   assert.equal(parseQuantity(1), 1);
@@ -13,6 +13,15 @@ test('valida cantidades y determina el precio por tipo', () => {
   assert.equal(priceForType('anticipada', { ticket_price_advance: '15000' }), 15000);
   assert.equal(priceForType('puerta', { ticket_price_door: '18000' }), 18000);
   assert.equal(priceForType('cortesia', {}), 0);
+});
+
+test('valida y normaliza los IDs para una eliminación parcial de entradas', () => {
+  assert.deepEqual(parseTicketIds([3, '2', 3, 1]), [3, 2, 1]);
+  assert.equal(parseTicketIds([]), null);
+  assert.equal(parseTicketIds('1'), null);
+  assert.equal(parseTicketIds([0, -1, 'x']), null);
+  assert.equal(parseTicketIds([1, 'x']), null);
+  assert.equal(parseTicketIds(Array.from({ length: 1001 }, (_, index) => index + 1)), null);
 });
 
 test('genera tokens QR aleatorios solo para entradas anticipadas', () => {

@@ -615,7 +615,7 @@ async function loadTickets(search = '') {
           ${r.ticket_type === 'anticipada' && nextUnentered ? `<button onclick="showTicketQR(${nextUnentered.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">QR</button>` : ''}
           ${r.ticket_type === 'anticipada' ? `<button onclick="printTicketPdf([${r.ticket_ids.map(t => t.id).join(',')}]).catch(err => showToast(err.message, 'error'))" style="padding:6px 12px;font-size:12px;font-weight:600;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">PDF</button>` : ''}
           ${nextUnentered ? `<button onclick="toggleEntry(${nextUnentered.id}, true)" style="padding:6px 12px;font-size:12px;font-weight:600;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Entró</button>` : ''}
-          <button onclick="deleteTicket(${r.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Eliminar</button>
+          <button onclick="deleteTicket([${r.ticket_ids.map(t => t.id).join(',')}])" style="padding:6px 12px;font-size:12px;font-weight:600;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Eliminar</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -748,19 +748,64 @@ window.toggleEntry = async function(id) {
   }
 };
 
-window.deleteTicket = async function(id) {
-  showConfirm('¿Eliminar esta entrada vendida? Esta acción es irreversible.', async () => {
-    try {
-      const res = await api('/tickets/' + id, { method: 'DELETE' });
-      if (res.error) return showToast(res.error, 'error');
-      const searchInput = document.getElementById('ticket-search');
-      await loadTickets(searchInput ? searchInput.value.trim() : '');
-      showToast('Entrada eliminada correctamente', 'success');
-    } catch (err) {
-      showToast('Error al eliminar entrada', 'error');
-    }
-  }, 'Eliminar Entrada');
+let pendingTicketDeleteIds = [];
+
+function closeDeleteTicketModal() {
+  document.getElementById('delete-ticket-modal')?.classList.add('hidden');
+  pendingTicketDeleteIds = [];
+}
+
+window.deleteTicket = function(ids) {
+  const normalizedIds = (Array.isArray(ids) ? ids : [ids])
+    .map(value => Number.parseInt(value, 10))
+    .filter(value => Number.isInteger(value) && value > 0);
+  pendingTicketDeleteIds = Array.from(new Set(normalizedIds));
+  if (!pendingTicketDeleteIds.length) {
+    return showToast('No se encontraron entradas para eliminar', 'error');
+  }
+
+  const total = pendingTicketDeleteIds.length;
+  const qtyInput = document.getElementById('delete-ticket-qty');
+  document.getElementById('delete-ticket-message').textContent = total === 1
+    ? 'Esta venta contiene 1 entrada. Indique cuántas desea eliminar.'
+    : `Esta venta contiene ${total} entradas. Indique cuántas desea eliminar.`;
+  qtyInput.max = String(total);
+  qtyInput.value = String(total);
+  document.getElementById('delete-ticket-modal').classList.remove('hidden');
+  window.requestAnimationFrame(() => {
+    qtyInput.focus();
+    qtyInput.select();
+  });
 };
+
+document.getElementById('delete-ticket-cancel')?.addEventListener('click', closeDeleteTicketModal);
+
+document.getElementById('delete-ticket-confirm')?.addEventListener('click', async () => {
+  const total = pendingTicketDeleteIds.length;
+  const quantity = Number.parseInt(document.getElementById('delete-ticket-qty').value, 10);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > total) {
+    return showToast(`La cantidad debe estar entre 1 y ${total}`, 'error');
+  }
+
+  const ids = pendingTicketDeleteIds.slice(0, quantity);
+  const confirmButton = document.getElementById('delete-ticket-confirm');
+  confirmButton.disabled = true;
+  try {
+    const res = await api('/tickets/delete-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
+    });
+    if (res.error) return showToast(res.error, 'error');
+    closeDeleteTicketModal();
+    const searchInput = document.getElementById('ticket-search');
+    await loadTickets(searchInput ? searchInput.value.trim() : '');
+    showToast(`${res.deleted} entrada(s) eliminada(s) correctamente`, 'success');
+  } catch (err) {
+    showToast('Error al eliminar entradas', 'error');
+  } finally {
+    confirmButton.disabled = false;
+  }
+});
 
 // Funciones heredadas del formulario inline (ya no se usan)
 /*

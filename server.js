@@ -127,7 +127,7 @@ const orderPaymentMigration = legacyOrdersMigration.then(async () => {
       console.log("✅ Columna 'payment_method' agregada.");
     }
   }
-})();
+});
 
 // Auto-fix: Crear tabla tickets_sold si falta
 const legacyTicketMigration = (async () => {
@@ -332,7 +332,7 @@ const orderDiscountMigration = Promise.all([legacyOrdersMigration, legacyDiscoun
       console.log("✅ Columna 'discount_id' agregada.");
     }
   }
-})();
+});
 
 // Auto-fix: Agregar columna stock a productos si falta
 const productStockMigration = (async () => {

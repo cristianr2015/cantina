@@ -69,7 +69,9 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (r
 
     // Productos con stock bajo (ej. < 5)
     const [lowStockItems] = await db.query(`
-      SELECT name, stock FROM products WHERE event_id = ? AND stock < 5
+      SELECT name, stock FROM products
+      WHERE event_id = ? AND stock < 5
+      ORDER BY stock ASC, name ASC
     `, [req.eventId]);
 
     // Personas que ingresaron hoy
@@ -78,6 +80,37 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (r
       WHERE event_id = ? AND entered = 1
     `, [req.eventId]);
 
+    // Ingresos por medio de pago: ventas de productos + entradas del evento.
+    const [paymentIncomeRows] = await db.query(`
+      SELECT payment_method,
+             COALESCE(SUM(amount), 0) AS amount,
+             COALESCE(SUM(operations), 0) AS operations
+      FROM (
+        SELECT payment_method, COALESCE(SUM(total), 0) AS amount, COUNT(*) AS operations
+        FROM orders
+        WHERE event_id = ?
+        GROUP BY payment_method
+        UNION ALL
+        SELECT payment_method, COALESCE(SUM(price_paid), 0) AS amount, COUNT(*) AS operations
+        FROM tickets_sold
+        WHERE event_id = ? AND price_paid > 0
+        GROUP BY payment_method
+      ) AS event_income
+      GROUP BY payment_method
+    `, [req.eventId, req.eventId]);
+
+    const paymentIncome = {
+      cash: { amount: 0, operations: 0 },
+      mercadopago: { amount: 0, operations: 0 }
+    };
+    paymentIncomeRows.forEach(row => {
+      if (!paymentIncome[row.payment_method]) return;
+      paymentIncome[row.payment_method] = {
+        amount: Number(row.amount || 0),
+        operations: Number(row.operations || 0)
+      };
+    });
+
     res.json({
       revenue: totals[0].total_revenue || 0,
       profit: totals[0].total_profit || 0,
@@ -85,7 +118,9 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (r
       top_products: topProducts,
       low_stock_count: lowStockItems.length,
       low_stock_items: lowStockItems,
-      entries_today: entriesToday[0].count
+      entries_today: Number(entriesToday[0].count || 0),
+      people_entered: Number(entriesToday[0].count || 0),
+      payment_income: paymentIncome
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

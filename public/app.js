@@ -1773,60 +1773,77 @@ async function loadUsersSelect(){
 }
 
 let dashboardChart = null;
+let dashboardLoading = false;
+const DASHBOARD_REFRESH_INTERVAL_MS = 10000;
+
+function operationLabel(value) {
+  const count = Number(value || 0);
+  return `${count} ${count === 1 ? 'operación' : 'operaciones'}`;
+}
+
+function renderLowStockItems(items) {
+  const container = document.getElementById('low-stock-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:24px;text-align:center;color:var(--muted);background:#f8fafc;border-radius:10px';
+    empty.textContent = 'No hay productos con stock bajo.';
+    container.appendChild(empty);
+    return;
+  }
+
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;margin-bottom:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px';
+    const name = document.createElement('span');
+    name.style.cssText = 'font-weight:600;color:#374151';
+    name.textContent = item.name;
+    const stock = document.createElement('strong');
+    stock.style.cssText = 'min-width:38px;text-align:center;padding:4px 8px;border-radius:999px;background:#ef4444;color:#fff';
+    stock.textContent = Number(item.stock || 0);
+    row.append(name, stock);
+    container.appendChild(row);
+  });
+}
 
 async function loadDashboard(){
+  if (dashboardLoading || !getActiveEventId()) return;
+  dashboardLoading = true;
   try {
-    const rows = await api('/reports/sales-by-payment');
-    if (!Array.isArray(rows)) {
-      console.error("Dashboard error: Respuesta no es un array", rows);
+    const stats = await api('/reports/dashboard-stats');
+    if (!stats || stats.error) {
+      console.error('Dashboard error:', stats?.error || 'Respuesta inválida');
       return;
     }
-    
-    // Renderizar tabla de vendedores
-    const div = document.getElementById('dash-sellers-list');
-    const table = document.createElement('table');
-    table.innerHTML = '<tr><th>Método</th><th>Vendido</th><th>Items</th><th>Ganancia</th></tr>' +
-      rows.map(r => {
-        const pm = r.payment_method === 'mercadopago' ? '📱 MercadoPago' : '💵 Efectivo';
-        return `<tr><td>${pm}</td><td>${formatMoney(r.total_revenue)}</td><td>${r.total_items_sold}</td><td>${formatMoney(r.profit)}</td></tr>`;
-      }).join('');
-    div.innerHTML = '';
-    div.appendChild(table);
 
-    // --- NUEVO: Cargar estadísticas globales y gráfico ---
-    const stats = await api('/reports/dashboard-stats');
-    
-    document.getElementById('dash-orders-all').textContent = stats.orders;
-    document.getElementById('dash-total-all').textContent = formatMoney(stats.revenue);
-    const profitEl = document.getElementById('dash-profit-all');
-    
+    const paymentIncome = stats.payment_income || {};
+    const cash = paymentIncome.cash || {};
+    const mercadoPago = paymentIncome.mercadopago || {};
+    document.getElementById('dash-people-entered').textContent = Number(stats.people_entered || 0);
+    document.getElementById('dash-income-cash').textContent = formatMoney(cash.amount || 0);
+    document.getElementById('dash-income-cash-count').textContent = operationLabel(cash.operations);
+    document.getElementById('dash-income-mercadopago').textContent = formatMoney(mercadoPago.amount || 0);
+    document.getElementById('dash-income-mercadopago-count').textContent = operationLabel(mercadoPago.operations);
     document.getElementById('dash-low-stock').textContent = stats.low_stock_count;
-    
-    const lowStockList = document.getElementById('low-stock-list');
-    if (lowStockList) {
-      if (stats.low_stock_count > 0) {
-        lowStockList.style.display = 'block';
-        lowStockList.innerHTML = stats.low_stock_items.map(i => `<div>• ${i.name}: <strong>${i.stock}</strong></div>`).join('');
-      } else {
-        lowStockList.style.display = 'none';
-      }
-    }
+    renderLowStockItems(stats.low_stock_items);
 
-    document.getElementById('dash-entries-today').textContent = stats.entries_today;
-    if(profitEl) profitEl.textContent = formatMoney(stats.profit);
-
-    // Renderizar Gráfico
     const ctx = document.getElementById('topProductsChart');
     if (ctx) {
-      if (dashboardChart) dashboardChart.destroy();
-      
-      dashboardChart = new Chart(ctx, {
+      const chartLabels = stats.top_products.map(product => product.name);
+      const chartValues = stats.top_products.map(product => product.total_qty);
+      if (dashboardChart) {
+        dashboardChart.data.labels = chartLabels;
+        dashboardChart.data.datasets[0].data = chartValues;
+        dashboardChart.update('none');
+      } else dashboardChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: stats.top_products.map(p => p.name),
+          labels: chartLabels,
           datasets: [{
             label: 'Unidades',
-            data: stats.top_products.map(p => p.total_qty),
+            data: chartValues,
             backgroundColor: ['#ff6b35', '#ffd166', '#06d6a0', '#118ab2', '#ef476f'],
             borderWidth: 0,
             borderRadius: 4
@@ -1843,10 +1860,22 @@ async function loadDashboard(){
         }
       });
     }
+    const updatedAt = document.getElementById('dashboard-last-update');
+    if (updatedAt) {
+      updatedAt.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    }
   } catch (e) {
     console.error("Error cargando dashboard", e);
+  } finally {
+    dashboardLoading = false;
   }
 }
+
+setInterval(() => {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const activePage = location.hash.replace('#', '') || 'dashboard';
+  if (user && activePage === 'dashboard' && document.visibilityState === 'visible') loadDashboard();
+}, DASHBOARD_REFRESH_INTERVAL_MS);
 
 // --- Settings and users management ---
 async function loadSettings(){

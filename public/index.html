@@ -435,37 +435,38 @@
               </div>
               <div class="dashboard-grid">
                 <div class="stat-card">
-                  <div class="stat-title">Ventas Totales</div>
-                  <div class="stat-value" id="dash-orders-all">0</div>
-                  <div class="stat-sub">Del evento activo</div>
+                  <div class="stat-title">Personas ingresadas</div>
+                  <div class="stat-value" id="dash-people-entered" style="color:#2563eb">0</div>
+                  <div class="stat-sub">Accesos registrados en el evento</div>
                 </div>
                 <div class="stat-card">
-                  <div class="stat-title">Total Ventas</div>
-                  <div class="stat-value" id="dash-total-all">$0.00</div>
-                  <div class="stat-sub">Ingresos del evento</div>
-                </div>
-                <div class="stat-card admin-only">
-                  <div class="stat-title">Ganancia Neta</div>
-                  <div class="stat-value" id="dash-profit-all" style="color:#4ade80">$0.00</div>
-                  <div class="stat-sub">Ventas - Costos</div>
+                  <div class="stat-title">Ingresos en efectivo</div>
+                  <div class="stat-value" id="dash-income-cash" style="color:#16a34a">$0,00</div>
+                  <div class="stat-sub" id="dash-income-cash-count">0 operaciones</div>
                 </div>
                 <div class="stat-card">
-                  <div class="stat-title">Stock Bajo</div>
+                  <div class="stat-title">Ingresos en Mercado Pago</div>
+                  <div class="stat-value" id="dash-income-mercadopago" style="color:#0891b2">$0,00</div>
+                  <div class="stat-sub" id="dash-income-mercadopago-count">0 operaciones</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-title">Productos con stock bajo</div>
                   <div class="stat-value" id="dash-low-stock" style="color:#f87171">0</div>
-                  <div class="stat-sub">Productos críticos (&lt; 5)</div>
-                  <div id="low-stock-list" style="margin-top:10px; font-size:11px; text-align:left; color:#ef4444; border-top:1px solid rgba(15,23,42,0.05); padding-top:8px; display:none"></div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-title">Ingresos</div>
-                  <div class="stat-value" id="dash-entries-today" style="color:#60a5fa">0</div>
-                  <div class="stat-sub">Personas en el evento</div>
+                  <div class="stat-sub">Productos con menos de 5 unidades</div>
                 </div>
               </div>
               
               <div class="dashboard-charts-row">
-                <div class="chart-card"><h3>Top 5 Productos</h3><div style="height:250px;position:relative"><canvas id="topProductsChart"></canvas></div></div>
-                <div class="chart-card admin-only"><h3>Ventas por Método de Pago (Evento)</h3><div id="dash-sellers-list"></div></div>
+                <div class="chart-card">
+                  <h3>Top 5 productos más vendidos</h3>
+                  <div style="height:280px;position:relative"><canvas id="topProductsChart"></canvas></div>
+                </div>
+                <div class="chart-card">
+                  <h3>Productos con stock menor a 5</h3>
+                  <div id="low-stock-list" style="margin-top:14px"></div>
+                </div>
               </div>
+              <div id="dashboard-last-update" style="margin-top:14px;text-align:right;color:var(--muted);font-size:12px" aria-live="polite">Actualizando datos…</div>
             </section>
           </div>
 

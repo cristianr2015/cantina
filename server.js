@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
+const { migrateEventScoping } = require('./lib/eventMigration');
 
 const productsRouter = require('./routes/products');
 const eventsRouter = require('./routes/events');
@@ -101,7 +102,7 @@ app.get('/api/public-settings', async (req, res) => {
 })();
 
 // Auto-fix: Crear tabla orders y columna order_id si faltan (Migración a sistema de Carrito)
-(async () => {
+const legacyOrdersMigration = (async () => {
   try {
     await db.query("SELECT 1 FROM orders LIMIT 1");
   } catch (err) {
@@ -116,7 +117,7 @@ app.get('/api/public-settings', async (req, res) => {
 })();
 
 // Auto-fix: Agregar columna payment_method a orders
-(async () => {
+const orderPaymentMigration = legacyOrdersMigration.then(async () => {
   try {
     await db.query("SELECT payment_method FROM orders LIMIT 1");
   } catch (err) {
@@ -281,7 +282,7 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
 });
 
 // Auto-fix: Crear tabla partner_contributions si falta
-(async () => {
+const legacyPartnerMigration = (async () => {
   try {
     await db.query("SELECT 1 FROM partner_contributions LIMIT 1");
   } catch (err) {
@@ -302,7 +303,7 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
 })();
 
 // Auto-fix: Crear tabla discounts si falta
-(async () => {
+const legacyDiscountMigration = (async () => {
   try {
     await db.query("SELECT 1 FROM discounts LIMIT 1");
   } catch (err) {
@@ -320,7 +321,7 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
 })();
 
 // Auto-fix: Agregar columna discount_id a orders
-(async () => {
+const orderDiscountMigration = Promise.all([legacyOrdersMigration, legacyDiscountMigration]).then(async () => {
   try {
     await db.query("SELECT discount_id FROM orders LIMIT 1");
   } catch (err) {
@@ -334,7 +335,7 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
 })();
 
 // Auto-fix: Agregar columna stock a productos si falta
-(async () => {
+const productStockMigration = (async () => {
   try {
     await db.query("SELECT stock FROM products LIMIT 1");
   } catch (err) {
@@ -344,11 +345,23 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
   }
 })();
 
+const eventScopingMigration = Promise.all([
+  ticketingMigration,
+  orderPaymentMigration,
+  legacyPartnerMigration,
+  orderDiscountMigration,
+  productStockMigration
+]).then(() => migrateEventScoping(db));
+
 let server;
-ticketingMigration.finally(() => {
+eventScopingMigration.then(() => {
   server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+}).catch(err => {
+  console.error('No se pudo configurar el aislamiento por eventos:', err.message);
+  process.exitCode = 1;
+  setTimeout(() => process.exit(1), 1000).unref();
 });
 
 let shuttingDown = false;

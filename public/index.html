@@ -413,23 +413,36 @@
         <main class="main">
           <div class="topbar" style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:14px 16px;border-bottom:1px solid rgba(15,23,42,0.08);background:#ffffff;flex-shrink:0">
             <button id="mobile-menu-btn" style="display:none; background:none; border:none; font-size:24px; cursor:pointer; color:#1f2937">☰</button>
-            <div style="font-size:14px;color:#6b7280">Conectado como: <span id="current-user">-</span></div>
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <div style="font-size:14px;color:#6b7280">Conectado como: <span id="current-user">-</span></div>
+              <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#6b7280">
+                Evento:
+                <select id="topbar-event-select" style="min-width:190px;padding:7px 10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937"></select>
+              </label>
+            </div>
             <div><button id="logout-btn" style="padding:8px 16px;font-size:13px">Cerrar sesión</button></div>
           </div>
           
           <div id="page-dashboard" class="page hidden">
             <section>
               <h2>Dashboard General</h2>
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;padding:16px 18px;border:1px solid rgba(15,23,42,0.08);border-radius:12px;margin-bottom:20px">
+                <div>
+                  <div style="font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase">Evento de trabajo</div>
+                  <div id="dashboard-event-date" style="font-size:13px;color:var(--muted);margin-top:3px">Seleccione el evento que desea administrar</div>
+                </div>
+                <select id="dashboard-event-select" style="min-width:260px;margin-left:auto;padding:10px 12px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937;font-weight:600"></select>
+              </div>
               <div class="dashboard-grid">
                 <div class="stat-card">
                   <div class="stat-title">Ventas Totales</div>
                   <div class="stat-value" id="dash-orders-all">0</div>
-                  <div class="stat-sub">Históricas</div>
+                  <div class="stat-sub">Del evento activo</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-title">Total Ventas</div>
                   <div class="stat-value" id="dash-total-all">$0.00</div>
-                  <div class="stat-sub">Ingresos históricos</div>
+                  <div class="stat-sub">Ingresos del evento</div>
                 </div>
                 <div class="stat-card admin-only">
                   <div class="stat-title">Ganancia Neta</div>
@@ -443,7 +456,7 @@
                   <div id="low-stock-list" style="margin-top:10px; font-size:11px; text-align:left; color:#ef4444; border-top:1px solid rgba(15,23,42,0.05); padding-top:8px; display:none"></div>
                 </div>
                 <div class="stat-card">
-                  <div class="stat-title">Ingresos Hoy</div>
+                  <div class="stat-title">Ingresos</div>
                   <div class="stat-value" id="dash-entries-today" style="color:#60a5fa">0</div>
                   <div class="stat-sub">Personas en el evento</div>
                 </div>
@@ -451,7 +464,7 @@
               
               <div class="dashboard-charts-row">
                 <div class="chart-card"><h3>Top 5 Productos</h3><div style="height:250px;position:relative"><canvas id="topProductsChart"></canvas></div></div>
-                <div class="chart-card admin-only"><h3>Ventas por Método de Pago (Hoy)</h3><div id="dash-sellers-list"></div></div>
+                <div class="chart-card admin-only"><h3>Ventas por Método de Pago (Evento)</h3><div id="dash-sellers-list"></div></div>
               </div>
             </section>
           </div>
@@ -605,6 +618,42 @@
           <div id="page-config" class="page hidden admin-only">
             <section>
               <h2>Configuración</h2>
+
+              <!-- Sección: Eventos -->
+              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
+                <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Eventos</h3>
+                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Cada evento comienza sin productos, ventas, entradas, descuentos ni aportes. Los datos de la peña y los usuarios se mantienen.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px">
+                  <div>
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Nombre del evento</label>
+                    <input id="event-name" type="text" placeholder="Peña de septiembre" style="width:100%" />
+                  </div>
+                  <div>
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Fecha y hora de comienzo</label>
+                    <input id="event-date" type="datetime-local" style="width:100%" />
+                  </div>
+                  <div>
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Entrada anticipada $</label>
+                    <input id="event-price-advance" type="number" min="0" step="0.01" style="width:100%" />
+                  </div>
+                  <div>
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Entrada en puerta $</label>
+                    <input id="event-price-door" type="number" min="0" step="0.01" style="width:100%" />
+                  </div>
+                </div>
+                <button id="create-event-btn" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700">Crear y seleccionar evento</button>
+                <div class="table-wrap" style="margin-top:18px">
+                  <table style="width:100%;border-collapse:collapse;font-size:14px">
+                    <thead><tr style="border-bottom:2px solid rgba(15,23,42,0.1)">
+                      <th style="padding:10px;text-align:left">Evento</th>
+                      <th style="padding:10px;text-align:left">Comienzo</th>
+                      <th style="padding:10px;text-align:center">Estado</th>
+                      <th style="padding:10px;text-align:right">Acciones</th>
+                    </tr></thead>
+                    <tbody id="events-config-body"></tbody>
+                  </table>
+                </div>
+              </div>
               
               <!-- Sección: CUIT -->
               <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
@@ -633,7 +682,7 @@
               <!-- Sección: Precios de entradas -->
               <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
                 <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Precios de Entradas</h3>
-                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Los cambios se aplican a ventas nuevas. Las entradas de cortesía siempre tienen valor $0.</p>
+                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Precios del evento activo: <strong id="ticket-price-event-name">-</strong>. Los cambios se aplican a ventas nuevas y las cortesías siempre valen $0.</p>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:500px">
                   <div>
                     <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada anticipada $</label>

@@ -1,9 +1,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const ticketsRouter = require('../routes/tickets');
+const eventsRouter = require('../routes/events');
 const { buildTicketPdf } = require('../lib/ticketPdf');
+const { parseEventId } = require('../middleware/eventContext');
 
 const { parseQuantity, parseTicketIds, priceForType, createQrToken } = ticketsRouter.__test;
+const { normalizeEventDate, parsePrice } = eventsRouter.__test;
 
 test('valida cantidades y determina el precio por tipo', () => {
   assert.equal(parseQuantity(1), 1);
@@ -22,6 +25,18 @@ test('valida y normaliza los IDs para una eliminación parcial de entradas', () 
   assert.equal(parseTicketIds([0, -1, 'x']), null);
   assert.equal(parseTicketIds([1, 'x']), null);
   assert.equal(parseTicketIds(Array.from({ length: 1001 }, (_, index) => index + 1)), null);
+});
+
+test('valida el evento activo, su fecha de comienzo y sus precios', () => {
+  assert.equal(parseEventId('8'), 8);
+  assert.equal(parseEventId(0), null);
+  assert.equal(parseEventId('evento'), null);
+  assert.equal(normalizeEventDate('2026-09-12T20:30'), '2026-09-12 20:30:00');
+  assert.equal(normalizeEventDate('2026-02-30T20:30'), null);
+  assert.equal(normalizeEventDate('2026-09-12'), null);
+  assert.equal(parsePrice('15000'), 15000);
+  assert.equal(parsePrice(-1), null);
+  assert.equal(parsePrice('', 12000), 12000);
 });
 
 test('genera tokens QR aleatorios solo para entradas anticipadas', () => {

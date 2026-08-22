@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireEvent } = require('../middleware/eventContext');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,27 +10,28 @@ const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // Obtener settings (any authenticated user can read)
-router.get('/', auth(['admin', 'seller', 'puerta']), async (req, res) => {
+router.get('/', auth(['admin', 'seller', 'puerta']), requireEvent, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM settings WHERE id = 1 LIMIT 1');
-    res.json(rows[0] || {
-      id: 1,
-      cuit: '',
-      company_name: 'Mi Empresa',
-      logo_path: null,
-      address: '',
-      phone: '',
-      email: '',
-      ticket_price_advance: 10000,
-      ticket_price_door: 12000
-    });
+    const [rows] = await db.query(
+      `SELECT s.id, s.cuit, s.company_name, s.logo_path, s.address, s.phone, s.email,
+              e.ticket_price_advance, e.ticket_price_door,
+              e.id AS event_id, e.name AS event_name,
+              DATE_FORMAT(e.date, '%Y-%m-%dT%H:%i:%s') AS event_date
+       FROM settings s
+       INNER JOIN events e ON e.id = ?
+       WHERE s.id = 1 LIMIT 1`,
+      [req.eventId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'El evento activo ya no existe' });
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Actualizar datos de la peña y precios vigentes de entradas.
-router.put('/', auth(['admin']), async (req, res) => {
+router.put('/', auth(['admin']), requireEvent, async (req, res) => {
+  let connection;
   try {
     const {
       cuit, company_name, address, phone, email,
@@ -41,7 +43,9 @@ router.put('/', auth(['admin']), async (req, res) => {
         !Number.isFinite(doorPrice) || doorPrice < 0) {
       return res.status(400).json({ error: 'Nombre y precios válidos son requeridos' });
     }
-    await db.query(
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    await connection.query(
       `UPDATE settings
        SET cuit = ?, company_name = ?, address = ?, phone = ?, email = ?,
            ticket_price_advance = ?, ticket_price_door = ?
@@ -51,10 +55,26 @@ router.put('/', auth(['admin']), async (req, res) => {
         String(phone || '').trim(), String(email || '').trim(), advancePrice, doorPrice
       ]
     );
-    const [rows] = await db.query('SELECT * FROM settings WHERE id = 1');
+    const [eventUpdate] = await connection.query(
+      `UPDATE events SET ticket_price_advance = ?, ticket_price_door = ? WHERE id = ?`,
+      [advancePrice, doorPrice, req.eventId]
+    );
+    if (!eventUpdate.affectedRows) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'El evento activo ya no existe' });
+    }
+    await connection.commit();
+    const [rows] = await db.query(
+      `SELECT s.*, e.ticket_price_advance, e.ticket_price_door, e.name AS event_name
+       FROM settings s INNER JOIN events e ON e.id = ? WHERE s.id = 1`,
+      [req.eventId]
+    );
     res.json(rows[0]);
   } catch (err) {
+    if (connection) await connection.rollback();
     res.status(500).json({ error: err.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
@@ -78,25 +98,35 @@ router.post('/logo', auth(['admin']), async (req, res) => {
 });
 
 // --- Gestión de Descuentos ---
-router.get('/discounts', auth(['admin', 'seller']), async (req, res) => {
+router.get('/discounts', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM discounts ORDER BY percentage ASC');
+    const [rows] = await db.query(
+      'SELECT * FROM discounts WHERE event_id = ? ORDER BY percentage ASC',
+      [req.eventId]
+    );
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/discounts', auth(['admin']), async (req, res) => {
+router.post('/discounts', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { name, percentage } = req.body;
     if (!name || percentage === undefined) return res.status(400).json({ error: 'Nombre y porcentaje requeridos' });
-    const [result] = await db.query('INSERT INTO discounts (name, percentage) VALUES (?, ?)', [name, percentage]);
+    const [result] = await db.query(
+      'INSERT INTO discounts (name, percentage, event_id) VALUES (?, ?, ?)',
+      [name, percentage, req.eventId]
+    );
     res.json({ id: result.insertId, name, percentage });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/discounts/:id', auth(['admin']), async (req, res) => {
+router.delete('/discounts/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
-    await db.query('DELETE FROM discounts WHERE id = ?', [req.params.id]);
+    const [result] = await db.query(
+      'DELETE FROM discounts WHERE id = ? AND event_id = ?',
+      [req.params.id, req.eventId]
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Descuento no encontrado en el evento activo' });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

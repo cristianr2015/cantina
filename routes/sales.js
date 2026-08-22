@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireEvent } = require('../middleware/eventContext');
 
-router.post('/', auth(['admin','seller']), async (req, res) => {
+router.post('/', auth(['admin','seller']), requireEvent, async (req, res) => {
   try {
     // Ahora esperamos un objeto con { items: [{product_id, quantity}], user_id (opcional) }
     const { items, user_id: bodyUserId, payment_method, discount_id } = req.body;
@@ -25,14 +26,18 @@ router.post('/', auth(['admin','seller']), async (req, res) => {
       // Buscar porcentaje de descuento si existe
       let discountPct = 0;
       if (discount_id) {
-        const [drows] = await connection.query('SELECT percentage FROM discounts WHERE id = ?', [discount_id]);
-        if (drows[0]) discountPct = parseFloat(drows[0].percentage);
+        const [drows] = await connection.query(
+          'SELECT percentage FROM discounts WHERE id = ? AND event_id = ?',
+          [discount_id, req.eventId]
+        );
+        if (!drows[0]) throw new Error('El descuento no pertenece al evento activo');
+        discountPct = parseFloat(drows[0].percentage);
       }
 
       // 1. Crear la Orden (Cabecera)
       const [orderResult] = await connection.query(
-        'INSERT INTO orders (user_id, payment_method, discount_id, created_at) VALUES (?, ?, ?, NOW())', 
-        [user_id, payment_method || 'cash', discount_id || null]
+        'INSERT INTO orders (user_id, payment_method, discount_id, event_id, created_at) VALUES (?, ?, ?, ?, NOW())',
+        [user_id, payment_method || 'cash', discount_id || null, req.eventId]
       );
       const orderId = orderResult.insertId;
 
@@ -40,19 +45,28 @@ router.post('/', auth(['admin','seller']), async (req, res) => {
 
       // 2. Insertar items y validar stock
       for (const item of items) {
-        const [prows] = await connection.query('SELECT price_sale, stock, name FROM products WHERE id = ?', [item.product_id]);
+        const [prows] = await connection.query(
+          'SELECT price_sale, stock, name FROM products WHERE id = ? AND event_id = ? FOR UPDATE',
+          [item.product_id, req.eventId]
+        );
         if (!prows[0]) throw new Error(`Producto no encontrado: ${item.product_id}`);
         
         const product = prows[0];
-        const qty = item.quantity || 1;
+        const qty = Number.parseInt(item.quantity, 10) || 1;
+        if (qty < 1 || Number(product.stock) < qty) {
+          throw new Error(`Stock insuficiente para ${product.name}`);
+        }
 
         // Descontar stock
-        await connection.query('UPDATE products SET stock = stock - ? WHERE id = ?', [qty, item.product_id]);
+        await connection.query(
+          'UPDATE products SET stock = stock - ? WHERE id = ? AND event_id = ?',
+          [qty, item.product_id, req.eventId]
+        );
 
         // Registrar venta
         await connection.query(
-          'INSERT INTO sales (order_id, product_id, user_id, quantity, sale_price, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-          [orderId, item.product_id, user_id, qty, product.price_sale]
+          'INSERT INTO sales (order_id, product_id, user_id, event_id, quantity, sale_price, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+          [orderId, item.product_id, user_id, req.eventId, qty, product.price_sale]
         );
         subtotalOrder += (product.price_sale * qty);
       }
@@ -75,7 +89,7 @@ router.post('/', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.get('/', auth(['admin','seller']), async (req, res) => {
+router.get('/', auth(['admin','seller']), requireEvent, async (req, res) => {
   try {
     // Seleccionamos Órdenes y concatenamos los productos para mostrar un resumen
     let sql = `SELECT o.id, o.total, o.payment_method, o.created_at, u.username as sold_by,
@@ -85,9 +99,10 @@ router.get('/', auth(['admin','seller']), async (req, res) => {
                LEFT JOIN products p ON s.product_id = p.id
                LEFT JOIN users u ON o.user_id = u.id`;
     
-    const params = [];
+    const params = [req.eventId];
+    sql += ' WHERE o.event_id = ?';
     if (req.user && req.user.role === 'seller') {
-      sql += ' WHERE o.user_id = ?';
+      sql += ' AND o.user_id = ?';
       params.push(req.user.id);
     }
     sql += ' GROUP BY o.id ORDER BY o.created_at DESC';
@@ -98,11 +113,11 @@ router.get('/', auth(['admin','seller']), async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin']), async (req, res) => {
+router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
     // Aseguramos borrado manual de items por si falla la cascada
-    await db.query('DELETE FROM sales WHERE order_id = ?', [req.params.id]);
-    const [result] = await db.query('DELETE FROM orders WHERE id = ?', [req.params.id]);
+    await db.query('DELETE FROM sales WHERE order_id = ? AND event_id = ?', [req.params.id, req.eventId]);
+    const [result] = await db.query('DELETE FROM orders WHERE id = ? AND event_id = ?', [req.params.id, req.eventId]);
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json({ ok: true });
   } catch (err) {
@@ -110,12 +125,12 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin']), async (req, res) => {
+router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { total, payment_method } = req.body;
     const [result] = await db.query(
-      'UPDATE orders SET total = ?, payment_method = ? WHERE id = ?',
-      [total, payment_method, req.params.id]
+      'UPDATE orders SET total = ?, payment_method = ? WHERE id = ? AND event_id = ?',
+      [total, payment_method, req.params.id, req.eventId]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Orden no encontrada' });
     res.json({ ok: true });

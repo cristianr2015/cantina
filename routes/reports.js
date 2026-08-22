@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireEvent } = require('../middleware/eventContext');
 
 // Reporte: ventas por medio de pago (reemplaza usuario)
-router.get('/sales-by-payment', auth(['admin', 'seller']), async (req, res) => {
+router.get('/sales-by-payment', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query; // fechas opcionales
     let sql = `SELECT o.payment_method,
@@ -15,11 +16,11 @@ router.get('/sales-by-payment', auth(['admin', 'seller']), async (req, res) => {
       FROM sales s
       INNER JOIN orders o ON s.order_id = o.id
       LEFT JOIN products p ON s.product_id = p.id
-      LEFT JOIN discounts d ON o.discount_id = d.id`;
+      LEFT JOIN discounts d ON o.discount_id = d.id
+      WHERE o.event_id = ?`;
 
-    const params = [];
+    const params = [req.eventId];
     if (start || end) {
-      sql += ' WHERE 1=1 ';
       if (start) {
         sql += ' AND o.created_at >= ?';
         params.push(start + ' 00:00:00');
@@ -39,7 +40,7 @@ router.get('/sales-by-payment', auth(['admin', 'seller']), async (req, res) => {
 });
 
 // Dashboard Stats: Totales históricos y Top Productos
-router.get('/dashboard-stats', auth(['admin', 'seller']), async (req, res) => {
+router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     // Totales históricos
     const [totals] = await db.query(`
@@ -51,7 +52,8 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), async (req, res) => {
       INNER JOIN orders o ON s.order_id = o.id
       LEFT JOIN products p ON s.product_id = p.id
       LEFT JOIN discounts d ON o.discount_id = d.id
-    `);
+      WHERE o.event_id = ?
+    `, [req.eventId]);
 
     // Top 5 productos más vendidos
     const [topProducts] = await db.query(`
@@ -59,21 +61,22 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), async (req, res) => {
       FROM sales s
       INNER JOIN orders o ON s.order_id = o.id
       LEFT JOIN products p ON s.product_id = p.id
+      WHERE o.event_id = ?
       GROUP BY p.id
       ORDER BY total_qty DESC
       LIMIT 5
-    `);
+    `, [req.eventId]);
 
     // Productos con stock bajo (ej. < 5)
     const [lowStockItems] = await db.query(`
-      SELECT name, stock FROM products WHERE stock < 5
-    `);
+      SELECT name, stock FROM products WHERE event_id = ? AND stock < 5
+    `, [req.eventId]);
 
     // Personas que ingresaron hoy
     const [entriesToday] = await db.query(`
       SELECT COUNT(*) as count FROM tickets_sold 
-      WHERE entered = 1 AND DATE(entered_at) = CURDATE()
-    `);
+      WHERE event_id = ? AND entered = 1
+    `, [req.eventId]);
 
     res.json({
       revenue: totals[0].total_revenue || 0,
@@ -90,7 +93,7 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), async (req, res) => {
 });
 
 // Reporte: Detalle completo de ventas (para exportación y auditoría)
-router.get('/sales-detail', auth(['admin', 'seller']), async (req, res) => {
+router.get('/sales-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -111,9 +114,9 @@ router.get('/sales-detail', auth(['admin', 'seller']), async (req, res) => {
       LEFT JOIN products p ON s.product_id = p.id
       LEFT JOIN users u ON o.user_id = u.id
       LEFT JOIN discounts d ON o.discount_id = d.id
-      WHERE 1=1`;
+      WHERE o.event_id = ?`;
 
-    const params = [];
+    const params = [req.eventId];
     if (start) { sql += ' AND o.created_at >= ?'; params.push(start + ' 00:00:00'); }
     if (end) { sql += ' AND o.created_at <= ?'; params.push(end + ' 23:59:59'); }
 
@@ -127,7 +130,7 @@ router.get('/sales-detail', auth(['admin', 'seller']), async (req, res) => {
 });
 
 // Reporte: Detalle de entradas (con vendedor)
-router.get('/tickets-detail', auth(['admin', 'seller']), async (req, res) => {
+router.get('/tickets-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -140,9 +143,9 @@ router.get('/tickets-detail', auth(['admin', 'seller']), async (req, res) => {
         t.entered
       FROM tickets_sold t
       LEFT JOIN users u ON t.user_id = u.id
-      WHERE 1=1`;
+      WHERE t.event_id = ?`;
 
-    const params = [];
+    const params = [req.eventId];
     if (start) { sql += ' AND t.sold_at >= ?'; params.push(start + ' 00:00:00'); }
     if (end) { sql += ' AND t.sold_at <= ?'; params.push(end + ' 23:59:59'); }
 
@@ -156,7 +159,7 @@ router.get('/tickets-detail', auth(['admin', 'seller']), async (req, res) => {
 });
 
 // Reporte: Resumen de Asistencia (Personas adentro)
-router.get('/attendance-summary', auth(['admin', 'seller']), async (req, res) => {
+router.get('/attendance-summary', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -165,8 +168,8 @@ router.get('/attendance-summary', auth(['admin', 'seller']), async (req, res) =>
         COALESCE(SUM(CASE WHEN ticket_type = 'cortesia' THEN 1 ELSE 0 END), 0) as cortesias,
         COUNT(*) as total
       FROM tickets_sold 
-      WHERE entered = 1`;
-    const params = [];
+      WHERE event_id = ? AND entered = 1`;
+    const params = [req.eventId];
     if (start) { sql += ' AND entered_at >= ?'; params.push(start + ' 00:00:00'); }
     if (end) { sql += ' AND entered_at <= ?'; params.push(end + ' 23:59:59'); }
 
@@ -178,14 +181,14 @@ router.get('/attendance-summary', auth(['admin', 'seller']), async (req, res) =>
 });
 
 // Reporte: Arqueo de caja de Entradas (Agrupado por medio de pago)
-router.get('/tickets-by-payment', auth(['admin', 'seller']), async (req, res) => {
+router.get('/tickets-by-payment', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT payment_method,
         SUM(price_paid) as total_revenue,
         COUNT(*) as total_count
-      FROM tickets_sold WHERE 1=1`;
-    const params = [];
+      FROM tickets_sold WHERE event_id = ?`;
+    const params = [req.eventId];
     if (start) { sql += ' AND sold_at >= ?'; params.push(start + ' 00:00:00'); }
     if (end) { sql += ' AND sold_at <= ?'; params.push(end + ' 23:59:59'); }
 
@@ -198,7 +201,7 @@ router.get('/tickets-by-payment', auth(['admin', 'seller']), async (req, res) =>
 });
 
 // Reporte: Detalle de Aportes de Socios
-router.get('/partners-detail', auth(['admin', 'seller']), async (req, res) => {
+router.get('/partners-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -209,9 +212,9 @@ router.get('/partners-detail', auth(['admin', 'seller']), async (req, res) => {
         c.returned
       FROM partner_contributions c
       LEFT JOIN users u ON c.user_id = u.id
-      WHERE 1=1`;
+      WHERE c.event_id = ?`;
 
-    const params = [];
+    const params = [req.eventId];
     if (start) { sql += ' AND c.created_at >= ?'; params.push(start + ' 00:00:00'); }
     if (end) { sql += ' AND c.created_at <= ?'; params.push(end + ' 23:59:59'); }
 

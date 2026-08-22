@@ -15,6 +15,24 @@ let ticketSettings = {
   ticket_price_advance: 10000,
   ticket_price_door: 12000
 };
+const ACTIVE_EVENT_STORAGE_KEY = 'activeEventId';
+let eventsCache = [];
+
+function getActiveEventId() {
+  const eventId = Number(localStorage.getItem(ACTIVE_EVENT_STORAGE_KEY));
+  return Number.isInteger(eventId) && eventId > 0 ? eventId : null;
+}
+
+function getActiveEvent() {
+  const eventId = getActiveEventId();
+  return eventsCache.find(event => Number(event.id) === eventId) || null;
+}
+
+function addActiveEventHeader(headers) {
+  const eventId = getActiveEventId();
+  if (eventId) headers['X-Event-Id'] = String(eventId);
+  return headers;
+}
 
 function normalizeBaseUrl(value) {
   if (!value) return '';
@@ -317,7 +335,7 @@ function showConfirm(message, callback, title = 'Confirmar Acción') {
 }
 
 async function api(path, opts = {}){
-  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  const headers = addActiveEventHeader(Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {}));
   const token = getSessionToken();
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const url = buildUrl('/api' + path);
@@ -364,7 +382,8 @@ async function printTicketPdf(ids) {
     cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + getSessionToken()
+      'Authorization': 'Bearer ' + getSessionToken(),
+      ...(getActiveEventId() ? { 'X-Event-Id': String(getActiveEventId()) } : {})
     },
     body: JSON.stringify({ ids })
   });
@@ -414,6 +433,10 @@ const readFileAsBase64 = (file) => {
 
 async function loadProducts(){
   const prods = await api('/products');
+  if (!Array.isArray(prods)) {
+    showToast(prods.error || 'No se pudieron cargar los productos', 'error');
+    return;
+  }
   
   // 1. Renderizar lista de administración (si existe)
   const list = document.getElementById('products-list');
@@ -479,29 +502,174 @@ async function loadProducts(){
   }
 }
 
-async function loadEvents(){
-  const evs = await api('/events');
-  const list = document.getElementById('events-list');
-  const sel = document.getElementById('sale-event');
-  if (sel) sel.innerHTML = '';
-  if (list) {
-    list.innerHTML = '';
-    const table = document.createElement('table');
-    table.innerHTML = '<tr><th>ID</th><th>Nombre</th><th>Fecha</th></tr>' +
-      evs.map(e => `<tr><td>${e.id}</td><td>${e.name}</td><td>${formatDate(e.date)}</td></tr>`).join('');
-    list.appendChild(table);
-    enhanceResponsiveTables(list);
-  }
-  if (sel) {
-    evs.forEach(e => {
-      const opt = document.createElement('option'); opt.value = e.id; opt.textContent = e.name + ' (' + formatDate(e.date) + ')'; sel.appendChild(opt);
-    });
-  }
+function eventLabel(event) {
+  return `${event.name} (${formatDateTime(event.date)})`;
 }
+
+function populateEventSelect(select) {
+  if (!select) return;
+  const activeEventId = getActiveEventId();
+  select.innerHTML = '';
+  if (!eventsCache.length) {
+    const option = document.createElement('option');
+    option.textContent = 'No hay eventos disponibles';
+    option.value = '';
+    select.appendChild(option);
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  eventsCache.forEach(event => {
+    const option = document.createElement('option');
+    option.value = event.id;
+    option.textContent = eventLabel(event);
+    select.appendChild(option);
+  });
+  select.value = String(activeEventId || eventsCache[0].id);
+}
+
+function renderEventSelectors() {
+  populateEventSelect(document.getElementById('topbar-event-select'));
+  populateEventSelect(document.getElementById('dashboard-event-select'));
+  const activeEvent = getActiveEvent();
+  const dateOutput = document.getElementById('dashboard-event-date');
+  if (dateOutput) {
+    dateOutput.textContent = activeEvent
+      ? `Comienza: ${formatDateTime(activeEvent.date)}`
+      : 'Seleccione el evento que desea administrar';
+  }
+  const priceEventName = document.getElementById('ticket-price-event-name');
+  if (priceEventName) priceEventName.textContent = activeEvent?.name || '-';
+}
+
+function renderEventManagement() {
+  const tbody = document.getElementById('events-config-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const activeEventId = getActiveEventId();
+  eventsCache.forEach(event => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(15,23,42,0.08)';
+    const nameCell = document.createElement('td');
+    nameCell.style.padding = '10px';
+    nameCell.textContent = event.name;
+    const dateCell = document.createElement('td');
+    dateCell.style.padding = '10px';
+    dateCell.textContent = formatDateTime(event.date);
+    const statusCell = document.createElement('td');
+    statusCell.style.cssText = 'padding:10px;text-align:center';
+    statusCell.textContent = Number(event.id) === activeEventId ? 'Activo' : '-';
+    const actionsCell = document.createElement('td');
+    actionsCell.style.cssText = 'padding:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
+
+    const selectButton = document.createElement('button');
+    selectButton.textContent = Number(event.id) === activeEventId ? 'Seleccionado' : 'Seleccionar';
+    selectButton.disabled = Number(event.id) === activeEventId;
+    selectButton.style.cssText = 'padding:6px 10px;font-size:12px';
+    selectButton.addEventListener('click', () => setActiveEvent(event.id));
+    actionsCell.appendChild(selectButton);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.textContent = 'Eliminar';
+    deleteButton.style.cssText = 'padding:6px 10px;font-size:12px;background:#ef4444;color:#fff';
+    deleteButton.addEventListener('click', () => deleteEvent(event.id));
+    actionsCell.appendChild(deleteButton);
+
+    tr.append(nameCell, dateCell, statusCell, actionsCell);
+    tbody.appendChild(tr);
+  });
+  enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
+}
+
+async function loadEvents() {
+  const events = await api('/events');
+  if (!Array.isArray(events)) {
+    showToast(events.error || 'No se pudieron cargar los eventos', 'error');
+    return [];
+  }
+  eventsCache = events;
+  const storedEventId = getActiveEventId();
+  if (!eventsCache.some(event => Number(event.id) === storedEventId)) {
+    if (eventsCache[0]) localStorage.setItem(ACTIVE_EVENT_STORAGE_KEY, String(eventsCache[0].id));
+    else localStorage.removeItem(ACTIVE_EVENT_STORAGE_KEY);
+  }
+  renderEventSelectors();
+  renderEventManagement();
+  return eventsCache;
+}
+
+async function refreshActiveEventPage() {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const hash = location.hash.replace('#', '') || (user?.role === 'puerta' ? 'tickets' : 'dashboard');
+  if (hash === 'dashboard') await loadDashboard();
+  if (hash === 'products') await loadProducts();
+  if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
+  if (hash === 'tickets') await loadTickets();
+  if (hash === 'partners') await loadPartnerContributions();
+  if (hash === 'reports' && activeReportType) await loadReport(activeReportType);
+  if (hash === 'config') await Promise.all([loadSettings(), loadDiscountsForMgmt()]);
+}
+
+async function setActiveEvent(eventId, notify = true) {
+  const parsedId = Number(eventId);
+  const event = eventsCache.find(item => Number(item.id) === parsedId);
+  if (!event) return showToast('El evento seleccionado ya no está disponible', 'error');
+  localStorage.setItem(ACTIVE_EVENT_STORAGE_KEY, String(parsedId));
+  if (typeof cart !== 'undefined') cart = [];
+  if (typeof allProductsCache !== 'undefined') allProductsCache = [];
+  if (typeof allDiscountsCache !== 'undefined') allDiscountsCache = [];
+  if (typeof renderCart === 'function') renderCart();
+  renderEventSelectors();
+  renderEventManagement();
+  await loadSettings();
+  await refreshActiveEventPage();
+  if (notify) showToast(`Evento activo: ${event.name}`, 'success');
+}
+
+async function deleteEvent(eventId) {
+  const event = eventsCache.find(item => Number(item.id) === Number(eventId));
+  if (!event) return;
+  showConfirm(`¿Eliminar el evento "${event.name}"? Solo se permite si todavía no tiene datos.`, async () => {
+    const result = await api('/events/' + event.id, { method: 'DELETE' });
+    if (result.error) return showToast(result.error, 'error');
+    await loadEvents();
+    await setActiveEvent(getActiveEventId(), false);
+    showToast('Evento eliminado', 'success');
+  }, 'Eliminar evento');
+}
+
+['topbar-event-select', 'dashboard-event-select'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', event => setActiveEvent(event.target.value));
+});
+
+document.getElementById('create-event-btn')?.addEventListener('click', async () => {
+  const name = document.getElementById('event-name').value.trim();
+  const date = document.getElementById('event-date').value;
+  const ticket_price_advance = Number(document.getElementById('event-price-advance').value);
+  const ticket_price_door = Number(document.getElementById('event-price-door').value);
+  if (!name || !date || !Number.isFinite(ticket_price_advance) || ticket_price_advance < 0 ||
+      !Number.isFinite(ticket_price_door) || ticket_price_door < 0) {
+    return showToast('Complete el nombre, la fecha, la hora y los precios del evento', 'error');
+  }
+  const result = await api('/events', {
+    method: 'POST',
+    body: JSON.stringify({ name, date, ticket_price_advance, ticket_price_door })
+  });
+  if (result.error) return showToast(result.error, 'error');
+  document.getElementById('event-name').value = '';
+  document.getElementById('event-date').value = '';
+  await loadEvents();
+  await setActiveEvent(result.id, false);
+  showToast(`Evento "${result.name}" creado y seleccionado`, 'success');
+});
 
 async function loadSales(){
   const rows = await api('/sales');
   const div = document.getElementById('sales-list');
+  if (!Array.isArray(rows)) {
+    if (div) div.innerHTML = '<p style="color:#ef4444">No se pudieron cargar las ventas del evento.</p>';
+    return;
+  }
   div.innerHTML = '';
   const table = document.createElement('table');
   
@@ -1607,13 +1775,8 @@ async function loadUsersSelect(){
 let dashboardChart = null;
 
 async function loadDashboard(){
-  // Obtener fecha de hoy en formato YYYY-MM-DD (local)
-  const now = new Date();
-  const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  
   try {
-    // Reutilizamos el endpoint de reportes filtrando por hoy
-    const rows = await api(`/reports/sales-by-payment?start=${today}&end=${today}`);
+    const rows = await api('/reports/sales-by-payment');
     if (!Array.isArray(rows)) {
       console.error("Dashboard error: Respuesta no es un array", rows);
       return;
@@ -1689,7 +1852,10 @@ async function loadDashboard(){
 async function loadSettings(){
   try {
     const cfg = await api('/settings');
-    if (!cfg) return;
+    if (!cfg || cfg.error) {
+      if (cfg?.error) showToast(cfg.error, 'error');
+      return;
+    }
     
     // Actualizar campos en el modal de configuración
     document.getElementById('cfg-cuit').value = cfg.cuit || '';
@@ -1699,6 +1865,10 @@ async function loadSettings(){
     document.getElementById('cfg-email').value = cfg.email || '';
     document.getElementById('cfg-ticket-price-advance').value = Number(cfg.ticket_price_advance || 0);
     document.getElementById('cfg-ticket-price-door').value = Number(cfg.ticket_price_door || 0);
+    const eventAdvanceInput = document.getElementById('event-price-advance');
+    const eventDoorInput = document.getElementById('event-price-door');
+    if (eventAdvanceInput && !eventAdvanceInput.value) eventAdvanceInput.value = Number(cfg.ticket_price_advance || 0);
+    if (eventDoorInput && !eventDoorInput.value) eventDoorInput.value = Number(cfg.ticket_price_door || 0);
     ticketSettings = Object.assign({}, ticketSettings, cfg);
     updateQuickTicketPrice();
     
@@ -1718,6 +1888,10 @@ async function loadDiscountsForMgmt() {
   const dscs = await api('/settings/discounts');
   const tbody = document.getElementById('discounts-body');
   if (!tbody) return;
+  if (!Array.isArray(dscs)) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:12px;color:#ef4444">No se pudieron cargar los descuentos.</td></tr>';
+    return;
+  }
   tbody.innerHTML = dscs.map(d => `
     <tr style="border-bottom:1px solid rgba(15,23,42,0.08)">
       <td style="padding:12px">${d.name}</td>
@@ -1886,10 +2060,20 @@ async function initAfterLogin(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   if (!user) return;
   showAppForUser(user);
-  await loadSettings();
-  if (user.role === 'puerta') return;
-  await loadProducts();
   await loadEvents();
+  if (!getActiveEventId()) {
+    showToast('Cree o seleccione un evento para comenzar', 'error');
+    if (user.role === 'admin') location.hash = '#config';
+    navigateToHash();
+    return;
+  }
+  await loadSettings();
+  if (user.role === 'puerta') {
+    await loadTickets();
+    navigateToHash();
+    return;
+  }
+  await loadProducts();
   await loadSales();
   await loadUsersSelect();
   await loadDashboard(); // Cargar datos del dashboard
@@ -1899,6 +2083,7 @@ async function initAfterLogin(){
     await loadUsersForMgmt();
     await loadDiscountsForMgmt();
   }
+  navigateToHash();
 }
 
 // --- simple client-side navigation (hash-based) ---
@@ -1940,7 +2125,7 @@ function navigateToHash(){
   if (hash === 'tickets') { loadTickets(); }
   if (hash === 'partners') { loadPartnerContributions(); }
   if (hash === 'reports') { /* nothing extra */ }
-  if (hash === 'config') { loadSettings(); loadUsersForMgmt(); loadDiscountsForMgmt(); }
+  if (hash === 'config') { loadEvents(); loadSettings(); loadUsersForMgmt(); loadDiscountsForMgmt(); }
   showPage(hash);
 }
 
@@ -1977,8 +2162,6 @@ async function showAppForUser(user){
     const menuItem = link.closest('li');
     if (menuItem) menuItem.style.display = user.role === 'puerta' && link.getAttribute('href') !== '#tickets' ? 'none' : '';
   });
-  // navigate to current or default
-  navigateToHash();
 }
 
 // --- Fondo de Socios Logic ---

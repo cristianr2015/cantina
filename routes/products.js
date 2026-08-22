@@ -2,24 +2,25 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireEvent } = require('../middleware/eventContext');
 const fs = require('fs');
 const path = require('path');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-router.get('/', auth(['admin', 'seller']), async (req, res) => {
+router.get('/', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM products ORDER BY id');
+    const [rows] = await db.query('SELECT * FROM products WHERE event_id = ? ORDER BY id', [req.eventId]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/', auth(['admin']), async (req, res) => {
+router.post('/', auth(['admin']), requireEvent, async (req, res) => {
   try {
-    const { name, price_cost, price_sale, image_name, image_data } = req.body;
+    const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
     let image_path = null;
     if (image_data) {
       const ext = path.extname(image_name || 'prod.png') || '.png';
@@ -28,10 +29,10 @@ router.post('/', auth(['admin']), async (req, res) => {
       image_path = '/uploads/' + filename;
     }
     const [result] = await db.query(
-      'INSERT INTO products (name, price_cost, price_sale, image_path) VALUES (?, ?, ?, ?)',
-      [name, price_cost, price_sale, image_path]
+      'INSERT INTO products (name, price_cost, price_sale, stock, image_path, event_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, price_cost, price_sale, Number.parseInt(stock, 10) || 0, image_path, req.eventId]
     );
-    const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
+    const [rows] = await db.query('SELECT * FROM products WHERE id = ? AND event_id = ?', [result.insertId, req.eventId]);
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -42,13 +43,13 @@ router.post('/', auth(['admin']), async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin']), async (req, res) => {
+router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, price_cost, price_sale, image_name, image_data } = req.body;
+    const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
     
-    let sql = 'UPDATE products SET name = ?, price_cost = ?, price_sale = ?';
-    const params = [name, price_cost, price_sale];
+    let sql = 'UPDATE products SET name = ?, price_cost = ?, price_sale = ?, stock = ?';
+    const params = [name, price_cost, price_sale, Number.parseInt(stock, 10) || 0];
 
     if (image_data) {
       const ext = path.extname(image_name || 'prod.png') || '.png';
@@ -57,11 +58,12 @@ router.put('/:id', auth(['admin']), async (req, res) => {
       sql += ', image_path = ?';
       params.push('/uploads/' + filename);
     }
-    sql += ' WHERE id = ?';
-    params.push(id);
+    sql += ' WHERE id = ? AND event_id = ?';
+    params.push(id, req.eventId);
 
-    await db.query(sql, params);
-    const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
+    const [result] = await db.query(sql, params);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Producto no encontrado en el evento activo' });
+    const [rows] = await db.query('SELECT * FROM products WHERE id = ? AND event_id = ?', [id, req.eventId]);
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -72,10 +74,11 @@ router.put('/:id', auth(['admin']), async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin']), async (req, res) => {
+router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
-    await db.query('DELETE FROM products WHERE id = ?', [id]);
+    const [result] = await db.query('DELETE FROM products WHERE id = ? AND event_id = ?', [id, req.eventId]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Producto no encontrado en el evento activo' });
     res.json({ deleted: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

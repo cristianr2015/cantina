@@ -10,6 +10,15 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  date DATETIME,
+  ticket_price_advance DECIMAL(10,2) NOT NULL DEFAULT 10000,
+  ticket_price_door DECIMAL(10,2) NOT NULL DEFAULT 12000,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS products (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -18,14 +27,9 @@ CREATE TABLE IF NOT EXISTS products (
   profit_pct DECIMAL(6,2) DEFAULT 0,
   stock INT NOT NULL DEFAULT 0,
   image_path VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS events (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  date DATE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  event_id INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS tickets_sold (
@@ -38,17 +42,21 @@ CREATE TABLE IF NOT EXISTS tickets_sold (
   price_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
   qr_token CHAR(64) UNIQUE,
   user_id INT,
+  event_id INT,
   entered TINYINT(1) NOT NULL DEFAULT 0,
   sold_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   entered_at TIMESTAMP NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS discounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  event_id INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -57,9 +65,11 @@ CREATE TABLE IF NOT EXISTS orders (
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
   payment_method ENUM('cash','mercadopago') DEFAULT 'cash',
   discount_id INT,
+  event_id INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  FOREIGN KEY (discount_id) REFERENCES discounts(id) ON DELETE SET NULL
+  FOREIGN KEY (discount_id) REFERENCES discounts(id) ON DELETE SET NULL,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS sales (
@@ -72,7 +82,7 @@ CREATE TABLE IF NOT EXISTS sales (
   sale_price DECIMAL(10,2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
@@ -83,19 +93,21 @@ CREATE TABLE IF NOT EXISTS partner_contributions (
   amount DECIMAL(10,2) NOT NULL,
   description TEXT,
   returned TINYINT(1) DEFAULT 0,
+  event_id INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
 -- Datos de ejemplo
-INSERT INTO products (name, price_cost, price_sale, profit_pct) VALUES
-('Bebida Cola 500ml', 0.80, 1.50, ((1.50-0.80)/0.80)*100),
-('Choripán', 1.50, 3.50, ((3.50-1.50)/1.50)*100),
-('Sándwich de jamón', 1.00, 2.50, ((2.50-1.00)/1.00)*100);
-
 INSERT INTO events (name, date) VALUES
-('Partido vs Rival', CURDATE()),
-('Evento Corporativo', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
+('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00')),
+('Evento Corporativo', TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 7 DAY), '20:00:00'));
+
+INSERT INTO products (name, price_cost, price_sale, profit_pct, event_id) VALUES
+('Bebida Cola 500ml', 0.80, 1.50, ((1.50-0.80)/0.80)*100, 1),
+('Choripán', 1.50, 3.50, ((3.50-1.50)/1.50)*100, 1),
+('Sándwich de jamón', 1.00, 2.50, ((2.50-1.00)/1.00)*100, 1);
 
 -- Tabla de configuración global (un solo registro)
 CREATE TABLE IF NOT EXISTS settings (

@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireEvent } = require('../middleware/eventContext');
 const { buildTicketPdf } = require('../lib/ticketPdf');
 
 const ticketRoles = ['admin', 'seller', 'puerta'];
@@ -31,27 +32,27 @@ function createQrToken(type) {
   return type === 'anticipada' ? crypto.randomBytes(32).toString('hex') : null;
 }
 
-async function loadTicketsByIds(connection, ids) {
+async function loadTicketsByIds(connection, ids, eventId) {
   if (!ids.length) return [];
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await connection.query(
     `SELECT t.*, u.username AS sold_by
      FROM tickets_sold t
      LEFT JOIN users u ON t.user_id = u.id
-     WHERE t.id IN (${placeholders})`,
-    ids
+     WHERE t.event_id = ? AND t.id IN (${placeholders})`,
+    [eventId, ...ids]
   );
   const positions = new Map(ids.map((id, index) => [Number(id), index]));
   return rows.sort((a, b) => positions.get(Number(a.id)) - positions.get(Number(b.id)));
 }
 
-router.get('/', auth(ticketRoles), async (req, res) => {
+router.get('/', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
     const search = (req.query.search || '').trim();
-    let sql = 'SELECT t.*, u.username as sold_by FROM tickets_sold t LEFT JOIN users u ON t.user_id = u.id';
-    const params = [];
+    let sql = 'SELECT t.*, u.username as sold_by FROM tickets_sold t LEFT JOIN users u ON t.user_id = u.id WHERE t.event_id = ?';
+    const params = [req.eventId];
     if (search) {
-      sql += ' WHERE t.first_name LIKE ? OR t.last_name LIKE ? OR t.dni LIKE ?';
+      sql += ' AND (t.first_name LIKE ? OR t.last_name LIKE ? OR t.dni LIKE ?)';
       const term = '%' + search + '%';
       params.push(term, term, term);
     }
@@ -63,7 +64,7 @@ router.get('/', auth(ticketRoles), async (req, res) => {
   }
 });
 
-router.post('/', auth(ticketRoles), async (req, res) => {
+router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
@@ -92,8 +93,14 @@ router.post('/', auth(ticketRoles), async (req, res) => {
 
     await connection.beginTransaction();
     const [settingRows] = await connection.query(
-      'SELECT ticket_price_advance, ticket_price_door FROM settings WHERE id = 1 LIMIT 1 FOR SHARE'
+      `SELECT ticket_price_advance, ticket_price_door
+       FROM events WHERE id = ? LIMIT 1 FOR SHARE`,
+      [req.eventId]
     );
+    if (!settingRows[0]) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'El evento activo ya no existe' });
+    }
     const settings = settingRows[0] || {};
     const pricePaid = priceForType(ticketType, settings);
     const enteredValue = ticketType === 'puerta' && entered ? 1 : 0;
@@ -104,18 +111,18 @@ router.post('/', auth(ticketRoles), async (req, res) => {
       const [result] = await connection.query(
         `INSERT INTO tickets_sold
           (first_name, last_name, dni, payment_method, ticket_type, price_paid, qr_token,
-           user_id, entered, entered_at, sold_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+           user_id, event_id, entered, entered_at, sold_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
           String(first_name).trim(), String(last_name).trim(), String(dni).trim(),
-          paymentMethod, ticketType, pricePaid, createQrToken(ticketType), userId,
+          paymentMethod, ticketType, pricePaid, createQrToken(ticketType), userId, req.eventId,
           enteredValue, enteredAt
         ]
       );
       ids.push(result.insertId);
     }
 
-    const tickets = await loadTicketsByIds(connection, ids);
+    const tickets = await loadTicketsByIds(connection, ids, req.eventId);
     await connection.commit();
     res.status(201).json({ ok: true, quantity: tickets.length, tickets, ...tickets[0] });
   } catch (err) {
@@ -126,7 +133,7 @@ router.post('/', auth(ticketRoles), async (req, res) => {
   }
 });
 
-router.post('/pdf', auth(ticketRoles), async (req, res) => {
+router.post('/pdf', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
     const ids = Array.from(new Set((req.body.ids || [])
       .map(id => Number.parseInt(id, 10))
@@ -135,7 +142,7 @@ router.post('/pdf', auth(ticketRoles), async (req, res) => {
       return res.status(400).json({ error: 'Se requieren entre 1 y 50 entradas' });
     }
 
-    const tickets = await loadTicketsByIds(db, ids);
+    const tickets = await loadTicketsByIds(db, ids, req.eventId);
     if (tickets.length !== ids.length || tickets.some(ticket => ticket.ticket_type !== 'anticipada')) {
       return res.status(400).json({ error: 'Solo se pueden imprimir entradas anticipadas válidas' });
     }
@@ -154,7 +161,7 @@ router.post('/pdf', auth(ticketRoles), async (req, res) => {
   }
 });
 
-router.put('/:id', auth(ticketRoles), async (req, res) => {
+router.put('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
     const { first_name, last_name, dni, user_id } = req.body;
     const { id } = req.params;
@@ -165,47 +172,47 @@ router.put('/:id', auth(ticketRoles), async (req, res) => {
       const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
       const userIdInt = Number.isInteger(requestedUserId) ? requestedUserId : req.user.id;
       [update] = await db.query(
-        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ?, user_id = ? WHERE id = ?',
-        [String(first_name).trim(), String(last_name).trim(), String(dni).trim(), userIdInt, id]
+        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ?, user_id = ? WHERE id = ? AND event_id = ?',
+        [String(first_name).trim(), String(last_name).trim(), String(dni).trim(), userIdInt, id, req.eventId]
       );
     } else {
       [update] = await db.query(
-        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ? WHERE id = ?',
-        [String(first_name).trim(), String(last_name).trim(), String(dni).trim(), id]
+        'UPDATE tickets_sold SET first_name = ?, last_name = ?, dni = ? WHERE id = ? AND event_id = ?',
+        [String(first_name).trim(), String(last_name).trim(), String(dni).trim(), id, req.eventId]
       );
     }
 
     if (update.affectedRows === 0) return res.status(404).json({ error: 'Entrada no encontrada' });
-    const [rows] = await db.query('SELECT * FROM tickets_sold WHERE id = ?', [id]);
+    const [rows] = await db.query('SELECT * FROM tickets_sold WHERE id = ? AND event_id = ?', [id, req.eventId]);
     res.json({ ok: true, ...rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.patch('/:id/enter', auth(ticketRoles), async (req, res) => {
+router.patch('/:id/enter', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
     const { id } = req.params;
     if (req.body.entered !== true) {
       return res.status(400).json({ error: 'Un ingreso registrado no puede desmarcarse' });
     }
     const [update] = await db.query(
-      'UPDATE tickets_sold SET entered = 1, entered_at = NOW() WHERE id = ? AND entered = 0',
-      [id]
+      'UPDATE tickets_sold SET entered = 1, entered_at = NOW() WHERE id = ? AND event_id = ? AND entered = 0',
+      [id, req.eventId]
     );
     if (update.affectedRows === 0) {
-      const [rows] = await db.query('SELECT entered, entered_at FROM tickets_sold WHERE id = ?', [id]);
+      const [rows] = await db.query('SELECT entered, entered_at FROM tickets_sold WHERE id = ? AND event_id = ?', [id, req.eventId]);
       if (!rows[0]) return res.status(404).json({ error: 'Entrada no encontrada' });
       return res.status(409).json({ error: 'Esta entrada ya fue utilizada', entered_at: rows[0].entered_at });
     }
-    const [rows] = await db.query('SELECT * FROM tickets_sold WHERE id = ?', [id]);
+    const [rows] = await db.query('SELECT * FROM tickets_sold WHERE id = ? AND event_id = ?', [id, req.eventId]);
     res.json({ ok: true, ...rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/validate', auth(ticketRoles), async (req, res) => {
+router.post('/validate', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
     const token = String(req.body.token || '').trim();
     if (!/^[a-f0-9]{64}$/.test(token)) {
@@ -214,13 +221,14 @@ router.post('/validate', auth(ticketRoles), async (req, res) => {
     const [update] = await db.query(
       `UPDATE tickets_sold
        SET entered = 1, entered_at = NOW()
-       WHERE qr_token = ? AND ticket_type = 'anticipada' AND entered = 0`,
-      [token]
+       WHERE qr_token = ? AND event_id = ? AND ticket_type = 'anticipada' AND entered = 0`,
+      [token, req.eventId]
     );
     if (update.affectedRows === 0) {
       const [rows] = await db.query(
-        'SELECT id, first_name, last_name, entered, entered_at FROM tickets_sold WHERE qr_token = ? LIMIT 1',
-        [token]
+        `SELECT id, first_name, last_name, entered, entered_at
+         FROM tickets_sold WHERE qr_token = ? AND event_id = ? LIMIT 1`,
+        [token, req.eventId]
       );
       if (!rows[0]) return res.status(404).json({ error: 'Entrada inexistente o QR inválido' });
       return res.status(409).json({
@@ -230,8 +238,9 @@ router.post('/validate', auth(ticketRoles), async (req, res) => {
       });
     }
     const [rows] = await db.query(
-      'SELECT id, first_name, last_name, dni, ticket_type, entered, entered_at FROM tickets_sold WHERE qr_token = ? LIMIT 1',
-      [token]
+      `SELECT id, first_name, last_name, dni, ticket_type, entered, entered_at
+       FROM tickets_sold WHERE qr_token = ? AND event_id = ? LIMIT 1`,
+      [token, req.eventId]
     );
     res.json({ ok: true, message: 'Ingreso registrado', ticket: rows[0] });
   } catch (err) {
@@ -239,7 +248,7 @@ router.post('/validate', auth(ticketRoles), async (req, res) => {
   }
 });
 
-router.post('/delete-batch', auth(ticketRoles), async (req, res) => {
+router.post('/delete-batch', auth(ticketRoles), requireEvent, async (req, res) => {
   let connection;
   try {
     const ids = parseTicketIds(req.body.ids);
@@ -251,8 +260,8 @@ router.post('/delete-batch', auth(ticketRoles), async (req, res) => {
     await connection.beginTransaction();
     const placeholders = ids.map(() => '?').join(',');
     const [tickets] = await connection.query(
-      `SELECT id FROM tickets_sold WHERE id IN (${placeholders}) FOR UPDATE`,
-      ids
+      `SELECT id FROM tickets_sold WHERE event_id = ? AND id IN (${placeholders}) FOR UPDATE`,
+      [req.eventId, ...ids]
     );
     if (tickets.length !== ids.length) {
       await connection.rollback();
@@ -260,8 +269,8 @@ router.post('/delete-batch', auth(ticketRoles), async (req, res) => {
     }
 
     const [result] = await connection.query(
-      `DELETE FROM tickets_sold WHERE id IN (${placeholders})`,
-      ids
+      `DELETE FROM tickets_sold WHERE event_id = ? AND id IN (${placeholders})`,
+      [req.eventId, ...ids]
     );
     await connection.commit();
     res.json({ ok: true, deleted: result.affectedRows });
@@ -273,9 +282,12 @@ router.post('/delete-batch', auth(ticketRoles), async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(ticketRoles), async (req, res) => {
+router.delete('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
   try {
-    const [result] = await db.query('DELETE FROM tickets_sold WHERE id = ?', [req.params.id]);
+    const [result] = await db.query(
+      'DELETE FROM tickets_sold WHERE id = ? AND event_id = ?',
+      [req.params.id, req.eventId]
+    );
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Entrada no encontrada' });
     res.json({ ok: true });
   } catch (err) {

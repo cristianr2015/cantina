@@ -395,7 +395,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="theme.css?v=20260824-4">
+    <link rel="stylesheet" href="theme.css?v=20260824-5">
   </head>
   <body>
     <div id="login-area" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f3f4f6;">
@@ -746,15 +746,15 @@
               </div>
 
               <!-- Sección: Precios de entradas -->
-              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
+              <div class="config-panel ticket-price-panel" style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
                 <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Precios de Entradas</h3>
                 <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Precios del evento activo: <strong id="ticket-price-event-name">-</strong>. Los cambios se aplican a ventas nuevas y las cortesías siempre valen $0.</p>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:500px">
-                  <div>
+                <div class="ticket-price-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:500px">
+                  <div class="ticket-price-field">
                     <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada anticipada $</label>
                     <input id="cfg-ticket-price-advance" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
                   </div>
-                  <div>
+                  <div class="ticket-price-field">
                     <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada en puerta $</label>
                     <input id="cfg-ticket-price-door" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
                   </div>

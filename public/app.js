@@ -708,7 +708,7 @@ async function refreshActiveEventPage() {
   if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
   if (hash === 'tickets') await loadTickets();
   if (hash === 'partners') await loadExpenses();
-  if (hash === 'reports' && activeReportType) await loadReport(activeReportType);
+  if (hash === 'reports') await loadReport(activeReportType || 'closing');
   if (hash === 'config') await Promise.all([loadSettings(), loadDiscountsForMgmt()]);
 }
 
@@ -1552,31 +1552,36 @@ let currentReportData = [];
 let activeReportType = null;
 let currentReportTitle = '';
 
-// Inyectar estilos y estructura nueva para reportes al iniciar
-(function initReportsUI() {
-  // Aplicar estilos
-  const style = document.createElement('style');
-  style.textContent = `
-    .btn-rep { background: #ffffff; border: 1px solid rgba(15,23,42,0.12); color: #000000; padding: 12px 16px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
-    .btn-rep:hover { border-color: var(--accent); background: rgba(255,107,53,0.05); color: var(--accent); }
-    .btn-rep.active { background: var(--accent); color: #08101b; border-color: var(--accent); }
-    .btn-rep { justify-content: center; }
-  `;
-  document.head.appendChild(style);
+function formatReportPercent(value) {
+  return `${Number(value || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+}
 
-  // Cargar eventos de botones
+function reportTicketTypeLabel(type) {
+  return ({ anticipada: 'Anticipada', puerta: 'En puerta', cortesia: 'Cortesía' })[type] || type || '-';
+}
+
+(function initReportsUI() {
   setTimeout(() => {
+    document.getElementById('btn-rep-closing')?.addEventListener('click', () => loadReport('closing'));
+    document.getElementById('btn-rep-cash-summary')?.addEventListener('click', () => loadReport('cash-summary'));
+    document.getElementById('btn-rep-products-summary')?.addEventListener('click', () => loadReport('products-summary'));
+    document.getElementById('btn-rep-tickets-summary')?.addEventListener('click', () => loadReport('tickets-summary'));
+    document.getElementById('btn-rep-expenses-summary')?.addEventListener('click', () => loadReport('expenses-summary'));
+    document.getElementById('btn-rep-sellers-summary')?.addEventListener('click', () => loadReport('sellers-summary'));
     document.getElementById('btn-rep-sales-detail')?.addEventListener('click', () => { activeReportType = 'sales-detail'; loadReport('sales-detail'); });
     document.getElementById('btn-rep-tickets-detail')?.addEventListener('click', () => { activeReportType = 'tickets-detail'; loadReport('tickets-detail'); });
-    document.getElementById('btn-rep-attendance')?.addEventListener('click', () => { activeReportType = 'attendance'; loadReport('attendance'); });
-    document.getElementById('btn-rep-sales-recon')?.addEventListener('click', () => { activeReportType = 'sales-recon'; loadReport('sales-recon'); });
-    document.getElementById('btn-rep-tickets-recon')?.addEventListener('click', () => { activeReportType = 'tickets-recon'; loadReport('tickets-recon'); });
-    document.getElementById('btn-rep-expenses-detail')?.addEventListener('click', () => { activeReportType = 'expenses-detail'; loadReport('expenses-detail'); });
+    document.getElementById('report-apply-dates')?.addEventListener('click', () => loadReport(activeReportType || 'closing'));
+    document.getElementById('report-clear-dates')?.addEventListener('click', () => {
+      document.getElementById('r-start').value = '';
+      document.getElementById('r-end').value = '';
+      loadReport(activeReportType || 'closing');
+    });
     document.getElementById('btn-export')?.addEventListener('click', exportReport);
   }, 100);
 })();
 
 async function loadReport(type) {
+  activeReportType = type;
   // UI Updates
   document.querySelectorAll('.btn-rep').forEach(b => b.classList.remove('active'));
   document.getElementById(`btn-rep-${type}`)?.classList.add('active');
@@ -1587,16 +1592,119 @@ async function loadReport(type) {
   let endpoint = '';
   let renderFn = null;
   let title = '';
+  let renderAsTable = true;
 
   // Obtener filtros de fecha
   const startDate = document.getElementById('r-start')?.value || '';
   const endDate = document.getElementById('r-end')?.value || '';
+  if (startDate && endDate && startDate > endDate) {
+    showToast('La fecha desde no puede ser posterior a la fecha hasta', 'error');
+    return;
+  }
   const params = new URLSearchParams();
   if (startDate) params.append('start', startDate);
   if (endDate) params.append('end', endDate);
   const queryStr = params.toString();
 
-  if (type === 'sales-detail') {
+  if (type === 'closing') {
+    currentReportTitle = 'Cierre del Evento';
+    endpoint = '/reports/event-closing' + (queryStr ? '?' + queryStr : '');
+    title = 'Cierre consolidado del evento';
+    renderAsTable = false;
+    renderFn = rows => {
+      const report = rows[0] || {};
+      const negativeResult = Number(report.committed_result || 0) < 0;
+      return `
+        <div class="closing-report">
+          <div class="closing-event-label"><strong>${escapeUserText(report.event_name || 'Evento')}</strong><span>${escapeUserText(report.event_date || 'Fecha no informada')}</span></div>
+          <div class="closing-cards">
+            <article class="closing-card"><span>Ingresos totales</span><strong>${formatMoney(report.total_income)}</strong><small>Productos + entradas</small></article>
+            <article class="closing-card"><span>Gastos registrados</span><strong>${formatMoney(report.total_expenses)}</strong><small>Pagados + pendientes</small></article>
+            <article class="closing-card closing-card-result ${negativeResult ? 'is-negative' : ''}"><span>Resultado comprometido</span><strong>${formatMoney(report.committed_result)}</strong><small>Ingresos menos todos los gastos</small></article>
+            <article class="closing-card closing-card-warning"><span>Gastos pendientes</span><strong>${formatMoney(report.pending_expenses)}</strong><small>Obligaciones todavía no pagadas</small></article>
+          </div>
+          <div class="closing-sections">
+            <section class="closing-section"><h4>Ingresos</h4>
+              <div class="closing-line"><span>Ventas de productos</span><strong>${formatMoney(report.product_revenue)}</strong></div>
+              <div class="closing-line"><span>Venta de entradas</span><strong>${formatMoney(report.ticket_revenue)}</strong></div>
+              <div class="closing-line"><span>Gastos pagados</span><strong>${formatMoney(report.paid_expenses)}</strong></div>
+              <div class="closing-line"><span>Resultado con pagos realizados</span><strong>${formatMoney(report.cash_result)}</strong></div>
+            </section>
+            <section class="closing-section"><h4>Operación de productos</h4>
+              <div class="closing-line"><span>Órdenes</span><strong>${Number(report.product_orders || 0)}</strong></div>
+              <div class="closing-line"><span>Unidades vendidas</span><strong>${Number(report.product_items || 0)}</strong></div>
+              <div class="closing-line"><span>Costo estimado</span><strong>${formatMoney(report.estimated_product_cost)}</strong></div>
+              <div class="closing-line"><span>Margen estimado</span><strong>${formatMoney(report.estimated_product_margin)}</strong></div>
+            </section>
+            <section class="closing-section"><h4>Entradas y asistencia</h4>
+              <div class="closing-line"><span>Entradas emitidas</span><strong>${Number(report.tickets_sold || 0)}</strong></div>
+              <div class="closing-line"><span>Personas ingresadas</span><strong>${Number(report.tickets_entered || 0)}</strong></div>
+              <div class="closing-line"><span>No ingresaron</span><strong>${Number(report.tickets_not_entered || 0)}</strong></div>
+              <div class="closing-line"><span>Cortesías</span><strong>${Number(report.courtesy_tickets || 0)}</strong></div>
+              <div class="closing-line"><span>Asistencia</span><strong>${formatReportPercent(report.attendance_rate)}</strong></div>
+            </section>
+          </div>
+          <div class="report-note">El resultado comprometido resta todos los gastos registrados. El margen de productos es una referencia analítica y no se vuelve a descontar, evitando duplicar compras cargadas como gastos.</div>
+        </div>`;
+    };
+  } else if (type === 'cash-summary') {
+    currentReportTitle = 'Caja por Medio de Pago';
+    endpoint = '/reports/cash-summary' + (queryStr ? '?' + queryStr : '');
+    title = 'Caja teórica por medio de pago';
+    renderFn = rows => {
+      const totals = rows.reduce((acc, row) => ({
+        product_income: acc.product_income + Number(row.product_income || 0),
+        ticket_income: acc.ticket_income + Number(row.ticket_income || 0),
+        paid_expenses: acc.paid_expenses + Number(row.paid_expenses || 0),
+        theoretical_balance: acc.theoretical_balance + Number(row.theoretical_balance || 0)
+      }), { product_income: 0, ticket_income: 0, paid_expenses: 0, theoretical_balance: 0 });
+      return '<tr><th>Medio</th><th>Productos</th><th>Entradas</th><th>Ingresos</th><th>Gastos pagados</th><th>Saldo teórico</th></tr>' + rows.map(row => `
+        <tr><td><strong>${escapeUserText(expensePaymentLabel(row.payment_method))}</strong></td><td>${formatMoney(row.product_income)}</td><td>${formatMoney(row.ticket_income)}</td><td>${formatMoney(Number(row.product_income || 0) + Number(row.ticket_income || 0))}</td><td>${formatMoney(row.paid_expenses)}</td><td><strong>${formatMoney(row.theoretical_balance)}</strong></td></tr>
+      `).join('') + `<tr style="font-weight:800;background:#f8fafc"><td>TOTAL</td><td>${formatMoney(totals.product_income)}</td><td>${formatMoney(totals.ticket_income)}</td><td>${formatMoney(totals.product_income + totals.ticket_income)}</td><td>${formatMoney(totals.paid_expenses)}</td><td>${formatMoney(totals.theoretical_balance)}</td></tr><tr><td colspan="6" style="color:#64748b;font-size:11px;background:#f8fafc">Saldo teórico: no contempla fondo inicial, retiros ni diferencias de caja no registradas.</td></tr>`;
+    };
+  } else if (type === 'products-summary') {
+    currentReportTitle = 'Rendimiento de Productos';
+    endpoint = '/reports/products-summary' + (queryStr ? '?' + queryStr : '');
+    title = 'Rendimiento de productos';
+    renderFn = rows => {
+      const totals = rows.reduce((acc, row) => ({ units: acc.units + Number(row.units || 0), revenue: acc.revenue + Number(row.revenue || 0), cost: acc.cost + Number(row.estimated_cost || 0), margin: acc.margin + Number(row.estimated_margin || 0) }), { units: 0, revenue: 0, cost: 0, margin: 0 });
+      return '<tr><th>Producto</th><th>Unidades</th><th>Venta</th><th>Costo estimado</th><th>Margen estimado</th><th>Stock final</th></tr>' + rows.map(row => `
+        <tr><td><strong>${escapeUserText(row.product || 'Producto eliminado')}</strong></td><td>${Number(row.units || 0)}</td><td>${formatMoney(row.revenue)}</td><td>${formatMoney(row.estimated_cost)}</td><td>${formatMoney(row.estimated_margin)}</td><td>${Number(row.ending_stock || 0)}</td></tr>
+      `).join('') + `<tr style="font-weight:800;background:#f8fafc"><td>TOTAL</td><td>${totals.units}</td><td>${formatMoney(totals.revenue)}</td><td>${formatMoney(totals.cost)}</td><td>${formatMoney(totals.margin)}</td><td>-</td></tr>`;
+    };
+  } else if (type === 'tickets-summary') {
+    currentReportTitle = 'Entradas y Asistencia';
+    endpoint = '/reports/tickets-summary' + (queryStr ? '?' + queryStr : '');
+    title = 'Entradas, recaudación y asistencia';
+    renderFn = rows => {
+      const totals = rows.reduce((acc, row) => ({ sold: acc.sold + Number(row.sold || 0), entered: acc.entered + Number(row.entered || 0), absent: acc.absent + Number(row.not_entered || 0), revenue: acc.revenue + Number(row.revenue || 0) }), { sold: 0, entered: 0, absent: 0, revenue: 0 });
+      const totalRate = totals.sold ? totals.entered * 100 / totals.sold : 0;
+      return '<tr><th>Tipo</th><th>Emitidas</th><th>Ingresaron</th><th>No ingresaron</th><th>Asistencia</th><th>Recaudación</th></tr>' + rows.map(row => `
+        <tr><td><strong>${escapeUserText(reportTicketTypeLabel(row.ticket_type))}</strong></td><td>${Number(row.sold || 0)}</td><td>${Number(row.entered || 0)}</td><td>${Number(row.not_entered || 0)}</td><td>${formatReportPercent(row.attendance_rate)}</td><td>${formatMoney(row.revenue)}</td></tr>
+      `).join('') + `<tr style="font-weight:800;background:#f8fafc"><td>TOTAL</td><td>${totals.sold}</td><td>${totals.entered}</td><td>${totals.absent}</td><td>${formatReportPercent(totalRate)}</td><td>${formatMoney(totals.revenue)}</td></tr>`;
+    };
+  } else if (type === 'expenses-summary') {
+    currentReportTitle = 'Gastos por Categoría';
+    endpoint = '/reports/expenses-summary' + (queryStr ? '?' + queryStr : '');
+    title = 'Gastos pagados y pendientes por categoría';
+    renderFn = rows => {
+      const totals = rows.reduce((acc, row) => ({ records: acc.records + Number(row.records || 0), paid: acc.paid + Number(row.paid_amount || 0), pending: acc.pending + Number(row.pending_amount || 0), total: acc.total + Number(row.total_amount || 0) }), { records: 0, paid: 0, pending: 0, total: 0 });
+      return '<tr><th>Categoría</th><th>Registros</th><th>Pagado</th><th>Pendiente</th><th>Total comprometido</th></tr>' + rows.map(row => `
+        <tr><td><strong>${escapeUserText(row.category)}</strong></td><td>${Number(row.records || 0)}</td><td>${formatMoney(row.paid_amount)}</td><td>${formatMoney(row.pending_amount)}</td><td>${formatMoney(row.total_amount)}</td></tr>
+      `).join('') + `<tr style="font-weight:800;background:#f8fafc"><td>TOTAL</td><td>${totals.records}</td><td>${formatMoney(totals.paid)}</td><td>${formatMoney(totals.pending)}</td><td>${formatMoney(totals.total)}</td></tr>`;
+    };
+  } else if (type === 'sellers-summary') {
+    currentReportTitle = 'Vendedores y Cobranza';
+    endpoint = '/reports/sellers-summary' + (queryStr ? '?' + queryStr : '');
+    title = 'Operaciones e ingresos por vendedor';
+    renderFn = rows => {
+      const totals = rows.reduce((acc, row) => ({ productOps: acc.productOps + Number(row.product_operations || 0), productIncome: acc.productIncome + Number(row.product_income || 0), tickets: acc.tickets + Number(row.tickets_sold || 0), ticketIncome: acc.ticketIncome + Number(row.ticket_income || 0), collected: acc.collected + Number(row.total_collected || 0) }), { productOps: 0, productIncome: 0, tickets: 0, ticketIncome: 0, collected: 0 });
+      return '<tr><th>Responsable</th><th>Ventas productos</th><th>Ingreso productos</th><th>Entradas</th><th>Ingreso entradas</th><th>Total registrado</th></tr>' + rows.map(row => {
+        const name = [row.first_name, row.last_name].filter(Boolean).join(' ') || row.username || 'Sin asignar';
+        return `<tr><td><strong>${escapeUserText(name)}</strong>${row.username ? `<br><small style="color:#94a3b8">@${escapeUserText(row.username)}</small>` : ''}</td><td>${Number(row.product_operations || 0)}</td><td>${formatMoney(row.product_income)}</td><td>${Number(row.tickets_sold || 0)}</td><td>${formatMoney(row.ticket_income)}</td><td><strong>${formatMoney(row.total_collected)}</strong></td></tr>`;
+      }).join('') + `<tr style="font-weight:800;background:#f8fafc"><td>TOTAL</td><td>${totals.productOps}</td><td>${formatMoney(totals.productIncome)}</td><td>${totals.tickets}</td><td>${formatMoney(totals.ticketIncome)}</td><td>${formatMoney(totals.collected)}</td></tr>`;
+    };
+  } else if (type === 'sales-detail') {
     currentReportTitle = 'Reporte de Ventas de Productos';
     endpoint = '/reports/sales-detail' + (queryStr ? '?' + queryStr : '');
     title = 'Reporte Integral de Ventas de Productos';
@@ -1769,13 +1877,17 @@ async function loadReport(type) {
     document.getElementById('rep-results-area').style.display = 'block';
     currentReportData = rows; // Guardar para exportar
 
-    const table = document.createElement('table');
-    table.style.cssText = 'width:100%;border-collapse:collapse;background:#fff;font-size:14px';
-    table.innerHTML = renderFn(rows);
     output.innerHTML = '';
-    if (rows.length === 0) output.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No hay datos para este rango.</div>';
-    else output.appendChild(table);
-    enhanceResponsiveTables(output);
+    if (rows.length === 0) {
+      output.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted)">No hay datos para este rango.</div>';
+    } else if (renderAsTable) {
+      const table = document.createElement('table');
+      table.innerHTML = renderFn(rows);
+      output.appendChild(table);
+      enhanceResponsiveTables(output);
+    } else {
+      output.innerHTML = renderFn(rows);
+    }
   } catch (e) {
     document.getElementById('rep-results-area').style.display = 'none';
     output.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444">Error al cargar el reporte: ' + e.message + '</div>';
@@ -1790,7 +1902,75 @@ function exportReport() {
 
   // Mapeo y traducción de datos según el reporte activo
   const translatedData = currentReportData.map(r => {
-    if (activeReportType === 'sales-detail') {
+    if (activeReportType === 'closing') {
+      return {
+        'Evento': r.event_name,
+        'Fecha del evento': r.event_date || '-',
+        'Ingresos productos': r.product_revenue,
+        'Ingresos entradas': r.ticket_revenue,
+        'Ingresos totales': r.total_income,
+        'Gastos pagados': r.paid_expenses,
+        'Gastos pendientes': r.pending_expenses,
+        'Gastos registrados': r.total_expenses,
+        'Resultado con pagos realizados': r.cash_result,
+        'Resultado comprometido': r.committed_result,
+        'Costo estimado productos': r.estimated_product_cost,
+        'Margen estimado productos': r.estimated_product_margin,
+        'Órdenes': r.product_orders,
+        'Unidades vendidas': r.product_items,
+        'Entradas emitidas': r.tickets_sold,
+        'Personas ingresadas': r.tickets_entered,
+        'No ingresaron': r.tickets_not_entered,
+        'Cortesías': r.courtesy_tickets,
+        'Asistencia %': r.attendance_rate
+      };
+    } else if (activeReportType === 'cash-summary') {
+      return {
+        'Medio de pago': expensePaymentLabel(r.payment_method),
+        'Ingresos productos': r.product_income,
+        'Ingresos entradas': r.ticket_income,
+        'Ingresos totales': Number(r.product_income || 0) + Number(r.ticket_income || 0),
+        'Gastos pagados': r.paid_expenses,
+        'Saldo teórico': r.theoretical_balance
+      };
+    } else if (activeReportType === 'products-summary') {
+      return {
+        'Producto': r.product || 'Producto eliminado',
+        'Unidades': r.units,
+        'Venta': r.revenue,
+        'Costo estimado': r.estimated_cost,
+        'Margen estimado': r.estimated_margin,
+        'Stock final': r.ending_stock
+      };
+    } else if (activeReportType === 'tickets-summary') {
+      return {
+        'Tipo de entrada': reportTicketTypeLabel(r.ticket_type),
+        'Emitidas': r.sold,
+        'Ingresaron': r.entered,
+        'No ingresaron': r.not_entered,
+        'Asistencia %': r.attendance_rate,
+        'Recaudación': r.revenue
+      };
+    } else if (activeReportType === 'expenses-summary') {
+      return {
+        'Categoría': r.category,
+        'Registros': r.records,
+        'Pagado': r.paid_amount,
+        'Pendiente': r.pending_amount,
+        'Total comprometido': r.total_amount
+      };
+    } else if (activeReportType === 'sellers-summary') {
+      const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.username || 'Sin asignar';
+      return {
+        'Responsable': name,
+        'Usuario': r.username || '-',
+        'Ventas de productos': r.product_operations,
+        'Ingreso productos': r.product_income,
+        'Entradas': r.tickets_sold,
+        'Ingreso entradas': r.ticket_income,
+        'Total registrado': r.total_collected
+      };
+    } else if (activeReportType === 'sales-detail') {
       return {
         'Fecha/Hora': r.fecha,
         'Orden ID': `#${r.orden_id}`,
@@ -1856,7 +2036,7 @@ function exportReport() {
     csvRows.push(headers.join(','));
     for (const row of translatedData) {
       const values = headers.map(header => {
-        const escaped = ('' + (row[header] || '')).replace(/"/g, '\\"');
+        const escaped = String(row[header] ?? '').replace(/"/g, '""');
         return `"${escaped}"`;
       });
       csvRows.push(values.join(','));
@@ -2382,7 +2562,7 @@ function navigateToHash(){
   if (hash === 'sales') { loadProducts(); loadEvents(); loadSales(); }
   if (hash === 'tickets') { loadTickets(); }
   if (hash === 'partners') { loadExpenses(); }
-  if (hash === 'reports') { /* nothing extra */ }
+  if (hash === 'reports') { loadReport(activeReportType || 'closing'); }
   if (hash === 'config') { loadEvents(); loadSettings(); loadUsersForMgmt(); loadDiscountsForMgmt(); }
   showPage(hash);
 }

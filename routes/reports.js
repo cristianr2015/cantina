@@ -3,6 +3,203 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
+const { buildClosingSummary } = require('../lib/reportMetrics');
+
+function dateRange(field, start, end, dateOnly = false) {
+  let sql = '';
+  const params = [];
+  if (start) {
+    sql += ` AND ${field} >= ?`;
+    params.push(dateOnly ? start : `${start} 00:00:00`);
+  }
+  if (end) {
+    sql += ` AND ${field} <= ?`;
+    params.push(dateOnly ? end : `${end} 23:59:59`);
+  }
+  return { sql, params };
+}
+
+// Cierre consolidado: la primera pantalla que un administrador necesita al terminar el evento.
+router.get('/event-closing', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const ordersRange = dateRange('o.created_at', start, end);
+    const ticketsRange = dateRange('t.sold_at', start, end);
+    const expensesRange = dateRange('e.expense_date', start, end, true);
+
+    const [
+      [eventRows], [productRows], [productCostRows], [ticketRows], [expenseRows]
+    ] = await Promise.all([
+      db.query("SELECT name, DATE_FORMAT(date, '%Y-%m-%d %H:%i') AS date FROM events WHERE id = ? LIMIT 1", [req.eventId]),
+      db.query(`SELECT COALESCE(SUM(o.total), 0) AS revenue, COUNT(*) AS orders
+        FROM orders o WHERE o.event_id = ?${ordersRange.sql}`, [req.eventId, ...ordersRange.params]),
+      db.query(`SELECT COALESCE(SUM(s.quantity * IFNULL(p.price_cost, 0)), 0) AS estimated_cost,
+                       COALESCE(SUM(s.quantity), 0) AS items
+        FROM sales s
+        INNER JOIN orders o ON o.id = s.order_id
+        LEFT JOIN products p ON p.id = s.product_id
+        WHERE o.event_id = ?${ordersRange.sql}`, [req.eventId, ...ordersRange.params]),
+      db.query(`SELECT COALESCE(SUM(t.price_paid), 0) AS revenue,
+                       COUNT(*) AS sold,
+                       COALESCE(SUM(CASE WHEN t.entered = 1 THEN 1 ELSE 0 END), 0) AS entered,
+                       COALESCE(SUM(CASE WHEN t.ticket_type = 'cortesia' THEN 1 ELSE 0 END), 0) AS courtesy
+        FROM tickets_sold t WHERE t.event_id = ?${ticketsRange.sql}`, [req.eventId, ...ticketsRange.params]),
+      db.query(`SELECT COALESCE(SUM(CASE WHEN e.status = 'paid' THEN e.amount ELSE 0 END), 0) AS paid,
+                       COALESCE(SUM(CASE WHEN e.status = 'pending' THEN e.amount ELSE 0 END), 0) AS pending,
+                       COUNT(*) AS records
+        FROM expenses e WHERE e.event_id = ?${expensesRange.sql}`, [req.eventId, ...expensesRange.params])
+    ]);
+
+    res.json([buildClosingSummary({
+      event: eventRows[0],
+      products: { ...productRows[0], ...productCostRows[0] },
+      tickets: ticketRows[0],
+      expenses: expenseRows[0]
+    })]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/cash-summary', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const ordersRange = dateRange('created_at', start, end);
+    const ticketsRange = dateRange('sold_at', start, end);
+    const expensesRange = dateRange('expense_date', start, end, true);
+    const [rows] = await db.query(`
+      SELECT payment_method,
+             SUM(product_income) AS product_income,
+             SUM(ticket_income) AS ticket_income,
+             SUM(paid_expenses) AS paid_expenses,
+             SUM(product_income + ticket_income - paid_expenses) AS theoretical_balance
+      FROM (
+        SELECT payment_method, COALESCE(SUM(total), 0) AS product_income, 0 AS ticket_income, 0 AS paid_expenses
+        FROM orders WHERE event_id = ?${ordersRange.sql} GROUP BY payment_method
+        UNION ALL
+        SELECT payment_method, 0, COALESCE(SUM(price_paid), 0), 0
+        FROM tickets_sold WHERE event_id = ?${ticketsRange.sql} GROUP BY payment_method
+        UNION ALL
+        SELECT payment_method, 0, 0, COALESCE(SUM(amount), 0)
+        FROM expenses WHERE event_id = ? AND status = 'paid'${expensesRange.sql} GROUP BY payment_method
+      ) movements
+      GROUP BY payment_method
+      ORDER BY FIELD(payment_method, 'cash', 'mercadopago', 'transfer')
+    `, [
+      req.eventId, ...ordersRange.params,
+      req.eventId, ...ticketsRange.params,
+      req.eventId, ...expensesRange.params
+    ]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/products-summary', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const range = dateRange('o.created_at', start, end);
+    const [rows] = await db.query(`
+      SELECT p.name AS product,
+             SUM(s.quantity) AS units,
+             SUM(CASE WHEN order_gross.gross > 0
+                 THEN o.total * (s.quantity * s.sale_price) / order_gross.gross ELSE 0 END) AS revenue,
+             SUM(s.quantity * IFNULL(p.price_cost, 0)) AS estimated_cost,
+             SUM(CASE WHEN order_gross.gross > 0
+                 THEN o.total * (s.quantity * s.sale_price) / order_gross.gross ELSE 0 END)
+                 - SUM(s.quantity * IFNULL(p.price_cost, 0)) AS estimated_margin,
+             p.stock AS ending_stock
+      FROM sales s
+      INNER JOIN orders o ON o.id = s.order_id
+      INNER JOIN (
+        SELECT order_id, SUM(quantity * sale_price) AS gross
+        FROM sales GROUP BY order_id
+      ) order_gross ON order_gross.order_id = o.id
+      LEFT JOIN products p ON p.id = s.product_id
+      WHERE o.event_id = ?${range.sql}
+      GROUP BY p.id, p.name, p.stock
+      ORDER BY units DESC, revenue DESC
+    `, [req.eventId, ...range.params]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/tickets-summary', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const range = dateRange('t.sold_at', start, end);
+    const [rows] = await db.query(`
+      SELECT t.ticket_type,
+             COUNT(*) AS sold,
+             SUM(CASE WHEN t.entered = 1 THEN 1 ELSE 0 END) AS entered,
+             SUM(CASE WHEN t.entered = 0 THEN 1 ELSE 0 END) AS not_entered,
+             COALESCE(SUM(t.price_paid), 0) AS revenue,
+             ROUND(100 * SUM(CASE WHEN t.entered = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS attendance_rate
+      FROM tickets_sold t
+      WHERE t.event_id = ?${range.sql}
+      GROUP BY t.ticket_type
+      ORDER BY FIELD(t.ticket_type, 'anticipada', 'puerta', 'cortesia')
+    `, [req.eventId, ...range.params]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/expenses-summary', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const range = dateRange('e.expense_date', start, end, true);
+    const [rows] = await db.query(`
+      SELECT e.category,
+             COUNT(*) AS records,
+             SUM(CASE WHEN e.status = 'paid' THEN e.amount ELSE 0 END) AS paid_amount,
+             SUM(CASE WHEN e.status = 'pending' THEN e.amount ELSE 0 END) AS pending_amount,
+             SUM(e.amount) AS total_amount
+      FROM expenses e
+      WHERE e.event_id = ?${range.sql}
+      GROUP BY e.category
+      ORDER BY total_amount DESC, e.category
+    `, [req.eventId, ...range.params]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/sellers-summary', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    const ordersRange = dateRange('created_at', start, end);
+    const ticketsRange = dateRange('sold_at', start, end);
+    const [rows] = await db.query(`
+      SELECT movements.user_id,
+             u.username, u.first_name, u.last_name,
+             SUM(movements.product_operations) AS product_operations,
+             SUM(movements.product_income) AS product_income,
+             SUM(movements.tickets_sold) AS tickets_sold,
+             SUM(movements.ticket_income) AS ticket_income,
+             SUM(movements.product_income + movements.ticket_income) AS total_collected
+      FROM (
+        SELECT user_id, COUNT(*) AS product_operations, COALESCE(SUM(total), 0) AS product_income,
+               0 AS tickets_sold, 0 AS ticket_income
+        FROM orders WHERE event_id = ?${ordersRange.sql} GROUP BY user_id
+        UNION ALL
+        SELECT user_id, 0, 0, COUNT(*), COALESCE(SUM(price_paid), 0)
+        FROM tickets_sold WHERE event_id = ?${ticketsRange.sql} GROUP BY user_id
+      ) movements
+      LEFT JOIN users u ON u.id = movements.user_id
+      GROUP BY movements.user_id, u.username, u.first_name, u.last_name
+      ORDER BY total_collected DESC
+    `, [req.eventId, ...ordersRange.params, req.eventId, ...ticketsRange.params]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Reporte: ventas por medio de pago (reemplaza usuario)
 router.get('/sales-by-payment', auth(['admin']), requireEvent, async (req, res) => {
@@ -142,10 +339,17 @@ router.get('/sales-detail', auth(['admin']), requireEvent, async (req, res) => {
         s.sale_price as precio_unitario,
         IFNULL(d.percentage, 0) as descuento_porcentaje,
         IFNULL(d.name, '-') as descuento_detalle,
-        (s.quantity * s.sale_price * (1 - IFNULL(d.percentage, 0) / 100)) as subtotal,
-        (s.quantity * (s.sale_price * (1 - IFNULL(d.percentage, 0) / 100) - IFNULL(p.price_cost, 0))) as ganancia
+        (CASE WHEN order_gross.gross > 0
+          THEN o.total * (s.quantity * s.sale_price) / order_gross.gross ELSE 0 END) as subtotal,
+        (CASE WHEN order_gross.gross > 0
+          THEN o.total * (s.quantity * s.sale_price) / order_gross.gross ELSE 0 END)
+          - (s.quantity * IFNULL(p.price_cost, 0)) as ganancia
       FROM sales s
       INNER JOIN orders o ON s.order_id = o.id
+      INNER JOIN (
+        SELECT order_id, SUM(quantity * sale_price) AS gross
+        FROM sales GROUP BY order_id
+      ) order_gross ON order_gross.order_id = o.id
       LEFT JOIN products p ON s.product_id = p.id
       LEFT JOIN users u ON o.user_id = u.id
       LEFT JOIN discounts d ON o.discount_id = d.id

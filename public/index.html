@@ -577,54 +577,49 @@
           </div>
 
           <div id="page-reports" class="page hidden">
-            <section>
-              <h2>Reportes y Estadísticas</h2>
+            <section class="reports-management">
+              <header class="reports-header">
+                <div><span class="reports-eyebrow">CIERRE Y CONTROL</span><h2>Reportes del evento</h2><p>Consolidá ingresos, gastos, resultado, caja y asistencia del evento seleccionado.</p></div>
+              </header>
 
-              <div class="report-controls">
-                <!-- Filtros por fecha -->
-                <div style="background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
-                  <div style="display:flex;flex-direction:column;gap:12px;max-width:300px;margin:0">
-                    <div>
-                      <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted);font-weight:600">Desde</label>
-                      <input id="r-start" type="date" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-                    </div>
-                    <div>
-                      <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted);font-weight:600">Hasta</label>
-                      <input id="r-end" type="date" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-                    </div>
-                  </div>
-                </div>
+              <div class="reports-period">
+                <div class="reports-period-copy"><strong>Período del informe</strong><span>Dejalo vacío para analizar el evento completo.</span></div>
+                <label><span>Desde</span><input id="r-start" type="date" /></label>
+                <label><span>Hasta</span><input id="r-end" type="date" /></label>
+                <button id="report-apply-dates" type="button">Aplicar</button>
+                <button id="report-clear-dates" class="btn-ghost" type="button">Todo el evento</button>
+              </div>
 
-                <!-- Botones de reportes -->
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;margin-bottom:24px;max-width:800px;margin:0">
-                  <button id="btn-rep-sales-detail" class="btn-rep" style="height:60px;font-size:16px">📦 Reporte de Ventas (Productos)</button>
-                  <button id="btn-rep-tickets-detail" class="btn-rep" style="height:60px;font-size:16px">🎫 Reporte de Entradas (Tickets)</button>
-                  <button id="btn-rep-attendance" class="btn-rep" style="height:60px;font-size:16px">👥 Resumen de Asistencia</button>
-                  <button id="btn-rep-sales-recon" class="btn-rep" style="height:60px;font-size:16px;background:#fef3c7">💰 Arqueo Caja (Productos)</button>
-                  <button id="btn-rep-tickets-recon" class="btn-rep" style="height:60px;font-size:16px;background:#fef3c7">🎟️ Arqueo Caja (Entradas)</button>
-                  <button id="btn-rep-expenses-detail" class="btn-rep" style="height:60px;font-size:16px">🧾 Reporte de Gastos</button>
-                </div>
+              <div class="reports-picker" aria-label="Tipos de reporte">
+                <button id="btn-rep-closing" class="btn-rep report-choice-primary" type="button"><span class="report-choice-icon">📊</span><span><strong>Cierre del evento</strong><small>Resultado final, ingresos, gastos y asistencia</small></span></button>
+                <button id="btn-rep-cash-summary" class="btn-rep" type="button"><span class="report-choice-icon">💳</span><span><strong>Caja por medio de pago</strong><small>Ingresos, egresos y saldo teórico</small></span></button>
+                <button id="btn-rep-products-summary" class="btn-rep" type="button"><span class="report-choice-icon">📦</span><span><strong>Rendimiento de productos</strong><small>Unidades, venta, costo y margen estimado</small></span></button>
+                <button id="btn-rep-tickets-summary" class="btn-rep" type="button"><span class="report-choice-icon">🎫</span><span><strong>Entradas y asistencia</strong><small>Vendidas, ingresadas, ausentes y recaudación</small></span></button>
+                <button id="btn-rep-expenses-summary" class="btn-rep" type="button"><span class="report-choice-icon">🧾</span><span><strong>Gastos por categoría</strong><small>Pagados, pendientes y comprometidos</small></span></button>
+                <button id="btn-rep-sellers-summary" class="btn-rep" type="button"><span class="report-choice-icon">👥</span><span><strong>Vendedores y cobranza</strong><small>Operaciones e ingresos registrados por persona</small></span></button>
+                <button id="btn-rep-sales-detail" class="btn-rep" type="button"><span class="report-choice-icon">🧾</span><span><strong>Detalle de ventas</strong><small>Auditoría de productos, descuentos y vendedores</small></span></button>
+                <button id="btn-rep-tickets-detail" class="btn-rep" type="button"><span class="report-choice-icon">📋</span><span><strong>Padrón de entradas</strong><small>Personas, DNI, tipo e ingreso registrado</small></span></button>
               </div>
               
               <!-- Área de resultados -->
-              <div id="rep-results-area" style="display:none">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(15,23,42,0.08)">
-                  <h3 id="rep-title" style="margin:0;font-size:16px;color:#1f2937;font-weight:600">Resultados</h3>
-                  <div style="display:flex;gap:10px;align-items:center">
-                    <select id="export-format" style="padding:8px 12px;background:var(--card);border:1px solid rgba(15,23,42,0.1);border-radius:8px;color:#1f2937;cursor:pointer">
+              <div id="rep-results-area" class="reports-results" style="display:none">
+                <div class="reports-results-header">
+                  <div><span class="reports-eyebrow">RESULTADO</span><h3 id="rep-title">Resultados</h3></div>
+                  <div class="reports-export">
+                    <select id="export-format">
                       <option value="csv">CSV</option>
                       <option value="xlsx">Excel</option>
                     </select>
-                    <button id="btn-export" style="padding:8px 16px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s">⬇ Exportar</button>
+                    <button id="btn-export">⬇ Exportar</button>
                   </div>
                 </div>
                 <div class="table-wrap" id="report-output"></div>
               </div>
               
               <!-- Estado vacío -->
-              <div id="rep-empty-state" style="text-align:center;padding:60px 20px;color:#9ca3af;border:2px dashed rgba(15,23,42,0.1);border-radius:12px">
+              <div id="rep-empty-state" class="reports-empty-state">
                 <div style="font-size:40px;margin-bottom:10px">📊</div>
-                <p>Selecciona un tipo de reporte para visualizar los datos</p>
+                <p>Preparando el cierre del evento...</p>
               </div>
             </section>
           </div>

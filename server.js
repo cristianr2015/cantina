@@ -46,7 +46,7 @@ app.get('/ping', async (req, res) => {
   }
 });
 
-// Kubernetes: liveness verifica el proceso; readiness verifica también MySQL.
+// App Service puede usar liveness para el proceso y readiness para verificar también MySQL.
 app.get('/health/live', (req, res) => {
   res.json({ ok: true });
 });

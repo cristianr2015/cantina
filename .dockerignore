@@ -8,7 +8,6 @@ android
 node_modules
 npm-debug.log*
 coverage
-k8s
 README.md
 cantina.sql
 seeds.sql

@@ -1,8 +1,8 @@
-### SI TE RESULTA UTIL PODES APOYAR EL DESARROLLO Y CONTINUIDAD DE ESTE PROYECTO MEDIANTE GITHUB Sponsors
+### SI TE RESULTA ÚTIL PODÉS APOYAR EL DESARROLLO Y LA CONTINUIDAD DE ESTE PROYECTO MEDIANTE GITHUB SPONSORS
 
 # Cantina / Bufet
 
-Aplicacion Node.js/Express para administrar productos, ventas, entradas, socios y eventos. Usa MySQL y sirve el frontend desde `public/`.
+Aplicación Node.js/Express para administrar eventos, productos, ventas, entradas, gastos y reportes. Usa MySQL y sirve el frontend desde `public/`.
 
 ## Desarrollo local
 
@@ -15,30 +15,87 @@ mysql -u root -p < schema.sql
 npm start
 ```
 
-La aplicacion queda disponible en `http://localhost:3000`. El proyecto no carga `.env` automaticamente: hay que exportar esas variables o inyectarlas desde el entorno de ejecucion.
+La aplicación queda disponible en `http://localhost:3000`. El proyecto no carga `.env` automáticamente: las variables deben exportarse o inyectarse desde el entorno de ejecución.
+
+Variables principales:
+
+| Variable | Descripción |
+|---|---|
+| `NODE_ENV` | Usar `production` en Azure. |
+| `PORT` | Puerto HTTP; App Service lo proporciona durante la ejecución. |
+| `DB_HOST` | Host de MySQL. |
+| `DB_PORT` | Puerto de MySQL, normalmente `3306`. |
+| `DB_NAME` | Nombre de la base, por defecto `cantina_db`. |
+| `DB_USER` | Usuario de MySQL. |
+| `DB_PASSWORD` | Contraseña de MySQL. |
+| `DB_SSL` | Establecer `true` cuando MySQL requiera TLS. |
+| `DB_SSL_CA_BASE64` | Certificado CA en Base64, si corresponde. |
+| `JWT_SECRET` | Secreto largo y aleatorio; es obligatorio en producción. |
 
 Endpoints operativos:
 
-- `GET /health/live`: confirma que el proceso esta vivo.
-- `GET /health/ready`: confirma que la aplicacion puede consultar MySQL.
-- `GET /ping`: endpoint de compatibilidad con chequeo de base de datos.
+- `GET /health/live`: confirma que el proceso está activo.
+- `GET /health/ready`: confirma que la aplicación puede consultar MySQL.
+- `GET /ping`: endpoint de compatibilidad con comprobación de base de datos.
 
-Roles de la aplicacion:
+## Funcionalidad principal
 
-- `admin`: acceso completo y administracion de usuarios.
+Roles de la aplicación:
+
+- `admin`: acceso completo y administración de usuarios.
 - `seller`: ventas de cantina, entradas y consultas operativas.
-- `puerta`: acceso exclusivo a las operaciones de entradas; las ventas quedan asociadas automaticamente a su usuario.
+- `puerta`: operaciones de entradas y control de ingreso.
 
-## Entradas y control de ingreso
+Entradas y control de ingreso:
 
-- Tipos disponibles: anticipada, en puerta y cortesia.
-- Los precios de anticipada y puerta se administran en `Configuracion > Precios de Entradas`; cortesia siempre vale cero.
-- El valor queda guardado en cada venta para que los reportes historicos no cambien al actualizar precios.
-- Al registrar anticipadas, el sistema genera un PDF imprimible con una pagina y un QR unico por entrada.
-- El lector de puerta valida el token en el servidor. El primer escaneo registra el ingreso y cualquier intento posterior se rechaza como entrada ya utilizada.
-- Nombre, CUIT, direccion, telefono, correo y logo de la pena se toman de Configuracion para armar el PDF.
+- Tipos disponibles: anticipada, en puerta y cortesía.
+- Los precios de anticipada y puerta se administran por evento desde Configuración; cortesía siempre vale cero.
+- Cada venta conserva su valor histórico aunque luego cambien los precios.
+- Las anticipadas generan un PDF con un QR único por entrada.
+- El primer escaneo registra el ingreso y los intentos posteriores se rechazan.
+- El comprobante usa el nombre, CUIT, dirección, teléfono, correo y logo configurados para la peña.
 
-## Contenedor
+## Despliegue en Azure App Service
+
+La aplicación se publica exclusivamente en Azure App Service mediante el workflow:
+
+`.github/workflows/main_app-pena.yml`
+
+Cada push a `main` ejecuta este proceso:
+
+1. Instala Node.js 24 y las dependencias.
+2. Ejecuta la compilación, si existe, y todas las pruebas.
+3. Genera el artefacto de la aplicación.
+4. Inicia sesión en Azure mediante OpenID Connect.
+5. Publica el artefacto en la aplicación `APP-Pena`, slot `Production`.
+
+El workflow utiliza estos secretos del repositorio, generados para la conexión federada de App Service:
+
+- `AZUREAPPSERVICE_CLIENTID_98FF59D384B946B186988DCCCFC0A473`
+- `AZUREAPPSERVICE_TENANTID_DF18F91A28354D2A97D89B9E38DC1A5B`
+- `AZUREAPPSERVICE_SUBSCRIPTIONID_2820691C02AD494A823B83EB733556FF`
+
+Las variables de la aplicación y de MySQL deben configurarse en Azure Portal, dentro de `APP-Pena > Configuración > Variables de entorno`. No deben guardarse contraseñas reales en el repositorio.
+
+Para publicar una actualización:
+
+```powershell
+git add <archivos>
+git commit -m "Descripción del cambio"
+git push origin main
+```
+
+El estado de la publicación se consulta en GitHub Actions. Una vez finalizada, conviene verificar `/health/live` y `/health/ready` en la URL de producción.
+
+## Base de datos en Azure
+
+`infra/mysql-flexible-server.bicep` contiene una plantilla para Azure Database for MySQL Flexible Server. `infra/mysql-vm.bicep` y `scripts/configure-mysql-vm.sh` permiten la alternativa existente basada en una VM con integración privada hacia App Service.
+
+La estructura inicial se encuentra en `schema.sql` y los datos iniciales en `seeds.sql`. Antes de cambiar la infraestructura de datos se debe conservar una copia de seguridad verificable.
+
+## Contenedor opcional
+
+El `Dockerfile` se conserva para desarrollo, pruebas o un posible App Service basado en contenedor. No forma parte del workflow de publicación actual.
 
 ```powershell
 docker build -t cantina:local .
@@ -52,155 +109,12 @@ docker run --rm -p 3000:3000 `
   cantina:local
 ```
 
-La imagen usa Node.js 24, instala solo dependencias de produccion y se ejecuta como usuario sin privilegios.
+La imagen usa Node.js 24, instala sólo dependencias de producción y se ejecuta como usuario sin privilegios.
 
-## Arquitectura en Azure
+## Seguridad y operación
 
-El despliegue automatizado crea y usa:
-
-- AKS con identidad administrada, Microsoft Entra ID, Azure RBAC y cuentas locales deshabilitadas.
-- Azure Container Registry (ACR) privado para las imagenes.
-- Application Routing de AKS como Ingress NGINX administrado.
-- Identidad administrada dedicada a GitHub Actions con federacion OIDC, sin client secret ni kubeconfig permanente.
-- Rol `AcrPush` sobre ACR, acceso de usuario al AKS y rol `AKS RBAC Writer` limitado al namespace `cantina`.
-- Azure Disk mediante PVC para MySQL y uploads.
-
-El script usa por defecto el tier gratuito de administracion de AKS, un nodo `Standard_D2s_v5`, autoscaling de 1 a 3 nodos y ACR Basic. Los nodos, discos, IP publica y ACR generan cargos en Azure.
-
-## Aprovisionar AKS y conectar GitHub
-
-Requisitos en Windows:
-
-- Azure CLI.
-- GitHub CLI (`winget install --id GitHub.cli`).
-- Permisos de Azure para crear recursos y asignar roles, normalmente `Owner` o `Contributor` junto con `User Access Administrator`.
-
-Iniciar sesion y ejecutar el aprovisionamiento idempotente:
-
-```powershell
-az login
-gh auth login
-.\scripts\provision-aks.ps1 -ConfigureGitHub
-```
-
-Valores predeterminados:
-
-| Recurso | Valor |
-|---|---|
-| Repositorio | `cristianr2015/pena` |
-| Region | `brazilsouth` |
-| Resource group | `rg-pena-prod` |
-| AKS | `aks-pena-prod` |
-| Identidad de CI/CD | `id-github-pena-cd` |
-| GitHub environment | `production` |
-
-Se pueden sobrescribir, por ejemplo:
-
-```powershell
-.\scripts\provision-aks.ps1 `
-  -GitHubRepository 'cristianr2015/pena' `
-  -SubscriptionId '<subscription-id>' `
-  -Location 'brazilsouth' `
-  -ResourceGroup 'rg-pena-prod' `
-  -AksCluster 'aks-pena-prod' `
-  -AcrName 'un-nombre-globalmente-unico' `
-  -NodeVmSize 'Standard_D2s_v5' `
-  -ConfigureGitHub
-```
-
-`-ConfigureGitHub` crea el environment, configura los identificadores de Azure, genera secretos de aplicacion aleatorios solo si todavia no existen y copia la contrasena inicial del administrador al portapapeles sin imprimirla. Volver a ejecutar el script no rota secretos existentes ni recrea los recursos.
-
-Si se omite `-ConfigureGitHub`, el script muestra los valores que deben cargarse en GitHub. Tambien se puede ejecutar `scripts/configure-github.ps1` por separado con esos valores.
-
-## CI/CD
-
-El unico workflow es `.github/workflows/ci-cd.yml`:
-
-1. En cada pull request y push ejecuta `npm ci`, tests, auditoria de dependencias, render de Kustomize y build de Docker sin publicar.
-2. En `main`, GitHub obtiene un token temporal de Azure mediante OIDC.
-3. Publica `cantina:<commit-sha>` y `cantina:latest` en ACR.
-4. Obtiene credenciales temporales de AKS, aplica los secretos y manifiestos, y espera los rollouts de MySQL y la aplicacion.
-
-El environment `production` contiene:
-
-| Nombre | Tipo |
-|---|---|
-| `AZURE_CLIENT_ID` | Secret |
-| `AZURE_TENANT_ID` | Secret |
-| `AZURE_SUBSCRIPTION_ID` | Secret |
-| `DB_PASSWORD` | Secret |
-| `MYSQL_ROOT_PASSWORD` | Secret |
-| `JWT_SECRET` | Secret |
-| `ADMIN_USERNAME` | Secret |
-| `ADMIN_PASSWORD` | Secret |
-| `AZURE_RESOURCE_GROUP` | Variable |
-| `AZURE_AKS_CLUSTER` | Variable |
-| `AZURE_ACR_NAME` | Variable |
-| `APP_HOST` | Variable opcional |
-
-## Despliegue y actualizaciones manuales
-
-Si GitHub Actions no esta disponible, se puede desplegar directamente desde una terminal autenticada. El script construye la imagen local, la publica en ACR con el SHA del commit, obtiene acceso temporal a AKS, aplica Kubernetes, espera los rollouts y retira el acceso temporal.
-
-Requisitos:
-
-```powershell
-az login
-docker version
-```
-
-Confirmar primero los cambios para que la imagen sea trazable y ejecutar:
-
-```powershell
-git add <archivos>
-git commit -m "Descripcion del cambio"
-git push origin main
-.\scripts\deploy-aks-manual.ps1
-```
-
-En la primera ejecucion genera los secretos, los guarda en Kubernetes y sincroniza GitHub si `gh` esta autenticado. La contrasena inicial de `admin` se copia al portapapeles sin imprimirse. En actualizaciones posteriores reutiliza el Secret existente y no rota la clave de MySQL.
-
-Con un dominio configurado:
-
-```powershell
-.\scripts\deploy-aks-manual.ps1 -AppHost 'cantina.midominio.com'
-```
-
-El despliegue identifica al usuario desde el claim `oid` del token ARM de Azure CLI, sin consultar Microsoft Graph. Esto evita que una politica de Acceso Condicional o CAE interrumpa el proceso con `InteractionRequired` despues de publicar la imagen. Si la identidad usada no emite ese claim, se puede indicar explicitamente:
-
-```powershell
-.\scripts\deploy-aks-manual.ps1 `
-  -AppHost 'cantina.midominio.com' `
-  -AzurePrincipalObjectId '<object-id-de-la-identidad>'
-```
-
-Aunque el deployment sea manual, conviene conservar `.github/workflows/ci-cd.yml` deshabilitado para poder reactivarlo cuando la facturacion de GitHub vuelva a estar disponible.
-
-Cuando GitHub vuelva a estar habilitado, reactivar y disparar CI/CD manualmente:
-
-```powershell
-gh workflow enable ci-cd.yml --repo cristianr2015/pena
-gh workflow run ci-cd.yml --repo cristianr2015/pena --ref main
-```
-
-Sin `APP_HOST`, el Ingress acepta cualquier host y se puede probar por la IP publica. Con dominio, pasar `-AppHost 'cantina.midominio.com'` y crear un registro DNS `A` hacia la IP del Ingress.
-
-## Kubernetes local
-
-`k8s/base` contiene la aplicacion, MySQL 8.4, almacenamiento persistente, probes y servicios. `k8s/overlays/production` agrega el Ingress de AKS; `k8s/overlays/local` publica la app y MySQL solo para Docker Desktop.
-
-Con Kubernetes de Docker Desktop habilitado:
-
-```powershell
-.\scripts\deploy-local-k8s.ps1
-```
-
-La aplicacion queda en `http://localhost:3000` y MySQL en `127.0.0.1:3307`. Las credenciales incluidas en ese script son exclusivamente locales.
-
-## Limites de esta primera topologia
-
-- MySQL tiene una replica y un Azure Disk. El disco persiste ante reinicios de Pod, pero no reemplaza backups ni alta disponibilidad.
-- Los uploads usan `ReadWriteOnce`, por eso la aplicacion tiene una replica. Para escalar horizontalmente conviene moverlos a Azure Blob Storage.
-- El Ingress inicial usa HTTP. Antes de ingresar credenciales reales por Internet hay que configurar un dominio y TLS.
-- El modelo heredado guarda contrasenas de usuarios de la aplicacion en texto plano. Antes de uso productivo debe migrarse a Argon2 o bcrypt.
-- Los secretos de MySQL no deben rotarse solo en GitHub: tambien hay que cambiar los usuarios dentro de MySQL de forma coordinada.
+- Mantener `JWT_SECRET` y las credenciales de MySQL exclusivamente en las variables seguras de App Service.
+- Configurar HTTPS obligatorio en App Service.
+- Respaldar MySQL y probar periódicamente la restauración.
+- Los archivos subidos deben almacenarse en un volumen persistente o en Azure Blob Storage antes de escalar a varias instancias.
+- El modelo heredado de contraseñas de usuarios debe migrarse a Argon2 o bcrypt antes de exponer datos sensibles.

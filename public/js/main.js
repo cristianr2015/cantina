@@ -1,4 +1,4 @@
-console.log("Peña Los Amigos- sistema iniciado");
+console.log("EventGes - sistema iniciado");
 
 document.addEventListener('DOMContentLoaded', () => {
   const toasts = document.querySelectorAll('[data-toast]');

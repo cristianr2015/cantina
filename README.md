@@ -1,6 +1,6 @@
 ### SI TE RESULTA ÚTIL PODÉS APOYAR EL DESARROLLO Y LA CONTINUIDAD DE ESTE PROYECTO MEDIANTE GITHUB SPONSORS
 
-# Cantina / Bufet
+# EventGes
 
 Aplicación Node.js/Express para administrar eventos, productos, ventas, entradas, gastos y reportes. Usa MySQL y sirve el frontend desde `public/`.
 

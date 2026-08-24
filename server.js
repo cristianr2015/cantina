@@ -76,7 +76,7 @@ app.get('/api/public-settings', async (req, res) => {
     const companyCode = String(req.query.company || '').trim().toLowerCase();
     if (!companyCode) {
       return res.json({
-        company_name: 'Gestión de Eventos', logo_path: null,
+        company_name: 'EventGes', logo_path: null,
         region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
       });
     }
@@ -87,7 +87,7 @@ app.get('/api/public-settings', async (req, res) => {
       [companyCode]
     );
     res.json(rows[0] || {
-      company_name: 'Gestión de Eventos', logo_path: null, region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
+      company_name: 'EventGes', logo_path: null, region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

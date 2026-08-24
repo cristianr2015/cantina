@@ -1,7 +1,7 @@
 {
-  "name": "Cantina Peña",
-  "short_name": "Cantina",
-  "description": "Sistema de gestión para la Peña",
+  "name": "EventGes",
+  "short_name": "EventGes",
+  "description": "Gestión integral de eventos, ventas y accesos",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#08101b",

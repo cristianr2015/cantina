@@ -1,7 +1,7 @@
 {
-  "name": "cantina-bufet",
+  "name": "eventges",
   "version": "0.1.0",
-  "description": "Aplicación para administrar cantina y bufet (ventas, productos, eventos, reportes)",
+  "description": "EventGes: gestión integral de eventos, ventas, productos, entradas y reportes",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -16,6 +16,8 @@ test('traduce textos centrales de la interfaz al portugués y al inglés', () =>
   assert.equal(translate('Registrar venta', 'en'), 'Register sale');
   assert.equal(translate('Cambiar de empresa', 'pt'), 'Trocar de empresa');
   assert.equal(translate('Cambiar de empresa', 'en'), 'Change company');
+  assert.equal(translate('Gestión simple para eventos reales', 'pt'), 'Gestão simples para eventos reais');
+  assert.equal(translate('Todo tu evento,', 'en'), 'Your entire event,');
   assert.equal(translate('Región y moneda', 'pt'), 'Região e moeda');
   assert.equal(translate('Identificación tributaria', 'en'), 'Tax identification');
   assert.equal(translate('Guardar configuración', 'en'), 'Save settings');

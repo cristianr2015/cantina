@@ -183,7 +183,7 @@ function assetUrl(path, fallback = '') {
 }
 
 function applyCompanyBranding(settings = {}) {
-  const companyName = settings.company_name || 'Cantina';
+  const companyName = settings.company_name || 'EventGes';
   const logoPath = settings.logo_path || '';
   const resolvedLogo = assetUrl(logoPath, '/uploads/default-logo.png');
 
@@ -197,12 +197,17 @@ function applyCompanyBranding(settings = {}) {
   if (loginName) loginName.textContent = companyName;
 
   const loginLogo = document.getElementById('login-logo');
+  const loginLogoFallback = document.getElementById('login-logo-fallback');
   if (loginLogo) {
     if (logoPath) {
       loginLogo.src = resolvedLogo;
-      loginLogo.style.display = 'inline-block';
+      loginLogo.hidden = false;
+      loginLogo.style.display = 'block';
+      if (loginLogoFallback) loginLogoFallback.style.display = 'none';
     } else {
+      loginLogo.hidden = true;
       loginLogo.style.display = 'none';
+      if (loginLogoFallback) loginLogoFallback.style.display = 'grid';
     }
   }
 
@@ -281,7 +286,7 @@ function syncLoginCompanySelector(company = getRememberedLoginCompanyCode()) {
 async function loadLoginCompanyBranding(value) {
   const company = normalizeLoginCompanyCode(value);
   if (!company) {
-    applyCompanyBranding({ company_name: 'Gestión de Eventos', logo_path: null });
+    applyCompanyBranding({ company_name: 'EventGes', logo_path: null });
     return;
   }
   try {
@@ -294,7 +299,7 @@ async function loadLoginCompanyBranding(value) {
 
 function showLoginScreen(message = '') {
   document.getElementById('app').style.display = 'none';
-  document.getElementById('login-area').style.display = 'flex';
+  document.getElementById('login-area').style.display = 'grid';
   if (message) showLoginError(message);
 }
 
@@ -3174,7 +3179,7 @@ document.getElementById('upload-logo').addEventListener('click', async () => {
       document.getElementById('logo-preview').src = assetUrl(data.logo_path);
       document.getElementById('logo-preview').style.display = 'block';
       applyCompanyBranding({
-        company_name: document.getElementById('cfg-company-name')?.value || 'Cantina',
+        company_name: document.getElementById('cfg-company-name')?.value || 'EventGes',
         logo_path: data.logo_path
       });
       showToast('Logo subido', 'success');

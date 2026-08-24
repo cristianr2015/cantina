@@ -1,6 +1,51 @@
 const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
+const APP_THEME_STORAGE_KEY = 'appTheme';
+
+function normalizeAppTheme(theme) {
+  return theme === 'dark' ? 'dark' : 'light';
+}
+
+function getAppTheme() {
+  return normalizeAppTheme(document.documentElement.dataset.theme);
+}
+
+function syncThemeControls(theme) {
+  document.querySelectorAll('.theme-select').forEach(select => {
+    select.value = theme;
+  });
+}
+
+function applyAppTheme(theme, persist = true) {
+  const normalizedTheme = normalizeAppTheme(theme);
+  document.documentElement.dataset.theme = normalizedTheme;
+  if (persist) {
+    try {
+      localStorage.setItem(APP_THEME_STORAGE_KEY, normalizedTheme);
+    } catch (error) {
+      console.warn('No se pudo guardar el tema seleccionado', error);
+    }
+  }
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.content = normalizedTheme === 'dark' ? '#0b1120' : '#ff6b35';
+  syncThemeControls(normalizedTheme);
+  setTimeout(() => {
+    if (typeof updateDashboardChartTheme === 'function') updateDashboardChartTheme();
+  }, 0);
+}
+
+function initThemeControls() {
+  applyAppTheme(getAppTheme(), false);
+  document.querySelectorAll('.theme-select').forEach(select => {
+    if (select.dataset.themeBound) return;
+    select.dataset.themeBound = 'true';
+    select.addEventListener('change', event => applyAppTheme(event.target.value));
+  });
+}
+
+setTimeout(initThemeControls, 0);
+
 const ROLE_LABELS = {
   admin: 'Administrador',
   seller: 'Vendedor',
@@ -2556,6 +2601,23 @@ let dashboardChart = null;
 let dashboardLoading = false;
 const DASHBOARD_REFRESH_INTERVAL_MS = 10000;
 
+function getDashboardChartTheme() {
+  const dark = getAppTheme() === 'dark';
+  return {
+    text: dark ? '#cbd5e1' : '#000000',
+    grid: dark ? 'rgba(148,163,184,0.14)' : 'rgba(0,0,0,0.05)'
+  };
+}
+
+function updateDashboardChartTheme() {
+  if (!dashboardChart) return;
+  const palette = getDashboardChartTheme();
+  dashboardChart.options.scales.x.ticks.color = palette.text;
+  dashboardChart.options.scales.y.ticks.color = palette.text;
+  dashboardChart.options.scales.y.grid.color = palette.grid;
+  dashboardChart.update('none');
+}
+
 function operationLabel(value) {
   const count = Number(value || 0);
   return `${count} ${count === 1 ? 'operación' : 'operaciones'}`;
@@ -2622,6 +2684,7 @@ async function loadDashboard(){
     if (ctx) {
       const chartLabels = stats.top_products.map(product => product.name);
       const chartValues = stats.top_products.map(product => product.total_qty);
+      const chartTheme = getDashboardChartTheme();
       if (dashboardChart) {
         dashboardChart.data.labels = chartLabels;
         dashboardChart.data.datasets[0].data = chartValues;
@@ -2643,8 +2706,8 @@ async function loadDashboard(){
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { beginAtZero: true, ticks: { color: '#000000' }, grid: { color: 'rgba(0,0,0,0.05)' } },
-            x: { ticks: { color: '#000000' }, grid: { display: false } }
+            y: { beginAtZero: true, ticks: { color: chartTheme.text }, grid: { color: chartTheme.grid } },
+            x: { ticks: { color: chartTheme.text }, grid: { display: false } }
           }
         }
       });

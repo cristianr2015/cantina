@@ -1,0 +1,405 @@
+/* Selector de apariencia y tema oscuro. El modo claro conserva el diseño original. */
+html {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1120;
+  --bg-app: #0b1120;
+  --card: #111827;
+  --card-bg: #111827;
+  --surface: #111827;
+  --text: #f1f5f9;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --muted: #94a3b8;
+  --border-color: rgba(148, 163, 184, 0.22);
+  --glass: rgba(255, 255, 255, 0.06);
+}
+
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.theme-picker-login {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  z-index: 20;
+}
+
+.theme-picker-icon,
+.appearance-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  background: #fff1e8;
+  color: #ea580c;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.theme-picker > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-picker strong {
+  font-size: 12px;
+}
+
+.theme-picker small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.theme-picker select,
+.appearance-management select {
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.appearance-management {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff 55%, #fff7f2 100%);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.appearance-management > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.appearance-management h3 {
+  margin: 3px 0 5px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.appearance-management p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.appearance-management > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 165px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.appearance-management select {
+  width: 100%;
+}
+
+/* Base oscura */
+html[data-theme="dark"] body,
+html[data-theme="dark"] #login-area,
+html[data-theme="dark"] .main,
+html[data-theme="dark"] .page {
+  background: #0b1120 !important;
+  color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] #login-form,
+html[data-theme="dark"] #db-status,
+html[data-theme="dark"] .theme-picker {
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+html[data-theme="dark"] .sidebar {
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="dark"] .sidebar-header {
+  border-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+html[data-theme="dark"] .sidebar a {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .sidebar a:hover,
+html[data-theme="dark"] .sidebar a.active {
+  background: rgba(255, 107, 53, 0.14);
+  color: #fb8b5d;
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] strong,
+html[data-theme="dark"] .stat-title,
+html[data-theme="dark"] .pos-title,
+html[data-theme="dark"] .menu-item {
+  color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] small,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .stat-sub {
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .theme-picker select,
+html[data-theme="dark"] .appearance-management select {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .event-form input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] select option {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] select:focus,
+html[data-theme="dark"] textarea:focus {
+  border-color: #fb8b5d !important;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.18) !important;
+}
+
+/* Superficies principales */
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .chart-card,
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .context-menu,
+html[data-theme="dark"] .users-management,
+html[data-theme="dark"] .user-card,
+html[data-theme="dark"] .users-empty,
+html[data-theme="dark"] .expense-management,
+html[data-theme="dark"] .reports-management,
+html[data-theme="dark"] .ticket-management,
+html[data-theme="dark"] .ticket-sale-card,
+html[data-theme="dark"] .ticket-quick-actions,
+html[data-theme="dark"] .ticket-summary,
+html[data-theme="dark"] .pos-card,
+html[data-theme="dark"] .pos-modal-container,
+html[data-theme="dark"] table {
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] .appearance-management,
+html[data-theme="dark"] .users-management-header,
+html[data-theme="dark"] .user-modal-header,
+html[data-theme="dark"] .expense-header,
+html[data-theme="dark"] .expense-modal-header,
+html[data-theme="dark"] .reports-header,
+html[data-theme="dark"] .ticket-page-header,
+html[data-theme="dark"] .ticket-sale-modal-header {
+  background: linear-gradient(135deg, #111827 55%, #1c1917 100%) !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+html[data-theme="dark"] .users-summary,
+html[data-theme="dark"] .users-grid,
+html[data-theme="dark"] .events-grid,
+html[data-theme="dark"] .user-card-details,
+html[data-theme="dark"] .expense-toolbar,
+html[data-theme="dark"] .expense-stat,
+html[data-theme="dark"] .reports-period,
+html[data-theme="dark"] .reports-results-header,
+html[data-theme="dark"] .ticket-sale-actions,
+html[data-theme="dark"] .ticket-search,
+html[data-theme="dark"] .ticket-sale-type-summary,
+html[data-theme="dark"] .ticket-delivery-summary,
+html[data-theme="dark"] .pos-products-area,
+html[data-theme="dark"] .pos-cart-area {
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+html[data-theme="dark"] .user-form-field input,
+html[data-theme="dark"] .user-form-field select,
+html[data-theme="dark"] .user-role-option,
+html[data-theme="dark"] .user-secondary-action,
+html[data-theme="dark"] .expense-toolbar input,
+html[data-theme="dark"] .expense-toolbar select,
+html[data-theme="dark"] .expense-form input,
+html[data-theme="dark"] .expense-form select,
+html[data-theme="dark"] .expense-action,
+html[data-theme="dark"] .reports-period input,
+html[data-theme="dark"] .reports-period .btn-ghost,
+html[data-theme="dark"] .reports-export select,
+html[data-theme="dark"] .reports-picker .btn-rep,
+html[data-theme="dark"] .ticket-event-pill,
+html[data-theme="dark"] .ticket-quick-actions button,
+html[data-theme="dark"] .ticket-modal-close,
+html[data-theme="dark"] .ticket-sale-form-grid input,
+html[data-theme="dark"] .ticket-sale-form-grid select,
+html[data-theme="dark"] .ticket-delivery-close,
+html[data-theme="dark"] .door-sale-payment label > span,
+html[data-theme="dark"] .expense-pay-options label > span {
+  background: #111827 !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .reports-picker .btn-rep.active,
+html[data-theme="dark"] .reports-picker .report-choice-primary,
+html[data-theme="dark"] .user-role-option:has(input:checked),
+html[data-theme="dark"] .door-sale-payment input:checked + span {
+  background: rgba(255, 107, 53, 0.13) !important;
+  border-color: #fb8b5d !important;
+}
+
+/* Tablas y listados */
+html[data-theme="dark"] th,
+html[data-theme="dark"] td,
+html[data-theme="dark"] .expense-table td {
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+html[data-theme="dark"] table thead th,
+html[data-theme="dark"] .ticket-table th,
+html[data-theme="dark"] .expense-table th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] table tr:hover,
+html[data-theme="dark"] .expense-table tbody tr:hover {
+  background: rgba(148, 163, 184, 0.06) !important;
+}
+
+html[data-theme="dark"] .table-wrap,
+html[data-theme="dark"] .ticket-table-wrap,
+html[data-theme="dark"] .expense-table-wrap,
+html[data-theme="dark"] .reports-results,
+html[data-theme="dark"] .reports-empty-state {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+/* POS y modales */
+html[data-theme="dark"] .pos-header {
+  background: #111827 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] .pos-img {
+  background: #0b1120 !important;
+}
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(2, 6, 23, 0.82);
+}
+
+html[data-theme="dark"] .menu-item:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* Neutraliza colores claros definidos directamente en el HTML. */
+html[data-theme="dark"] [style*="background:#ffffff"],
+html[data-theme="dark"] [style*="background: #ffffff"],
+html[data-theme="dark"] [style*="background:#fff"],
+html[data-theme="dark"] [style*="background: #fff"],
+html[data-theme="dark"] [style*="background:#f9fafb"],
+html[data-theme="dark"] [style*="background:#f8fafc"],
+html[data-theme="dark"] [style*="background:#f3f4f6"],
+html[data-theme="dark"] [style*="background:#f1f5f9"] {
+  background: #111827 !important;
+}
+
+html[data-theme="dark"] [style*="color:#000000"],
+html[data-theme="dark"] [style*="color: #000000"],
+html[data-theme="dark"] [style*="color:#1f2937"],
+html[data-theme="dark"] [style*="color: #1f2937"],
+html[data-theme="dark"] [style*="color:#111827"],
+html[data-theme="dark"] [style*="color:#334155"],
+html[data-theme="dark"] [style*="color:#374151"] {
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .theme-picker-icon,
+html[data-theme="dark"] .appearance-icon,
+html[data-theme="dark"] .users-summary-icon,
+html[data-theme="dark"] .ticket-sale-card-icon,
+html[data-theme="dark"] .report-choice-icon {
+  background: rgba(255, 107, 53, 0.15);
+  color: #fb8b5d;
+}
+
+@media (max-width: 680px) {
+  .theme-picker-login {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    justify-content: space-between;
+  }
+
+  .theme-picker-login > span:nth-child(2) {
+    display: none;
+  }
+
+  #db-status {
+    top: 70px !important;
+    right: 12px !important;
+  }
+
+  .appearance-management {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .appearance-management > label {
+    width: 100%;
+  }
+}

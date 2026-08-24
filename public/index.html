@@ -4,6 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Peña Los Amigos</title>
+    <script>
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem('appTheme');
+          document.documentElement.dataset.theme = savedTheme === 'dark' ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
@@ -385,9 +395,18 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="theme.css">
   </head>
   <body>
     <div id="login-area" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f3f4f6;">
+      <label class="theme-picker theme-picker-login" for="login-theme-select">
+        <span class="theme-picker-icon" aria-hidden="true">◐</span>
+        <span><strong>Apariencia</strong><small>Elegí cómo ver la aplicación</small></span>
+        <select id="login-theme-select" class="theme-select" aria-label="Tema de la aplicación">
+          <option value="light">☀️ Claro</option>
+          <option value="dark">🌙 Oscuro</option>
+        </select>
+      </label>
       <div id="db-status" style="position:fixed;top:20px;right:20px;padding:8px 12px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;background:#ffffff;color:#4b5563;border:1px solid rgba(15,23,42,0.1);box-shadow:0 2px 4px rgba(0,0,0,0.05)">
         <span id="status-dot" style="width:8px;height:8px;border-radius:50%;background:#9ca3af"></span>
         <span id="status-text">Verificando servidor...</span>
@@ -657,6 +676,24 @@
           <div id="page-config" class="page hidden admin-only">
             <section>
               <h2>Configuración</h2>
+
+              <section class="appearance-management" aria-labelledby="appearance-title">
+                <div>
+                  <span class="appearance-icon" aria-hidden="true">◐</span>
+                  <div>
+                    <span class="section-eyebrow">Apariencia</span>
+                    <h3 id="appearance-title">Tema de la aplicación</h3>
+                    <p>La selección se guarda en este dispositivo y también se puede cambiar antes de iniciar sesión.</p>
+                  </div>
+                </div>
+                <label for="config-theme-select">
+                  <span>Modo visual</span>
+                  <select id="config-theme-select" class="theme-select">
+                    <option value="light">☀️ Claro</option>
+                    <option value="dark">🌙 Oscuro</option>
+                  </select>
+                </label>
+              </section>
 
               <!-- Sección: Eventos -->
               <section class="users-management events-management" aria-labelledby="events-management-title">

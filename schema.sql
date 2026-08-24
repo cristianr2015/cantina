@@ -108,6 +108,23 @@ CREATE TABLE IF NOT EXISTS partner_contributions (
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS expenses (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  description VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL DEFAULT 'Otros',
+  supplier VARCHAR(150),
+  amount DECIMAL(10,2) NOT NULL,
+  payment_method ENUM('cash','mercadopago','transfer') NOT NULL DEFAULT 'cash',
+  status ENUM('paid','pending') NOT NULL DEFAULT 'paid',
+  expense_date DATE NOT NULL,
+  user_id INT,
+  event_id INT NOT NULL,
+  source_contribution_id INT UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
+);
+
 -- Datos de ejemplo
 INSERT INTO events (name, date) VALUES
 ('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00')),

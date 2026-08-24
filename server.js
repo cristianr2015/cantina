@@ -14,6 +14,7 @@ const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const settingsRouter = require('./routes/settings');
 const partnersRouter = require('./routes/partners');
+const expensesRouter = require('./routes/expenses');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/partners', partnersRouter);
+app.use('/api/expenses', expensesRouter);
 
 app.get('/ping', async (req, res) => {
   try {
@@ -380,7 +382,7 @@ const productStockMigration = (async () => {
   }
 })();
 
-const eventScopingMigration = Promise.all([
+const baseEventScopingMigration = Promise.all([
   userRolesMigration,
   ticketingMigration,
   orderPaymentMigration,
@@ -388,6 +390,38 @@ const eventScopingMigration = Promise.all([
   orderDiscountMigration,
   productStockMigration
 ]).then(() => migrateEventScoping(db));
+
+// La nueva gestión de gastos conserva los aportes históricos sin modificar su tabla original.
+const eventScopingMigration = baseEventScopingMigration.then(async () => {
+  await db.query(`CREATE TABLE IF NOT EXISTS expenses (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    description VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL DEFAULT 'Otros',
+    supplier VARCHAR(150),
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method ENUM('cash','mercadopago','transfer') NOT NULL DEFAULT 'cash',
+    status ENUM('paid','pending') NOT NULL DEFAULT 'paid',
+    expense_date DATE NOT NULL,
+    user_id INT,
+    event_id INT NOT NULL,
+    source_contribution_id INT UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
+  )`);
+
+  await db.query(`
+    INSERT IGNORE INTO expenses
+      (description, category, amount, payment_method, status, expense_date,
+       user_id, event_id, source_contribution_id, created_at)
+    SELECT COALESCE(NULLIF(TRIM(description), ''), 'Registro histórico'),
+           'Otros', amount, 'cash', IF(returned = 1, 'paid', 'pending'),
+           DATE(created_at), user_id, event_id, id, created_at
+    FROM partner_contributions
+    WHERE event_id IS NOT NULL
+  `);
+  console.log('Gestión de gastos configurada y aportes históricos preservados.');
+});
 
 let server;
 eventScopingMigration.then(() => {

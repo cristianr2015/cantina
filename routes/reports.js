@@ -235,7 +235,36 @@ router.get('/tickets-by-payment', auth(['admin']), requireEvent, async (req, res
   }
 });
 
-// Reporte: Detalle de Aportes de Socios
+// Reporte: Detalle de gastos del evento activo
+router.get('/expenses-detail', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    let sql = `SELECT
+        DATE_FORMAT(e.expense_date, '%Y-%m-%d') AS fecha,
+        e.description,
+        e.category,
+        e.supplier,
+        e.amount,
+        e.payment_method,
+        e.status,
+        u.username,
+        u.first_name,
+        u.last_name
+      FROM expenses e
+      LEFT JOIN users u ON e.user_id = u.id
+      WHERE e.event_id = ?`;
+    const params = [req.eventId];
+    if (start) { sql += ' AND e.expense_date >= ?'; params.push(start); }
+    if (end) { sql += ' AND e.expense_date <= ?'; params.push(end); }
+    sql += ' ORDER BY e.expense_date DESC, e.id DESC';
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Compatibilidad: reporte histórico de aportes de socios
 router.get('/partners-detail', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;

@@ -27,7 +27,7 @@ class SidebarMenu extends HTMLElement {
             </a></li>
             <li><a href="#partners" data-nav>
               <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1v22M5 5h14M5 19h14M2 9h20M2 15h20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>Fondo de Socios</span>
+              <span>Gestión de gastos</span>
             </a></li>
             <li><a href="#products" data-nav>
               <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18M7 3v4M17 3v4M4 11h16v10H4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>

@@ -101,7 +101,7 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
     if (Number(eventCountRows[0]?.total || 0) <= 1) {
       return res.status(409).json({ error: 'Debe existir al menos un evento en la aplicación' });
     }
-    const tables = ['products', 'orders', 'sales', 'tickets_sold', 'partner_contributions', 'discounts'];
+    const tables = ['products', 'orders', 'sales', 'tickets_sold', 'partner_contributions', 'expenses', 'discounts'];
     let relatedRecords = 0;
     for (const table of tables) {
       const [rows] = await db.query(`SELECT COUNT(*) AS total FROM \`${table}\` WHERE event_id = ?`, [req.params.id]);

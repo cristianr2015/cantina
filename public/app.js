@@ -707,7 +707,7 @@ async function refreshActiveEventPage() {
   if (hash === 'products') await loadProducts();
   if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
   if (hash === 'tickets') await loadTickets();
-  if (hash === 'partners') await loadPartnerContributions();
+  if (hash === 'partners') await loadExpenses();
   if (hash === 'reports' && activeReportType) await loadReport(activeReportType);
   if (hash === 'config') await Promise.all([loadSettings(), loadDiscountsForMgmt()]);
 }
@@ -1571,7 +1571,7 @@ let currentReportTitle = '';
     document.getElementById('btn-rep-attendance')?.addEventListener('click', () => { activeReportType = 'attendance'; loadReport('attendance'); });
     document.getElementById('btn-rep-sales-recon')?.addEventListener('click', () => { activeReportType = 'sales-recon'; loadReport('sales-recon'); });
     document.getElementById('btn-rep-tickets-recon')?.addEventListener('click', () => { activeReportType = 'tickets-recon'; loadReport('tickets-recon'); });
-    document.getElementById('btn-rep-partners-detail')?.addEventListener('click', () => { activeReportType = 'partners-detail'; loadReport('partners-detail'); });
+    document.getElementById('btn-rep-expenses-detail')?.addEventListener('click', () => { activeReportType = 'expenses-detail'; loadReport('expenses-detail'); });
     document.getElementById('btn-export')?.addEventListener('click', exportReport);
   }, 100);
 })();
@@ -1724,33 +1724,37 @@ async function loadReport(type) {
           </tr>
         </tbody>`;
     };
-  } else if (type === 'partners-detail') {
-    currentReportTitle = 'Reporte Fondo de Socios';
-    endpoint = '/reports/partners-detail' + (queryStr ? '?' + queryStr : '');
-    title = 'Reporte Detallado de Fondo de Socios';
+  } else if (type === 'expenses-detail') {
+    currentReportTitle = 'Reporte de Gastos';
+    endpoint = '/reports/expenses-detail' + (queryStr ? '?' + queryStr : '');
+    title = 'Detalle de gastos';
     renderFn = (rows) => {
-      const totalAportado = rows.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
-      const totalPendiente = rows.reduce((sum, r) => sum + (r.returned ? 0 : parseFloat(r.amount || 0)), 0);
+      const total = rows.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+      const totalPendiente = rows.reduce((sum, r) => sum + (r.status === 'pending' ? parseFloat(r.amount || 0) : 0), 0);
       
-      return '<tr><th>Fecha/Hora</th><th>Socio</th><th>Monto</th><th>Detalle / Uso</th><th>Estado</th></tr>' +
+      return '<tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Proveedor</th><th>Responsable</th><th>Pago</th><th>Estado</th><th>Importe</th></tr>' +
       rows.map(r => {
-        const estado = r.returned ? '<span style="color:#10b981;font-weight:bold">✓ DEVUELTO</span>' : '<span style="color:#ef4444;font-weight:bold">PENDIENTE</span>';
+        const responsible = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.username || 'Sin asignar';
+        const estado = r.status === 'paid' ? '<span style="color:#10b981;font-weight:bold">PAGADO</span>' : '<span style="color:#f59e0b;font-weight:bold">PENDIENTE</span>';
         return `
           <tr>
             <td>${r.fecha}</td>
-            <td style="font-weight:600">${r.socio || 'Desconocido'}</td>
-            <td style="font-weight:700;color:var(--accent)">${formatMoney(r.amount)}</td>
-            <td style="font-size:13px">${r.description || '-'}</td>
+            <td style="font-weight:600">${escapeUserText(r.description)}</td>
+            <td>${escapeUserText(r.category)}</td>
+            <td>${escapeUserText(r.supplier || '-')}</td>
+            <td>${escapeUserText(responsible)}</td>
+            <td>${expensePaymentLabel(r.payment_method)}</td>
             <td>${estado}</td>
+            <td style="font-weight:700;text-align:right">${formatMoney(r.amount)}</td>
           </tr>`;
       }).join('') + 
       `<tr style="background:rgba(15,23,42,0.05);font-weight:700">
-        <td colspan="2" style="text-align:right">TOTAL APORTADO:</td>
-        <td colspan="3" style="color:var(--accent)">${formatMoney(totalAportado)}</td>
+        <td colspan="7" style="text-align:right">TOTAL REGISTRADO:</td>
+        <td style="color:var(--accent);text-align:right">${formatMoney(total)}</td>
       </tr>
-      <tr style="background:rgba(239,68,68,0.05);font-weight:700">
-        <td colspan="2" style="text-align:right">TOTAL PENDIENTE DE DEVOLUCIÓN:</td>
-        <td colspan="3" style="color:#ef4444">${formatMoney(totalPendiente)}</td>
+      <tr style="background:rgba(245,158,11,0.08);font-weight:700">
+        <td colspan="7" style="text-align:right">TOTAL PENDIENTE:</td>
+        <td style="color:#b45309;text-align:right">${formatMoney(totalPendiente)}</td>
       </tr>`;
     };
   }
@@ -1827,13 +1831,17 @@ function exportReport() {
         'Items/Entradas Vendidas': r.total_items_sold || r.total_count,
         'Recaudación Total': r.total_revenue
       };
-    } else if (activeReportType === 'partners-detail') {
+    } else if (activeReportType === 'expenses-detail') {
+      const responsible = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.username || 'Sin asignar';
       return {
-        'Fecha/Hora': r.fecha,
-        'Socio': r.socio || 'Desconocido',
-        'Monto': r.amount,
-        'Detalle / Uso': r.description || '-',
-        'Estado': r.returned ? 'Devuelto' : 'Pendiente'
+        'Fecha': r.fecha,
+        'Descripción': r.description,
+        'Categoría': r.category,
+        'Proveedor': r.supplier || '-',
+        'Responsable': responsible,
+        'Medio de pago': expensePaymentLabel(r.payment_method),
+        'Estado': r.status === 'paid' ? 'Pagado' : 'Pendiente',
+        'Importe': r.amount
       };
     }
     return r;
@@ -2373,7 +2381,7 @@ function navigateToHash(){
   if (hash === 'products') { loadProducts(); }
   if (hash === 'sales') { loadProducts(); loadEvents(); loadSales(); }
   if (hash === 'tickets') { loadTickets(); }
-  if (hash === 'partners') { loadPartnerContributions(); }
+  if (hash === 'partners') { loadExpenses(); }
   if (hash === 'reports') { /* nothing extra */ }
   if (hash === 'config') { loadEvents(); loadSettings(); loadUsersForMgmt(); loadDiscountsForMgmt(); }
   showPage(hash);
@@ -2415,98 +2423,193 @@ async function showAppForUser(user){
   });
 }
 
-// --- Fondo de Socios Logic ---
-async function loadPartnerContributions() {
-  const tbody = document.getElementById('partners-body');
-  if (!tbody) return;
-  try {
-    const rows = await api('/partners/contributions');
-    if (!Array.isArray(rows)) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:red">Error al cargar aportes</td></tr>';
-      return;
-    }
-    tbody.innerHTML = '';
-    if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">No hay aportes registrados</td></tr>';
-      return;
-    }
-    rows.forEach(r => {
-      const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid rgba(15,23,42,0.08)';
-      const returnedLabel = r.returned 
-        ? '<span style="color:#10b981;font-weight:700">✓ DEVUELTO</span>' 
-        : '<span style="color:#ef4444;font-weight:700">PENDIENTE</span>';
-      
-      // Agregar click derecho
-      tr.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        showPartnerContextMenu(e, r);
-      });
+// --- Gestión de gastos ---
+let expensesCache = [];
+const DEFAULT_EXPENSE_CATEGORIES = ['Mercadería e insumos', 'Servicios', 'Logística', 'Mantenimiento', 'Personal', 'Otros'];
 
-      tr.innerHTML = `
-        <td style="padding:12px">${formatDate(r.created_at)}</td>
-        <td style="padding:12px;font-weight:600">${r.socio_name || 'Desconocido'}</td>
-        <td style="padding:12px;font-weight:700;color:var(--accent)">${formatMoney(r.amount)}</td>
-        <td style="padding:12px;font-size:13px;color:#4b5563">${r.description || '-'}</td>
-        <td style="padding:12px;text-align:center">${returnedLabel}</td>
-        <td style="padding:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="toggleContributionReturn(${r.id}, ${!r.returned})" style="padding:8px 14px;font-size:11px;font-weight:700;background:${r.returned ? '#64748b' : '#10b981'};color:white;border:none;border-radius:8px;cursor:pointer">${r.returned ? 'Pendiente' : 'Devuelto'}</button>
-          <button class="admin-only" onclick="deleteContribution(${r.id})" style="padding:6px 12px;font-size:11px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer">Borrar</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-    enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
-  } catch (err) { console.error(err); }
+function expensePaymentLabel(method) {
+  return ({ cash: 'Efectivo', mercadopago: 'MercadoPago', transfer: 'Transferencia' })[method] || method || '-';
 }
 
-window.toggleContributionReturn = async (id, val) => {
-  await api(`/partners/contributions/${id}/return`, { method: 'PATCH', body: JSON.stringify({ returned: val }) });
-  showToast('Estado actualizado', 'success');
-  loadPartnerContributions();
-};
+function expenseResponsible(expense) {
+  return [expense.first_name, expense.last_name].filter(Boolean).join(' ') || expense.username || 'Sin asignar';
+}
 
-window.deleteContribution = async (id) => {
-  showConfirm('¿Eliminar este registro de aporte?', async () => {
-    await api(`/partners/contributions/${id}`, { method: 'DELETE' });
-    showToast('Registro eliminado', 'success');
-    loadPartnerContributions();
-  });
-};
+function expenseDateValue(value) {
+  return String(value || '').slice(0, 10);
+}
 
-document.getElementById('open-contribution-modal-btn')?.addEventListener('click', async () => {
-  document.getElementById('contrib-id').value = '';
-  document.getElementById('contrib-modal-title').textContent = 'Registrar Aporte de Socio';
-  document.getElementById('contrib-amount').value = '';
-  document.getElementById('contrib-desc').value = '';
-  
-  const sel = document.getElementById('contrib-user');
+function currentLocalDateValue() {
+  const now = new Date();
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return localTime.toISOString().slice(0, 10);
+}
+
+function closeExpenseModal() {
+  const modal = document.getElementById('expense-modal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden', 'true');
+}
+
+async function populateExpenseUsers(selectedId = '') {
+  const select = document.getElementById('expense-user');
   const users = await api('/users');
-  sel.innerHTML = '<option value="">-- Seleccionar Socio --</option>';
-  users.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.username; sel.appendChild(opt); });
-  document.getElementById('contribution-modal').classList.remove('hidden');
-});
+  if (!select || !Array.isArray(users)) return;
+  select.innerHTML = '<option value="">Sin asignar</option>';
+  users.forEach(user => {
+    const option = document.createElement('option');
+    option.value = user.id;
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+    option.textContent = fullName ? `${fullName} (@${user.username})` : user.username;
+    select.appendChild(option);
+  });
+  select.value = selectedId ? String(selectedId) : '';
+}
 
-document.getElementById('contrib-cancel')?.addEventListener('click', () => document.getElementById('contribution-modal').classList.add('hidden'));
+async function openExpenseModal(expense = null) {
+  const form = document.getElementById('expense-form');
+  const modal = document.getElementById('expense-modal');
+  if (!form || !modal) return;
+  form.reset();
+  document.getElementById('expense-id').value = expense?.id || '';
+  document.getElementById('expense-modal-title').textContent = expense ? 'Editar gasto' : 'Registrar gasto';
+  document.getElementById('expense-save').textContent = expense ? 'Guardar cambios' : 'Guardar gasto';
+  document.getElementById('expense-description').value = expense?.description || '';
+  document.getElementById('expense-category').value = expense?.category || DEFAULT_EXPENSE_CATEGORIES[0];
+  document.getElementById('expense-supplier').value = expense?.supplier || '';
+  document.getElementById('expense-amount').value = expense?.amount || '';
+  document.getElementById('expense-date').value = expenseDateValue(expense?.expense_date) || currentLocalDateValue();
+  document.getElementById('expense-payment-method').value = expense?.payment_method || 'cash';
+  document.getElementById('expense-status').value = expense?.status || 'paid';
+  await populateExpenseUsers(expense?.user_id || '');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('expense-description')?.focus(), 0);
+}
 
-document.getElementById('contrib-save')?.addEventListener('click', async () => {
-  const editId = document.getElementById('contrib-id').value;
-  const user_id = document.getElementById('contrib-user').value;
-  const amount = document.getElementById('contrib-amount').value;
-  const description = document.getElementById('contrib-desc').value;
-  if (!user_id || !amount) return showToast('Socio y monto son obligatorios', 'error');
-  
-  let res;
-  if (editId) {
-    res = await api(`/partners/contributions/${editId}`, { method: 'PUT', body: JSON.stringify({ user_id, amount, description }) });
-  } else {
-    res = await api('/partners/contributions', { method: 'POST', body: JSON.stringify({ user_id, amount, description }) });
+function updateExpenseSummary() {
+  const total = expensesCache.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const paid = expensesCache.reduce((sum, expense) => sum + (expense.status === 'paid' ? Number(expense.amount || 0) : 0), 0);
+  const pending = total - paid;
+  document.getElementById('expense-total').textContent = formatMoney(total);
+  document.getElementById('expense-paid').textContent = formatMoney(paid);
+  document.getElementById('expense-pending').textContent = formatMoney(pending);
+  document.getElementById('expense-count').textContent = String(expensesCache.length);
+}
+
+function updateExpenseCategoryFilter() {
+  const select = document.getElementById('expense-category-filter');
+  if (!select) return;
+  const selected = select.value;
+  const categories = [...new Set([...DEFAULT_EXPENSE_CATEGORIES, ...expensesCache.map(expense => expense.category).filter(Boolean)])];
+  select.innerHTML = '<option value="">Todas</option>';
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    select.appendChild(option);
+  });
+  if (categories.includes(selected)) select.value = selected;
+}
+
+function renderExpenses() {
+  const tbody = document.getElementById('expenses-body');
+  if (!tbody) return;
+  const search = (document.getElementById('expense-search')?.value || '').trim().toLocaleLowerCase('es');
+  const category = document.getElementById('expense-category-filter')?.value || '';
+  const status = document.getElementById('expense-status-filter')?.value || '';
+  const filtered = expensesCache.filter(expense => {
+    const searchable = [expense.description, expense.supplier, expense.category, expenseResponsible(expense)].join(' ').toLocaleLowerCase('es');
+    return (!search || searchable.includes(search)) && (!category || expense.category === category) && (!status || expense.status === status);
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="expense-empty">${expensesCache.length ? 'No hay gastos que coincidan con los filtros.' : 'Todavía no hay gastos registrados en este evento.'}</td></tr>`;
+    return;
   }
 
-  if (res.ok) {
-    showToast(editId ? 'Aporte actualizado' : 'Aporte registrado', 'success');
-    document.getElementById('contribution-modal').classList.add('hidden');
-    loadPartnerContributions();
+  tbody.innerHTML = filtered.map(expense => `
+    <tr>
+      <td>${escapeUserText(expenseDateValue(expense.expense_date).split('-').reverse().join('/'))}</td>
+      <td><strong>${escapeUserText(expense.description)}</strong></td>
+      <td><span class="expense-badge expense-category-badge">${escapeUserText(expense.category)}</span></td>
+      <td>${escapeUserText(expense.supplier || '-')}</td>
+      <td>${escapeUserText(expenseResponsible(expense))}</td>
+      <td>${escapeUserText(expensePaymentLabel(expense.payment_method))}</td>
+      <td><span class="expense-badge expense-badge-${expense.status === 'paid' ? 'paid' : 'pending'}">${expense.status === 'paid' ? 'Pagado' : 'Pendiente'}</span></td>
+      <td class="expense-amount">${formatMoney(expense.amount)}</td>
+      <td><div class="expense-actions"><button class="expense-action edit-expense" type="button" data-id="${expense.id}">Editar</button><button class="expense-action expense-action-delete delete-expense" type="button" data-id="${expense.id}">Eliminar</button></div></td>
+    </tr>
+  `).join('');
+  enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
+}
+
+async function loadExpenses() {
+  const tbody = document.getElementById('expenses-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9" class="expense-empty">Cargando gastos...</td></tr>';
+  const rows = await api('/expenses');
+  if (!Array.isArray(rows)) {
+    expensesCache = [];
+    tbody.innerHTML = `<tr><td colspan="9" class="expense-empty">${escapeUserText(rows?.error || 'No se pudieron cargar los gastos')}</td></tr>`;
+    updateExpenseSummary();
+    return;
+  }
+  expensesCache = rows;
+  updateExpenseSummary();
+  updateExpenseCategoryFilter();
+  renderExpenses();
+}
+
+document.getElementById('open-expense-modal-btn')?.addEventListener('click', () => openExpenseModal());
+document.getElementById('expense-cancel')?.addEventListener('click', closeExpenseModal);
+document.getElementById('expense-close')?.addEventListener('click', closeExpenseModal);
+document.getElementById('expense-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeExpenseModal();
+});
+document.getElementById('expense-search')?.addEventListener('input', renderExpenses);
+document.getElementById('expense-category-filter')?.addEventListener('change', renderExpenses);
+document.getElementById('expense-status-filter')?.addEventListener('change', renderExpenses);
+
+document.getElementById('expense-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('expense-id').value;
+  const payload = {
+    description: document.getElementById('expense-description').value,
+    category: document.getElementById('expense-category').value,
+    supplier: document.getElementById('expense-supplier').value,
+    amount: document.getElementById('expense-amount').value,
+    expense_date: document.getElementById('expense-date').value,
+    payment_method: document.getElementById('expense-payment-method').value,
+    status: document.getElementById('expense-status').value,
+    user_id: document.getElementById('expense-user').value
+  };
+  if (!payload.description.trim() || !payload.category || !payload.amount || !payload.expense_date) {
+    return showToast('Completá descripción, categoría, importe y fecha', 'error');
+  }
+  const result = await api(id ? `/expenses/${id}` : '/expenses', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+  if (result.error) return showToast(result.error, 'error');
+  closeExpenseModal();
+  showToast(id ? 'Gasto actualizado' : 'Gasto registrado', 'success');
+  await loadExpenses();
+});
+
+document.getElementById('expenses-body')?.addEventListener('click', event => {
+  const editButton = event.target.closest('.edit-expense');
+  const deleteButton = event.target.closest('.delete-expense');
+  if (editButton) {
+    const expense = expensesCache.find(item => Number(item.id) === Number(editButton.dataset.id));
+    if (expense) openExpenseModal(expense);
+  }
+  if (deleteButton) {
+    const expense = expensesCache.find(item => Number(item.id) === Number(deleteButton.dataset.id));
+    if (!expense) return;
+    showConfirm(`¿Eliminar el gasto "${expense.description}"?`, async () => {
+      const result = await api(`/expenses/${expense.id}`, { method: 'DELETE' });
+      if (result.error) return showToast(result.error, 'error');
+      showToast('Gasto eliminado', 'success');
+      await loadExpenses();
+    });
   }
 });
 
@@ -2539,13 +2642,11 @@ let currentContextSale = null;
 const ctxMenu = document.getElementById('context-menu');
 const editModal = document.getElementById('edit-modal');
 const ctxMenuProd = document.getElementById('ctx-menu-prod');
-const ctxMenuPartners = document.getElementById('ctx-menu-partners');
 
 // Ocultar menú al hacer click en cualquier lado
 document.addEventListener('click', () => {
   if (ctxMenu) ctxMenu.classList.add('hidden');
   if (ctxMenuProd) ctxMenuProd.classList.add('hidden');
-  if (ctxMenuPartners) ctxMenuPartners.classList.add('hidden');
 });
 
 function showContextMenu(e, sale) {
@@ -2610,44 +2711,6 @@ document.getElementById('save-edit').addEventListener('click', async () => {
 
 document.getElementById('cancel-edit').addEventListener('click', () => {
   editModal.classList.add('hidden');
-});
-
-// --- Context Menu Partners ---
-let currentContextPartner = null;
-function showPartnerContextMenu(e, partner) {
-  currentContextPartner = partner;
-  ctxMenuPartners.style.top = e.pageY + 'px';
-  ctxMenuPartners.style.left = e.pageX + 'px';
-  ctxMenuPartners.classList.remove('hidden');
-  
-  document.getElementById('ctx-partner-return').textContent = partner.returned ? 'Marcar como Pendiente' : 'Marcar como Devuelto';
-}
-
-document.getElementById('ctx-partner-edit').addEventListener('click', async () => {
-  if (!currentContextPartner) return;
-  
-  const sel = document.getElementById('contrib-user');
-  const users = await api('/users');
-  sel.innerHTML = '<option value="">-- Seleccionar Socio --</option>';
-  users.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.username; sel.appendChild(opt); });
-  
-  document.getElementById('contrib-id').value = currentContextPartner.id;
-  document.getElementById('contrib-modal-title').textContent = 'Editar Aporte';
-  document.getElementById('contrib-user').value = currentContextPartner.user_id;
-  document.getElementById('contrib-amount').value = currentContextPartner.amount;
-  document.getElementById('contrib-desc').value = currentContextPartner.description;
-  
-  document.getElementById('contribution-modal').classList.remove('hidden');
-});
-
-document.getElementById('ctx-partner-return').addEventListener('click', async () => {
-  if (!currentContextPartner) return;
-  await toggleContributionReturn(currentContextPartner.id, !currentContextPartner.returned);
-});
-
-document.getElementById('ctx-partner-delete').addEventListener('click', async () => {
-  if (!currentContextPartner) return;
-  await deleteContribution(currentContextPartner.id);
 });
 
 // --- Context Menu & Edit Logic (Products) ---

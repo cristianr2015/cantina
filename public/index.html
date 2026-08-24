@@ -58,8 +58,8 @@
       }
 
       /* Ajuste de botones principales */
-      #open-add-product-btn, #open-pos-btn, #open-contribution-modal-btn, #btn-finalize-sale, 
-      #prod-save-btn, #contrib-save, #confirm-ok, #quick-ticket-confirm, #edit-ticket-save {
+      #open-add-product-btn, #open-pos-btn, #open-expense-modal-btn, #btn-finalize-sale,
+      #prod-save-btn, #expense-save, #confirm-ok, #quick-ticket-confirm, #edit-ticket-save {
         background-color: var(--accent) !important;
         color: #ffffff !important;
         border: none !important;
@@ -532,25 +532,38 @@
           </div> <!-- Cierre correcto de page-tickets -->
 
           <div id="page-partners" class="page hidden">
-            <section>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h2 style="margin:0">Fondo Común de Socios</h2>
-                <button id="open-contribution-modal-btn" class="admin-only" style="padding:12px 24px;font-size:16px;background:var(--accent);color:#08101b;border:none;border-radius:8px;font-weight:600;cursor:pointer">💰 Registrar Aporte</button>
+            <section class="expense-management">
+              <div class="expense-header">
+                <div>
+                  <span class="expense-eyebrow">FINANZAS</span>
+                  <h2>Gestión de gastos</h2>
+                  <p>Registrá y controlá los egresos del evento activo.</p>
+                </div>
+                <button id="open-expense-modal-btn" class="admin-only expense-primary-action" type="button">+ Nuevo gasto</button>
               </div>
 
-              <div class="table-wrap" style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;text-align:left">
+              <div class="expense-summary" aria-label="Resumen de gastos">
+                <article class="expense-stat expense-stat-total"><span>Total registrado</span><strong id="expense-total">$0</strong></article>
+                <article class="expense-stat expense-stat-paid"><span>Pagado</span><strong id="expense-paid">$0</strong></article>
+                <article class="expense-stat expense-stat-pending"><span>Pendiente</span><strong id="expense-pending">$0</strong></article>
+                <article class="expense-stat"><span>Movimientos</span><strong id="expense-count">0</strong></article>
+              </div>
+
+              <div class="expense-toolbar">
+                <label class="expense-search"><span>Buscar</span><input id="expense-search" type="search" placeholder="Descripción, proveedor o responsable"></label>
+                <label><span>Categoría</span><select id="expense-category-filter"><option value="">Todas</option></select></label>
+                <label><span>Estado</span><select id="expense-status-filter"><option value="">Todos</option><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
+              </div>
+
+              <div class="table-wrap expense-table-wrap">
+                <table class="expense-table">
                   <thead>
-                    <tr style="border-bottom:2px solid rgba(15,23,42,0.1)">
-                      <th style="padding:12px">Fecha</th>
-                      <th style="padding:12px">Socio</th>
-                      <th style="padding:12px">Monto</th>
-                      <th style="padding:12px">Detalle / Uso</th>
-                      <th style="padding:12px;text-align:center">Estado</th>
-                      <th style="padding:12px;text-align:right">Acciones</th>
+                    <tr>
+                      <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Proveedor</th>
+                      <th>Responsable</th><th>Medio de pago</th><th>Estado</th><th class="expense-amount-column">Importe</th><th>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody id="partners-body"></tbody>
+                  <tbody id="expenses-body"></tbody>
                 </table>
               </div>
             </section>
@@ -589,7 +602,7 @@
                   <button id="btn-rep-attendance" class="btn-rep" style="height:60px;font-size:16px">👥 Resumen de Asistencia</button>
                   <button id="btn-rep-sales-recon" class="btn-rep" style="height:60px;font-size:16px;background:#fef3c7">💰 Arqueo Caja (Productos)</button>
                   <button id="btn-rep-tickets-recon" class="btn-rep" style="height:60px;font-size:16px;background:#fef3c7">🎟️ Arqueo Caja (Entradas)</button>
-                  <button id="btn-rep-partners-detail" class="btn-rep" style="height:60px;font-size:16px">💰 Reporte Fondo de Socios</button>
+                  <button id="btn-rep-expenses-detail" class="btn-rep" style="height:60px;font-size:16px">🧾 Reporte de Gastos</button>
                 </div>
               </div>
               
@@ -623,7 +636,7 @@
               <!-- Sección: Eventos -->
               <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
                 <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Eventos</h3>
-                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Cada evento comienza sin productos, ventas, entradas, descuentos ni aportes. Los datos de la peña y los usuarios se mantienen.</p>
+                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Cada evento comienza sin productos, ventas, entradas, descuentos ni gastos. Los datos de la peña y los usuarios se mantienen.</p>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px">
                   <div>
                     <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Nombre del evento</label>
@@ -779,13 +792,6 @@
     <div id="ctx-menu-prod" class="context-menu hidden">
       <div class="menu-item" id="ctx-prod-edit">Editar Producto</div>
       <div class="menu-item" id="ctx-prod-delete" style="color:#ff6b35">Eliminar Producto</div>
-    </div>
-
-    <!-- Context Menu Socios -->
-    <div id="ctx-menu-partners" class="context-menu hidden">
-      <div class="menu-item" id="ctx-partner-edit">Editar Registro</div>
-      <div class="menu-item" id="ctx-partner-return">Marcar como Devuelto</div>
-      <div class="menu-item" id="ctx-partner-delete" style="color:#ff6b35">Eliminar Registro</div>
     </div>
 
     <!-- Modal Editar Producto -->
@@ -964,31 +970,25 @@
       </div>
     </div>
 
-    <!-- Modal Registrar Aporte de Socio -->
-    <div id="contribution-modal" class="modal-overlay hidden">
-      <div class="modal" style="width:400px">
-        <h3 id="contrib-modal-title">Registrar Aporte de Socio</h3>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <input type="hidden" id="contrib-id">
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Socio (Usuario)</label>
-            <select id="contrib-user" style="width:100%" required>
-              <option value="">-- Seleccionar Socio --</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Monto $</label>
-            <input id="contrib-amount" type="number" step="0.01" style="width:100%" placeholder="0.00" required>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Detalle / Uso de la plata</label>
-            <textarea id="contrib-desc" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(15,23,42,0.12)" rows="3" placeholder="Ej: Para compra de carne y leña"></textarea>
-          </div>
+    <!-- Modal de gasto -->
+    <div id="expense-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal expense-form-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+        <div class="expense-modal-header">
+          <div><span class="expense-eyebrow">MOVIMIENTO</span><h3 id="expense-modal-title">Registrar gasto</h3><p>Completá la información del egreso.</p></div>
+          <button id="expense-close" class="expense-modal-close" type="button" aria-label="Cerrar formulario">×</button>
         </div>
-        <div style="margin-top:24px;display:flex;gap:10px">
-          <button id="contrib-cancel" class="btn-ghost" style="flex:1">Cancelar</button>
-          <button id="contrib-save" style="flex:1;background:var(--accent);color:#08101b;border:none;border-radius:8px;font-weight:600;cursor:pointer">Guardar</button>
-        </div>
+        <form id="expense-form" class="expense-form" novalidate>
+          <input type="hidden" id="expense-id">
+          <label class="expense-form-wide"><span>Descripción *</span><input id="expense-description" type="text" maxlength="255" placeholder="Ej: Compra de bebidas" required></label>
+          <label><span>Categoría *</span><select id="expense-category" required><option value="Mercadería e insumos">Mercadería e insumos</option><option value="Servicios">Servicios</option><option value="Logística">Logística</option><option value="Mantenimiento">Mantenimiento</option><option value="Personal">Personal</option><option value="Otros">Otros</option></select></label>
+          <label><span>Proveedor</span><input id="expense-supplier" type="text" maxlength="150" placeholder="Opcional"></label>
+          <label><span>Importe *</span><input id="expense-amount" type="number" min="0.01" step="0.01" placeholder="0,00" required></label>
+          <label><span>Fecha *</span><input id="expense-date" type="date" required></label>
+          <label><span>Medio de pago *</span><select id="expense-payment-method"><option value="cash">Efectivo</option><option value="mercadopago">MercadoPago</option><option value="transfer">Transferencia</option></select></label>
+          <label><span>Estado *</span><select id="expense-status"><option value="paid">Pagado</option><option value="pending">Pendiente</option></select></label>
+          <label class="expense-form-wide"><span>Responsable</span><select id="expense-user"><option value="">Sin asignar</option></select></label>
+          <div class="expense-form-actions expense-form-wide"><button id="expense-cancel" class="btn-ghost" type="button">Cancelar</button><button id="expense-save" type="submit">Guardar gasto</button></div>
+        </form>
       </div>
     </div>
 

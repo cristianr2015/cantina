@@ -181,6 +181,15 @@ html[data-theme="dark"] .stat-sub {
   color: #94a3b8;
 }
 
+html[data-theme="dark"] form label,
+html[data-theme="dark"] .modal label,
+html[data-theme="dark"] .user-form-field label,
+html[data-theme="dark"] .ticket-sale-form-grid label > span,
+html[data-theme="dark"] .expense-pay-options legend,
+html[data-theme="dark"] .door-sale-payment legend {
+  color: #cbd5e1 !important;
+}
+
 html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea,
@@ -193,7 +202,20 @@ html[data-theme="dark"] .appearance-management select {
 
 html[data-theme="dark"] input::placeholder,
 html[data-theme="dark"] textarea::placeholder {
-  color: #64748b;
+  color: #94a3b8;
+  opacity: 1;
+}
+
+/* Chrome y Safari pueden imponer un fondo claro al autocompletar credenciales. */
+html[data-theme="dark"] input:-webkit-autofill,
+html[data-theme="dark"] input:-webkit-autofill:hover,
+html[data-theme="dark"] input:-webkit-autofill:focus,
+html[data-theme="dark"] textarea:-webkit-autofill,
+html[data-theme="dark"] select:-webkit-autofill {
+  -webkit-text-fill-color: #f1f5f9 !important;
+  caret-color: #f1f5f9;
+  box-shadow: 0 0 0 1000px #0f172a inset !important;
+  transition: background-color 9999s ease-out 0s;
 }
 
 html[data-theme="dark"] .event-form input[type="datetime-local"] {
@@ -237,6 +259,7 @@ html[data-theme="dark"] table {
 html[data-theme="dark"] .appearance-management,
 html[data-theme="dark"] .users-management-header,
 html[data-theme="dark"] .user-modal-header,
+html[data-theme="dark"] .admin-approval-header,
 html[data-theme="dark"] .expense-header,
 html[data-theme="dark"] .expense-modal-header,
 html[data-theme="dark"] .reports-header,
@@ -289,6 +312,20 @@ html[data-theme="dark"] .expense-pay-options label > span {
   background: #111827 !important;
   color: #cbd5e1 !important;
   border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .user-form,
+html[data-theme="dark"] .event-form,
+html[data-theme="dark"] .admin-approval-form,
+html[data-theme="dark"] .expense-form,
+html[data-theme="dark"] #ticket-sale-form {
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .user-form-actions,
+html[data-theme="dark"] .ticket-sale-form-actions {
+  border-color: rgba(148, 163, 184, 0.18) !important;
 }
 
 html[data-theme="dark"] .reports-picker .btn-rep.active,

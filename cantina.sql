@@ -275,6 +275,8 @@ DROP TABLE IF EXISTS `users`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) NOT NULL DEFAULT '',
+  `last_name` varchar(100) NOT NULL DEFAULT '',
   `username` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` enum('admin','seller','puerta') NOT NULL DEFAULT 'seller',

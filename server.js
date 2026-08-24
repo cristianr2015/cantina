@@ -88,6 +88,30 @@ app.get('/api/public-settings', async (req, res) => {
   }
 })();
 
+// Migracion idempotente: agregar nombre y apellido a las cuentas existentes.
+const userProfileMigration = (async () => {
+  const [columns] = await db.query(`
+    SELECT COLUMN_NAME
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      AND COLUMN_NAME IN ('first_name', 'last_name')
+  `);
+  const existingColumns = new Set(columns.map(column => column.COLUMN_NAME));
+  let migrated = false;
+  if (!existingColumns.has('first_name')) {
+    await db.query("ALTER TABLE users ADD COLUMN first_name VARCHAR(100) NOT NULL DEFAULT '' AFTER id");
+    migrated = true;
+  }
+  if (!existingColumns.has('last_name')) {
+    await db.query("ALTER TABLE users ADD COLUMN last_name VARCHAR(100) NOT NULL DEFAULT '' AFTER first_name");
+    migrated = true;
+  }
+  if (migrated) {
+    console.log('Nombre y apellido habilitados en la tabla users.');
+  }
+})();
+
 // Auto-fix: Verificar y crear columna image_path si falta
 (async () => {
   try {
@@ -346,6 +370,7 @@ const productStockMigration = (async () => {
 })();
 
 const eventScopingMigration = Promise.all([
+  userProfileMigration,
   ticketingMigration,
   orderPaymentMigration,
   legacyPartnerMigration,

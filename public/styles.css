@@ -153,6 +153,7 @@ input:focus,select:focus{outline:none;box-shadow:0 8px 20px rgba(2,6,23,0.5)}
 .user-modal-close{position:absolute;top:14px;right:14px;width:34px;height:34px;padding:0;background:transparent;color:#6b7280;border:1px solid transparent;border-radius:9px;font-size:24px;line-height:1}
 .user-modal-close:hover{background:#f3f4f6;color:#111827}
 .user-form{display:flex;flex-direction:column;gap:17px;padding:22px 24px 24px}
+.user-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .user-form-field label{margin-bottom:7px;color:#374151;font-size:13px;font-weight:700}
 .user-form-field input,.user-form-field select{width:100%;padding:12px 13px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:none}
 .user-form-field input:focus,.user-form-field select:focus{outline:none;border-color:#fb7a47;box-shadow:0 0 0 3px rgba(255,107,53,.12)}
@@ -536,6 +537,7 @@ body {
   .users-summary{align-items:flex-start;flex-direction:column;gap:12px;padding:14px 20px}
   .users-grid{grid-template-columns:1fr;padding:18px 20px 20px}
   .user-form-modal{width:100%;border-radius:20px 20px 0 0}
+  .user-form-row{grid-template-columns:1fr}
   .user-form-actions{flex-direction:column-reverse}
   .user-form-actions button{width:100%}
 

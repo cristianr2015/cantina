@@ -1004,9 +1004,20 @@
           <button id="close-user-modal" class="user-modal-close" type="button" aria-label="Cerrar formulario">×</button>
         </div>
         <form id="user-form" class="user-form" novalidate>
+          <div class="user-form-row">
+            <div class="user-form-field">
+              <label for="user-first-name">Nombre</label>
+              <input id="user-first-name" name="first_name" type="text" placeholder="Ej: María" autocomplete="given-name" maxlength="100" required />
+            </div>
+            <div class="user-form-field">
+              <label for="user-last-name">Apellido</label>
+              <input id="user-last-name" name="last_name" type="text" placeholder="Ej: González" autocomplete="family-name" maxlength="100" required />
+            </div>
+          </div>
           <div class="user-form-field">
-            <label for="user-username">Nombre de usuario</label>
-            <input id="user-username" name="username" type="text" placeholder="Ej: vendedor3" autocomplete="off" required />
+            <label for="user-username">Usuario para iniciar sesión</label>
+            <input id="user-username" name="username" type="text" placeholder="Ej: vendedor3" autocomplete="off" maxlength="100" required />
+            <small>Este será el dato que la persona usará para ingresar.</small>
           </div>
           <div class="user-form-field">
             <label for="user-password">Contraseña</label>

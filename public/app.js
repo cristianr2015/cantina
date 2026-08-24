@@ -2013,16 +2013,21 @@ async function loadUsersForMgmt(){
     if (count) count.textContent = `${users.length} ${users.length === 1 ? 'usuario' : 'usuarios'}`;
     grid.innerHTML = users.length ? users.map(u => {
       const safeUsername = escapeUserText(u.username);
+      const fullName = [u.first_name, u.last_name].map(value => String(value || '').trim()).filter(Boolean).join(' ');
+      const safeFullName = escapeUserText(fullName || u.username);
       const safeRole = ['admin', 'seller', 'puerta'].includes(u.role) ? u.role : 'seller';
       const roleLabel = ROLE_LABELS[safeRole] || safeRole;
-      const initial = escapeUserText(String(u.username || '?').trim().charAt(0) || '?');
+      const initials = fullName
+        ? fullName.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')
+        : String(u.username || '?').charAt(0);
+      const safeInitials = escapeUserText(initials || '?');
       return `
         <article class="user-card">
           <div class="user-card-top">
-            <div class="user-avatar" aria-hidden="true">${initial}</div>
+            <div class="user-avatar" aria-hidden="true">${safeInitials}</div>
             <div class="user-card-identity">
-              <h4 class="user-card-name" title="${safeUsername}">${safeUsername}</h4>
-              <p class="user-card-access"><span aria-hidden="true"></span> Acceso habilitado</p>
+              <h4 class="user-card-name" title="${safeFullName}">${safeFullName}</h4>
+              <p class="user-card-access"><span aria-hidden="true"></span> @${safeUsername}</p>
             </div>
             <span class="user-role-badge user-role-${safeRole}">${roleLabel}</span>
           </div>
@@ -2080,6 +2085,8 @@ function openUserModal(user = null) {
   const editing = Boolean(user);
   form.reset();
   if (editing) {
+    document.getElementById('user-first-name').value = user.first_name || '';
+    document.getElementById('user-last-name').value = user.last_name || '';
     document.getElementById('user-username').value = user.username;
     document.getElementById('user-role').value = user.role;
     submit.dataset.editId = user.id;
@@ -2098,7 +2105,7 @@ function openUserModal(user = null) {
   submit.textContent = editing ? 'Guardar cambios' : 'Crear usuario';
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
-  setTimeout(() => document.getElementById('user-username').focus(), 0);
+  setTimeout(() => document.getElementById('user-first-name').focus(), 0);
 }
 
 function closeUserModal() {
@@ -2119,12 +2126,15 @@ document.addEventListener('keydown', (event) => {
 
 document.getElementById('user-form')?.addEventListener('submit', (event) => {
   event.preventDefault();
+  const firstName = document.getElementById('user-first-name').value.trim();
+  const lastName = document.getElementById('user-last-name').value.trim();
   const username = document.getElementById('user-username').value.trim();
   const password = document.getElementById('user-password').value;
   const role = document.getElementById('user-role').value;
   const editId = document.getElementById('create-user').dataset.editId;
   
-  if (!username) return showToast('El usuario es requerido', 'error');
+  if (!firstName || !lastName) return showToast('El nombre y el apellido son requeridos', 'error');
+  if (!username) return showToast('El usuario para iniciar sesión es requerido', 'error');
   if (!editId && !password) return showToast('La contraseña es requerida para usuarios nuevos', 'error');
 
   const action = editId ? 'actualizar' : 'crear';
@@ -2133,13 +2143,16 @@ document.getElementById('user-form')?.addEventListener('submit', (event) => {
   showConfirm(message, async () => {
     try {
       if (editId) {
-        const body = { username, role };
+        const body = { first_name: firstName, last_name: lastName, username, role };
         if (password) body.password = password;
         const result = await api('/users/' + editId, { method: 'PUT', body: JSON.stringify(body) });
         if (result?.error) throw new Error(result.error);
         showToast('Usuario actualizado correctamente', 'success');
       } else {
-        const result = await api('/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+        const result = await api('/users', {
+          method: 'POST',
+          body: JSON.stringify({ first_name: firstName, last_name: lastName, username, password, role })
+        });
         if (result?.error) throw new Error(result.error);
         showToast('Usuario creado correctamente', 'success');
       }

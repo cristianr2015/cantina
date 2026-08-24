@@ -92,6 +92,7 @@ async function toggleCompany(companyId) {
 
 document.getElementById('superadmin-login-form').addEventListener('submit', async event => {
   event.preventDefault(); const error = document.getElementById('sa-login-error'); error.textContent = '';
+  error.classList.remove('sa-success');
   try {
     const result = await request('/login', { method: 'POST', body: JSON.stringify({ username: document.getElementById('sa-username').value, password: document.getElementById('sa-password').value }) });
     sessionStorage.setItem(SA_TOKEN_KEY, result.token); await start(result.user);
@@ -108,6 +109,12 @@ document.getElementById('sa-open-company').addEventListener('click', () => {
   delete document.getElementById('sa-company-code').dataset.edited;
   setLicenseDurationOptions(document.getElementById('sa-company-license-type'), document.getElementById('sa-company-license-duration'));
   openModal('sa-company-modal');
+});
+document.getElementById('sa-open-password').addEventListener('click', () => {
+  document.getElementById('sa-password-form').reset();
+  document.getElementById('sa-password-form-error').textContent = '';
+  openModal('sa-password-modal');
+  document.getElementById('sa-current-password').focus();
 });
 document.getElementById('sa-company-name').addEventListener('input', event => { const code = document.getElementById('sa-company-code'); if (!code.dataset.edited) code.value = event.target.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); });
 document.getElementById('sa-company-code').addEventListener('input', event => { event.target.dataset.edited = 'true'; });
@@ -141,6 +148,42 @@ document.getElementById('sa-license-form').addEventListener('submit', async even
     await request(`/companies/${companyId}/license`, { method: 'POST', body: JSON.stringify({ license_type: document.getElementById('sa-license-type').value, license_duration: document.getElementById('sa-license-duration').value, expires_at: document.getElementById('sa-license-custom-expiry').value }) });
     closeModal('sa-license-modal'); await loadCompanies(); showToast('Licencia asignada correctamente');
   } catch (exception) { error.textContent = exception.message; } finally { button.disabled = false; }
+});
+
+document.getElementById('sa-password-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = event.submitter;
+  const error = document.getElementById('sa-password-form-error');
+  const newPassword = document.getElementById('sa-new-password').value;
+  const confirmation = document.getElementById('sa-confirm-password').value;
+  error.textContent = '';
+  if (newPassword !== confirmation) {
+    error.textContent = 'La confirmación no coincide con la nueva contraseña';
+    return;
+  }
+  button.disabled = true;
+  try {
+    const username = document.getElementById('sa-session-user').textContent;
+    await request('/password', { method: 'PUT', body: JSON.stringify({
+      current_password: document.getElementById('sa-current-password').value,
+      new_password: newPassword,
+      confirm_password: confirmation
+    }) });
+    sessionStorage.removeItem(SA_TOKEN_KEY);
+    closeModal('sa-password-modal');
+    document.getElementById('superadmin-app').hidden = true;
+    document.getElementById('superadmin-login').hidden = false;
+    document.getElementById('superadmin-login-form').reset();
+    document.getElementById('sa-username').value = username;
+    const loginMessage = document.getElementById('sa-login-error');
+    loginMessage.textContent = 'Contraseña actualizada. Ingresá nuevamente con la nueva contraseña.';
+    loginMessage.classList.add('sa-success');
+    document.getElementById('sa-password').focus();
+  } catch (exception) {
+    error.textContent = exception.message;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.getElementById('sa-logout').addEventListener('click', () => { sessionStorage.removeItem(SA_TOKEN_KEY); location.reload(); });

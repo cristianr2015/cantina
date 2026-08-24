@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111827">
   <title>Superadministración · Gestión de Eventos</title>
-  <link rel="stylesheet" href="superadmin.css?v=20260825-1">
-  <style>[hidden]{display:none!important}</style>
+  <link rel="stylesheet" href="superadmin.css?v=20260825-2">
+  <style>[hidden]{display:none!important}.sa-error.sa-success{color:#22c55e}</style>
 </head>
 <body>
   <main id="superadmin-login" class="sa-login-shell">
@@ -26,7 +26,7 @@
   <div id="superadmin-app" class="sa-app" hidden>
     <header class="sa-topbar">
       <div><span class="sa-logo">SA</span><div><strong>Panel de empresas</strong><small id="sa-session-user"></small></div></div>
-      <nav><a href="/">Abrir aplicación</a><button id="sa-logout" class="sa-secondary" type="button">Cerrar sesión</button></nav>
+      <nav><a href="/">Abrir aplicación</a><button id="sa-open-password" class="sa-secondary" type="button">Cambiar contraseña</button><button id="sa-logout" class="sa-secondary" type="button">Cerrar sesión</button></nav>
     </header>
     <main class="sa-content">
       <section class="sa-hero">
@@ -81,7 +81,18 @@
     </form>
   </div>
 
+  <div id="sa-password-modal" class="sa-modal-backdrop" hidden>
+    <form id="sa-password-form" class="sa-modal sa-modal-small">
+      <div class="sa-modal-head"><div><span class="sa-eyebrow">SEGURIDAD</span><h2>Cambiar contraseña</h2></div><button class="sa-close" data-close="sa-password-modal" type="button">×</button></div>
+      <label>Contraseña actual<input id="sa-current-password" type="password" autocomplete="current-password" required></label>
+      <label>Nueva contraseña<input id="sa-new-password" type="password" autocomplete="new-password" minlength="12" required><small>Mínimo 12 caracteres.</small></label>
+      <label>Confirmar nueva contraseña<input id="sa-confirm-password" type="password" autocomplete="new-password" minlength="12" required></label>
+      <div id="sa-password-form-error" class="sa-error" role="alert"></div>
+      <div class="sa-modal-actions"><button class="sa-secondary" data-close="sa-password-modal" type="button">Cancelar</button><button type="submit">Guardar contraseña</button></div>
+    </form>
+  </div>
+
   <div id="sa-toast" class="sa-toast" hidden></div>
-  <script src="superadmin.js?v=20260825-1"></script>
+  <script src="superadmin.js?v=20260825-2"></script>
 </body>
 </html>

@@ -175,6 +175,14 @@ CREATE TABLE IF NOT EXISTS company_licenses (
   FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS superadmin_accounts (
+  username VARCHAR(100) PRIMARY KEY,
+  password_hash VARCHAR(255) NOT NULL,
+  credential_version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Datos de ejemplo
 INSERT INTO events (name, date, company_id) VALUES
 ('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00'), 1),

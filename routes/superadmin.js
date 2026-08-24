@@ -8,22 +8,23 @@ const {
   normalizeCompanyLicense,
   assignCompanyLicense
 } = require('../lib/companyService');
+const {
+  authenticateSuperadmin,
+  isSuperadminSessionValid,
+  changeSuperadminPassword
+} = require('../lib/superadminService');
 
 const router = express.Router();
 
-function superadminConfig() {
-  return {
-    username: String(process.env.SUPERADMIN_USERNAME || '').trim(),
-    password: String(process.env.SUPERADMIN_PASSWORD || '')
-  };
-}
-
-function superadminAuth(req, res, next) {
+async function superadminAuth(req, res, next) {
   const authorization = req.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) return res.status(401).json({ error: 'No autorizado' });
   try {
     const payload = jwt.verify(authorization.slice(7), jwtSecret);
     if (payload.type !== 'superadmin') return res.status(403).json({ error: 'Acceso exclusivo para superadministración' });
+    if (!await isSuperadminSessionValid(db, payload.username, payload.credentialVersion)) {
+      return res.status(401).json({ error: 'La sesión de superadministración ya no es válida' });
+    }
     req.superadmin = payload;
     next();
   } catch (_error) {
@@ -72,22 +73,43 @@ async function loadCompanies(executor = db, companyId = null) {
   return rows.map(serializeCompany);
 }
 
-router.post('/login', (req, res) => {
-  const config = superadminConfig();
-  if (!config.username || !config.password) {
-    return res.status(503).json({ error: 'Las credenciales de superadministración no están configuradas' });
+router.post('/login', async (req, res) => {
+  try {
+    const account = await authenticateSuperadmin(
+      db,
+      String(req.body?.username || '').trim(),
+      String(req.body?.password || '')
+    );
+    if (!account) return res.status(401).json({ error: 'Credenciales inválidas' });
+    const token = jwt.sign({
+      type: 'superadmin',
+      username: account.username,
+      credentialVersion: account.credentialVersion
+    }, jwtSecret, { expiresIn: '4h' });
+    res.json({ token, user: { username: account.username } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  const username = String(req.body?.username || '').trim();
-  const password = String(req.body?.password || '');
-  if (username !== config.username || password !== config.password) {
-    return res.status(401).json({ error: 'Credenciales inválidas' });
-  }
-  const token = jwt.sign({ type: 'superadmin', username }, jwtSecret, { expiresIn: '4h' });
-  res.json({ token, user: { username } });
 });
 
 router.get('/session', superadminAuth, (req, res) => {
   res.json({ user: { username: req.superadmin.username } });
+});
+
+router.put('/password', superadminAuth, async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.current_password || '');
+    const newPassword = String(req.body?.new_password || '');
+    const confirmation = String(req.body?.confirm_password || '');
+    if (newPassword !== confirmation) {
+      return res.status(400).json({ error: 'La confirmación no coincide con la nueva contraseña' });
+    }
+    await changeSuperadminPassword(db, req.superadmin.username, currentPassword, newPassword);
+    res.json({ ok: true });
+  } catch (error) {
+    const validationCodes = ['PASSWORD_TOO_SHORT', 'INVALID_CURRENT_PASSWORD', 'PASSWORD_REUSED'];
+    res.status(validationCodes.includes(error.code) ? 400 : 500).json({ error: error.message });
+  }
 });
 
 router.get('/companies', superadminAuth, async (_req, res) => {

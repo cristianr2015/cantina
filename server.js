@@ -6,6 +6,7 @@ const db = require('./db');
 const { migrateEventScoping } = require('./lib/eventMigration');
 const { migrateLicenseStorage } = require('./lib/licenseService');
 const { migrateCompanyStorage } = require('./lib/companyService');
+const { migrateSuperadminStorage } = require('./lib/superadminService');
 
 const productsRouter = require('./routes/products');
 const eventsRouter = require('./routes/events');
@@ -469,6 +470,7 @@ const eventScopingMigration = baseEventScopingMigration.then(async () => {
   console.log('Gestión de gastos configurada y aportes históricos preservados.');
   await migrateLicenseStorage(db);
   await migrateCompanyStorage(db);
+  await migrateSuperadminStorage(db);
   console.log('Sistema multiempresa y licencias por empresa configurado.');
 });
 

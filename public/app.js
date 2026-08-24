@@ -1597,6 +1597,7 @@ function updateQuickTicketPrice() {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
+  document.getElementById('ticket-sale-payment-field')?.classList.toggle('hidden', type === 'cortesia');
   document.getElementById('ticket-sale-user-field')?.classList.toggle('hidden', type === 'cortesia');
 }
 
@@ -1611,8 +1612,8 @@ document.getElementById('ticket-sale-form')?.addEventListener('submit', async ev
   const firstName = document.getElementById('quick-ticket-firstname').value.trim();
   const lastName = document.getElementById('quick-ticket-lastname').value.trim();
   const dni = document.getElementById('quick-ticket-dni').value.trim();
-  const payment = document.getElementById('quick-ticket-payment').value;
   const type = document.getElementById('quick-ticket-type').value;
+  const payment = type === 'cortesia' ? 'cash' : document.getElementById('quick-ticket-payment').value;
   const userId = document.getElementById('quick-ticket-user').value;
   const qty = parseInt(document.getElementById('quick-ticket-qty').value) || 1;
 

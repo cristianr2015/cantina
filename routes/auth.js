@@ -11,19 +11,32 @@ const approvalActions = new Set(['delete:sale', 'delete:ticket', 'create:courtes
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    const companyCode = String(req.body.company || req.body.company_code || '').trim().toLowerCase();
     const [rows] = await db.query(`
       SELECT u.id, u.first_name, u.last_name, u.username, u.role,
+             c.id AS company_id, c.name AS company_name, c.code AS company_code, c.active AS company_active,
              GROUP_CONCAT(ur.role ORDER BY FIELD(ur.role, 'admin', 'seller', 'puerta')) AS roles_csv
       FROM users u
+      INNER JOIN companies c ON c.id = u.company_id
       LEFT JOIN user_roles ur ON ur.user_id = u.id
-      WHERE u.username = ? AND u.password = ?
-      GROUP BY u.id, u.first_name, u.last_name, u.username, u.role
-    `, [username, password]);
+      WHERE u.username = ? AND u.password = ? AND (? = '' OR c.code = ?)
+      GROUP BY u.id, u.first_name, u.last_name, u.username, u.role,
+               c.id, c.name, c.code, c.active
+      LIMIT 2
+    `, [username, password, companyCode, companyCode]);
+    if (rows.length > 1 && !companyCode) {
+      return res.status(400).json({ error: 'Ingrese el código de empresa para iniciar sesión' });
+    }
     const user = rows[0];
     if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+    if (!user.company_active) return res.status(403).json({ error: 'La empresa se encuentra suspendida' });
     const roles = user.roles_csv ? user.roles_csv.split(',') : [user.role];
     const primaryRole = roles[0] || user.role;
-    const token = jwt.sign({ id: user.id, username: user.username, role: primaryRole, roles }, jwtSecret, { expiresIn: '8h' });
+    const company = { id: user.company_id, name: user.company_name, code: user.company_code };
+    const token = jwt.sign({
+      id: user.id, username: user.username, role: primaryRole, roles,
+      companyId: company.id, companyCode: company.code, companyName: company.name
+    }, jwtSecret, { expiresIn: '8h' });
     res.json({
       token,
       user: {
@@ -32,8 +45,10 @@ router.post('/login', async (req, res) => {
         last_name: user.last_name,
         username: user.username,
         role: primaryRole,
-        roles
-      }
+        roles,
+        company
+      },
+      company
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -41,15 +56,25 @@ router.post('/login', async (req, res) => {
 });
 
 // Valida el token antes de mostrar la interfaz privada en el navegador.
-router.get('/session', auth(), (req, res) => {
-  res.json({
-    user: {
-      id: req.user.id,
-      username: req.user.username,
-      role: req.user.role,
-      roles: req.user.roles
-    }
-  });
+router.get('/session', auth(), async (req, res) => {
+  try {
+    const [companies] = await db.query('SELECT id, name, code, active FROM companies WHERE id = ? LIMIT 1', [req.user.companyId]);
+    const company = companies[0];
+    if (!company || !company.active) return res.status(403).json({ error: 'La empresa se encuentra suspendida' });
+    const serializedCompany = { id: company.id, name: company.name, code: company.code };
+    res.json({
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        roles: req.user.roles,
+        company: serializedCompany
+      },
+      company: serializedCompany
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.post('/admin-approval', auth(['admin', 'seller', 'puerta']), async (req, res) => {
@@ -64,9 +89,9 @@ router.post('/admin-approval', auth(['admin', 'seller', 'puerta']), async (req, 
       SELECT u.id
       FROM users u
       INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'admin'
-      WHERE u.username = ? AND u.password = ?
+      WHERE u.username = ? AND u.password = ? AND u.company_id = ?
       LIMIT 1
-    `, [username, password]);
+    `, [username, password, req.user.companyId]);
     const admin = rows[0];
     if (!admin) return res.status(403).json({ error: 'Las credenciales administrativas no son válidas' });
 

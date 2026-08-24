@@ -25,15 +25,17 @@ function authorize(requiredRoles, payload) {
 }
 
 test('autoriza cuando cualquiera de los roles del usuario coincide', () => {
-  const result = authorize(['admin'], { id: 1, role: 'seller', roles: ['seller', 'admin'] });
+  const result = authorize(['admin'], { id: 1, role: 'seller', roles: ['seller', 'admin'], companyId: 7 });
   assert.equal(result.allowed, true);
   assert.deepEqual(result.req.user.roles, ['seller', 'admin']);
+  assert.equal(result.req.user.companyId, 7);
 });
 
 test('mantiene compatibilidad con tokens antiguos de un solo rol', () => {
   const result = authorize(['seller'], { id: 2, role: 'seller' });
   assert.equal(result.allowed, true);
   assert.deepEqual(result.req.user.roles, ['seller']);
+  assert.equal(result.req.user.companyId, 1);
 });
 
 test('rechaza el acceso cuando ningun rol coincide', () => {

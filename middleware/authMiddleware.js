@@ -13,6 +13,7 @@ function authMiddleware(requiredRoles = []){
         : (payload.role ? [payload.role] : []);
       payload.roles = roles;
       payload.role = payload.role || roles[0];
+      payload.companyId = Number(payload.companyId || 1);
       req.user = payload;
       if (requiredRoles.length && !roles.some(role => requiredRoles.includes(role))) {
         return res.status(403).json({ error: 'Acceso denegado' });

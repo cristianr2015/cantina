@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Superadministración · Gestión de Eventos</title>
+  <link rel="stylesheet" href="superadmin.css?v=20260825-1">
+  <style>[hidden]{display:none!important}</style>
+</head>
+<body>
+  <main id="superadmin-login" class="sa-login-shell">
+    <form id="superadmin-login-form" class="sa-login-card">
+      <div class="sa-brand-mark">SA</div>
+      <span class="sa-eyebrow">CONTROL DE PLATAFORMA</span>
+      <h1>Superadministración</h1>
+      <p>Gestioná las empresas habilitadas y sus licencias.</p>
+      <label>Usuario<input id="sa-username" autocomplete="username" required></label>
+      <label>Contraseña<input id="sa-password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Ingresar</button>
+      <div id="sa-login-error" class="sa-error" role="alert"></div>
+      <a href="/">Volver a la aplicación</a>
+    </form>
+  </main>
+
+  <div id="superadmin-app" class="sa-app" hidden>
+    <header class="sa-topbar">
+      <div><span class="sa-logo">SA</span><div><strong>Panel de empresas</strong><small id="sa-session-user"></small></div></div>
+      <nav><a href="/">Abrir aplicación</a><button id="sa-logout" class="sa-secondary" type="button">Cerrar sesión</button></nav>
+    </header>
+    <main class="sa-content">
+      <section class="sa-hero">
+        <div><span class="sa-eyebrow">LICENCIAS MULTIEMPRESA</span><h1>Empresas habilitadas</h1><p>Cada empresa mantiene sus propios usuarios, eventos, configuración y licencia.</p></div>
+        <button id="sa-open-company" type="button">＋ Nueva empresa</button>
+      </section>
+      <section class="sa-stats" aria-label="Resumen">
+        <article><span>Empresas</span><strong id="sa-stat-companies">0</strong></article>
+        <article><span>Activas</span><strong id="sa-stat-active">0</strong></article>
+        <article><span>Licencias Pro</span><strong id="sa-stat-pro">0</strong></article>
+        <article><span>Por vencer</span><strong id="sa-stat-expiring">0</strong></article>
+      </section>
+      <section class="sa-panel">
+        <div class="sa-panel-head"><div><h2>Directorio de empresas</h2><p>Renová licencias o suspendé temporalmente el acceso.</p></div><input id="sa-search" type="search" placeholder="Buscar empresa o código"></div>
+        <div id="sa-companies" class="sa-company-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="sa-company-modal" class="sa-modal-backdrop" hidden>
+    <form id="sa-company-form" class="sa-modal">
+      <div class="sa-modal-head"><div><span class="sa-eyebrow">ALTA</span><h2>Nueva empresa</h2></div><button class="sa-close" data-close="sa-company-modal" type="button">×</button></div>
+      <div class="sa-form-grid">
+        <label>Nombre de la empresa<input id="sa-company-name" required placeholder="Ej.: Peña Los Amigos"></label>
+        <label>Código de acceso<input id="sa-company-code" required minlength="3" placeholder="Ej.: los-amigos"></label>
+      </div>
+      <h3>Administrador inicial</h3>
+      <div class="sa-form-grid">
+        <label>Nombre<input id="sa-admin-first-name" required></label><label>Apellido<input id="sa-admin-last-name" required></label>
+        <label>Usuario<input id="sa-admin-username" required autocomplete="off"></label><label>Contraseña<input id="sa-admin-password" type="password" required autocomplete="new-password"></label>
+      </div>
+      <h3>Licencia inicial</h3>
+      <div class="sa-form-grid">
+        <label>Tipo<select id="sa-company-license-type"><option value="free">Free</option><option value="full">Pro</option></select></label>
+        <label>Duración<select id="sa-company-license-duration"><option value="forever">Sin vencimiento</option></select></label>
+        <label id="sa-company-custom-expiry-wrap" hidden>Vencimiento<input id="sa-company-custom-expiry" type="date"></label>
+      </div>
+      <div id="sa-company-form-error" class="sa-error" role="alert"></div>
+      <div class="sa-modal-actions"><button class="sa-secondary" data-close="sa-company-modal" type="button">Cancelar</button><button type="submit">Crear empresa</button></div>
+    </form>
+  </div>
+
+  <div id="sa-license-modal" class="sa-modal-backdrop" hidden>
+    <form id="sa-license-form" class="sa-modal sa-modal-small">
+      <div class="sa-modal-head"><div><span class="sa-eyebrow">LICENCIA</span><h2 id="sa-license-company-name">Asignar licencia</h2></div><button class="sa-close" data-close="sa-license-modal" type="button">×</button></div>
+      <input id="sa-license-company-id" type="hidden">
+      <label>Tipo<select id="sa-license-type"><option value="free">Free</option><option value="full">Pro</option></select></label>
+      <label>Duración<select id="sa-license-duration"><option value="forever">Sin vencimiento</option></select></label>
+      <label id="sa-license-custom-expiry-wrap" hidden>Vencimiento<input id="sa-license-custom-expiry" type="date"></label>
+      <div id="sa-license-form-error" class="sa-error" role="alert"></div>
+      <div class="sa-modal-actions"><button class="sa-secondary" data-close="sa-license-modal" type="button">Cancelar</button><button type="submit">Asignar licencia</button></div>
+    </form>
+  </div>
+
+  <div id="sa-toast" class="sa-toast" hidden></div>
+  <script src="superadmin.js?v=20260825-1"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const db = require('./db');
 const { migrateEventScoping } = require('./lib/eventMigration');
 const { migrateLicenseStorage } = require('./lib/licenseService');
+const { migrateCompanyStorage } = require('./lib/companyService');
 
 const productsRouter = require('./routes/products');
 const eventsRouter = require('./routes/events');
@@ -17,6 +18,7 @@ const settingsRouter = require('./routes/settings');
 const partnersRouter = require('./routes/partners');
 const expensesRouter = require('./routes/expenses');
 const licenseRouter = require('./routes/license');
+const superadminRouter = require('./routes/superadmin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,6 +41,11 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/partners', partnersRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/license', licenseRouter);
+app.use('/api/superadmin', superadminRouter);
+
+app.get('/superadmin', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'superadmin.html'));
+});
 
 app.get('/ping', async (req, res) => {
   try {
@@ -65,11 +72,21 @@ app.get('/health/ready', async (req, res) => {
 
 app.get('/api/public-settings', async (req, res) => {
   try {
+    const companyCode = String(req.query.company || '').trim().toLowerCase();
+    if (!companyCode) {
+      return res.json({
+        company_name: 'Gestión de Eventos', logo_path: null,
+        region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
+      });
+    }
     const [rows] = await db.query(
-      'SELECT company_name, logo_path, region_code, currency_code, currency_symbol FROM settings WHERE id = 1 LIMIT 1'
+      `SELECT s.company_name, s.logo_path, s.region_code, s.currency_code, s.currency_symbol
+       FROM settings s INNER JOIN companies c ON c.id = s.company_id
+       WHERE c.code = ? AND c.active = 1 LIMIT 1`,
+      [companyCode]
     );
     res.json(rows[0] || {
-      company_name: 'Mi Empresa', logo_path: null, region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
+      company_name: 'Gestión de Eventos', logo_path: null, region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -451,7 +468,8 @@ const eventScopingMigration = baseEventScopingMigration.then(async () => {
   `);
   console.log('Gestión de gastos configurada y aportes históricos preservados.');
   await migrateLicenseStorage(db);
-  console.log('Sistema de licencias configurado.');
+  await migrateCompanyStorage(db);
+  console.log('Sistema multiempresa y licencias por empresa configurado.');
 });
 
 let server;

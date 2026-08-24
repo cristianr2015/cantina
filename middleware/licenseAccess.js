@@ -28,7 +28,7 @@ function licenseError(res, status) {
   const expired = status?.state === 'expired';
   return res.status(403).json({
     error: expired
-      ? 'La licencia está vencida. Instale una licencia vigente desde Configuración.'
+      ? 'La licencia de la empresa está vencida. Contacte al superadministrador para renovarla.'
       : 'Esta función no está disponible para la licencia instalada.',
     code: expired ? 'LICENSE_EXPIRED' : 'LICENSE_FEATURE_NOT_AVAILABLE',
     license: status
@@ -38,7 +38,7 @@ function licenseError(res, status) {
 function requireLicenseFeature(feature) {
   return async (req, res, next) => {
     try {
-      const status = await getLicenseStatus(db);
+      const status = await getLicenseStatus(db, req.user.companyId);
       req.license = status;
       if (licenseAllows(status, feature)) return next();
       return licenseError(res, status);
@@ -50,7 +50,7 @@ function requireLicenseFeature(feature) {
 
 async function requireTicketSaleLicense(req, res, next) {
   try {
-    const status = await getLicenseStatus(db);
+    const status = await getLicenseStatus(db, req.user.companyId);
     req.license = status;
     const ticketType = String(req.body?.ticket_type || 'anticipada').toLowerCase();
     if (status.active && (status.type === 'full' || (status.type === 'free' && ticketType === 'puerta'))) {

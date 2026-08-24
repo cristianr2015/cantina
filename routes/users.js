@@ -32,9 +32,9 @@ function serializeUser(row) {
   return { ...user, role: roles[0] || row.role, roles };
 }
 
-async function loadUsers(executor = db, userId = null) {
-  const where = userId === null ? '' : 'WHERE u.id = ?';
-  const params = userId === null ? [] : [userId];
+async function loadUsers(executor = db, companyId, userId = null) {
+  const where = userId === null ? 'WHERE u.company_id = ?' : 'WHERE u.company_id = ? AND u.id = ?';
+  const params = userId === null ? [companyId] : [companyId, userId];
   const [rows] = await executor.query(`
     SELECT u.id, u.first_name, u.last_name, u.username, u.role, u.created_at,
            GROUP_CONCAT(ur.role ORDER BY FIELD(ur.role, 'admin', 'seller', 'puerta')) AS roles_csv
@@ -54,9 +54,9 @@ async function replaceUserRoles(connection, userId, roles) {
   }
 }
 
-router.get('/', auth(['admin']), async (_req, res) => {
+router.get('/', auth(['admin']), async (req, res) => {
   try {
-    res.json(await loadUsers());
+    res.json(await loadUsers(db, req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -79,12 +79,12 @@ router.post('/', auth(['admin']), loadConfigurationLicense, async (req, res) => 
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [result] = await connection.query(
-      'INSERT INTO users (first_name, last_name, username, password, role) VALUES (?, ?, ?, ?, ?)',
-      [firstName, lastName, username, password, roles[0]]
+      'INSERT INTO users (first_name, last_name, username, password, role, company_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [firstName, lastName, username, password, roles[0], req.user.companyId]
     );
     await replaceUserRoles(connection, result.insertId, roles);
     await connection.commit();
-    const users = await loadUsers(db, result.insertId);
+    const users = await loadUsers(db, req.user.companyId, result.insertId);
     res.status(201).json(users[0]);
   } catch (err) {
     if (connection) await connection.rollback();
@@ -111,7 +111,7 @@ router.put('/:id', auth(['admin']), loadConfigurationLicense, async (req, res) =
 
     connection = await db.getConnection();
     await connection.beginTransaction();
-    const existingUsers = await loadUsers(connection, id);
+    const existingUsers = await loadUsers(connection, req.user.companyId, id);
     if (!existingUsers[0]) {
       await connection.rollback();
       return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -126,8 +126,8 @@ router.put('/:id', auth(['admin']), loadConfigurationLicense, async (req, res) =
       sql += ', password = ?';
       params.push(password);
     }
-    sql += ', role = ? WHERE id = ?';
-    params.push(roles[0], id);
+    sql += ', role = ? WHERE id = ? AND company_id = ?';
+    params.push(roles[0], id, req.user.companyId);
     const [result] = await connection.query(sql, params);
     if (!result.affectedRows) {
       await connection.rollback();
@@ -135,7 +135,7 @@ router.put('/:id', auth(['admin']), loadConfigurationLicense, async (req, res) =
     }
     await replaceUserRoles(connection, id, roles);
     await connection.commit();
-    const users = await loadUsers(db, id);
+    const users = await loadUsers(db, req.user.companyId, id);
     res.json(users[0]);
   } catch (err) {
     if (connection) await connection.rollback();
@@ -148,7 +148,10 @@ router.put('/:id', auth(['admin']), loadConfigurationLicense, async (req, res) =
 
 router.delete('/:id', auth(['admin']), async (req, res) => {
   try {
-    const [result] = await db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+    if (Number(req.params.id) === Number(req.user.id)) {
+      return res.status(409).json({ error: 'No puede eliminar su propio usuario' });
+    }
+    const [result] = await db.query('DELETE FROM users WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ deleted: true });
   } catch (err) {

@@ -4,6 +4,7 @@ const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
 const { requireLicenseFeature } = require('../middleware/licenseAccess');
+const { userBelongsToCompany } = require('../lib/companyAccess');
 
 const requireFullLicense = requireLicenseFeature('full');
 
@@ -28,6 +29,9 @@ router.post('/contributions', auth(['admin']), requireFullLicense, requireEvent,
   try {
     const { user_id, amount, description } = req.body;
     if (!user_id || !amount) return res.status(400).json({ error: 'Socio y monto requeridos' });
+    if (!await userBelongsToCompany(db, user_id, req.user.companyId)) {
+      return res.status(400).json({ error: 'El usuario no pertenece a la empresa activa' });
+    }
 
     const [result] = await db.query(
       'INSERT INTO partner_contributions (user_id, amount, description, event_id) VALUES (?, ?, ?, ?)',
@@ -44,6 +48,9 @@ router.put('/contributions/:id', auth(['admin']), requireFullLicense, requireEve
   try {
     const { user_id, amount, description } = req.body;
     if (!user_id || !amount) return res.status(400).json({ error: 'Socio y monto requeridos' });
+    if (!await userBelongsToCompany(db, user_id, req.user.companyId)) {
+      return res.status(400).json({ error: 'El usuario no pertenece a la empresa activa' });
+    }
 
     const [result] = await db.query(
       'UPDATE partner_contributions SET user_id = ?, amount = ?, description = ? WHERE id = ? AND event_id = ?',

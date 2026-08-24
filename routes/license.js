@@ -5,15 +5,21 @@ const { getLicenseStatus, activateLicense } = require('../lib/licenseService');
 
 const router = express.Router();
 
-router.get('/status', auth(['admin', 'seller', 'puerta']), async (_req, res) => {
+router.get('/status', auth(['admin', 'seller', 'puerta']), async (req, res) => {
   try {
-    res.json(await getLicenseStatus(db));
+    res.json(await getLicenseStatus(db, req.user.companyId));
   } catch (_error) {
     res.status(500).json({ error: 'No se pudo consultar la licencia', code: 'LICENSE_CHECK_FAILED' });
   }
 });
 
 router.post('/activate', auth(['admin']), async (req, res) => {
+  if (req.user.companyId) {
+    return res.status(403).json({
+      error: 'Las licencias son administradas por el superadministrador de la plataforma',
+      code: 'LICENSE_MANAGED_BY_SUPERADMIN'
+    });
+  }
   try {
     const key = String(req.body?.key || '').trim();
     if (!key) return res.status(400).json({ error: 'Ingrese una clave de licencia' });

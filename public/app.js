@@ -687,7 +687,8 @@ function applyLicenseUi() {
   const status = document.getElementById('license-status');
   const detail = document.getElementById('license-status-detail');
   const dates = document.getElementById('license-status-dates');
-  const installation = document.getElementById('license-installation-id');
+  const companyCodeOutput = document.getElementById('license-company-code');
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
   if (status) {
     status.className = `license-status-badge license-status-${licenseState.state || 'missing'}`;
     status.textContent = licenseState.active
@@ -703,7 +704,7 @@ function applyLicenseUi() {
       ? uiText('Incluye Dashboard, Registrar venta, ventas de entradas en puerta y Configuración.')
       : licenseState.active && licenseState.type === 'full'
         ? uiText('Todas las funciones de la aplicación están habilitadas.')
-        : uiText('Instalá una licencia vigente para habilitar la aplicación.');
+        : uiText('Contactá al superadministrador para asignar una licencia vigente a la empresa.');
   }
   if (dates) {
     dates.textContent = licenseState.activatedAt
@@ -712,7 +713,7 @@ function applyLicenseUi() {
         : `${uiText('Activada')}: ${formatLicenseDate(licenseState.activatedAt)} · ${uiText('Sin vencimiento')}`
       : '';
   }
-  if (installation) installation.textContent = licenseState.installationId || '—';
+  if (companyCodeOutput) companyCodeOutput.textContent = currentUser?.company?.code || '—';
 
   const isFree = licenseState.active && licenseState.type === 'free';
   document.querySelector('.ticket-management')?.classList.toggle('license-free', isFree);
@@ -729,11 +730,11 @@ function applyLicenseUi() {
   const proEmailLink = document.getElementById('request-pro-license');
   if (proEmailLink) {
     const subject = uiText('Solicitud de licencia Pro');
-    const body = `${uiText('Hola, quiero solicitar una licencia Pro para la instalación')}: ${licenseState.installationId || '—'}`;
+    const body = `${uiText('Hola, quiero solicitar una licencia Pro para la empresa')}: ${currentUser?.company?.name || '—'} (${currentUser?.company?.code || '—'})`;
     proEmailLink.href = `mailto:cramirez@neoprintcardales.com.ar?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
   const proInstallationId = document.getElementById('pro-installation-id');
-  if (proInstallationId) proInstallationId.textContent = licenseState.installationId || '—';
+  if (proInstallationId) proInstallationId.textContent = currentUser?.company?.code || '—';
   syncUserRoleLicenseUi();
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -746,29 +747,6 @@ function applyLicenseUi() {
   }
 }
 
-async function activateLicenseFromSettings() {
-  const input = document.getElementById('license-key-input');
-  const button = document.getElementById('activate-license-btn');
-  const key = String(input?.value || '').trim();
-  if (!key) return showToast('Ingrese una clave de licencia', 'error');
-  if (button) button.disabled = true;
-  try {
-    const result = await api('/license/activate', { method: 'POST', body: JSON.stringify({ key }) });
-    if (result?.error) throw new Error(result.error);
-    licenseState = result.license;
-    if (input) input.value = '';
-    applyLicenseUi();
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    if (user) showAppForUser(user);
-    showToast(`Licencia ${licenseTypeLabel(licenseState.type)} instalada correctamente`, 'success');
-  } catch (error) {
-    showToast(error.message || 'No se pudo instalar la licencia', 'error');
-  } finally {
-    if (button) button.disabled = false;
-  }
-}
-
-document.getElementById('activate-license-btn')?.addEventListener('click', activateLicenseFromSettings);
 document.addEventListener('app:languagechange', applyLicenseUi);
 
 async function fetchTicketPdf(ids) {
@@ -1785,6 +1763,7 @@ function showLoginError(msg){ document.getElementById('login-error').textContent
 
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const company = document.getElementById('login-company').value.trim();
   const username = document.getElementById('login-username').value;
   const password = document.getElementById('login-password').value;
   showLoginError('');
@@ -1793,7 +1772,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     'API_BASE_URL: ' + (API_BASE_URL || '(vacia)'),
     'Request: ' + buildUrl('/api/auth/login')
   ]);
-  const res = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+  const res = await api('/auth/login', { method: 'POST', body: JSON.stringify({ company, username, password }) });
   if (res.token) {
     setSessionToken(res.token);
     localStorage.setItem('user', JSON.stringify(res.user));
@@ -2994,6 +2973,17 @@ function syncRegionalSettingsForm(settings = {}) {
 document.getElementById('cfg-region')?.addEventListener('change', () => {
   renderTaxIdentifierFields(collectTaxIdentifiers());
 });
+
+document.getElementById('login-company')?.addEventListener('change', async event => {
+  const company = event.target.value.trim().toLowerCase();
+  if (!company) return applyCompanyBranding({ company_name: 'Gestión de Eventos', logo_path: null });
+  try {
+    const response = await requestJson(buildUrl(`/api/public-settings?company=${encodeURIComponent(company)}`));
+    if (response.ok && response.data) applyCompanyBranding(response.data);
+  } catch (_error) {
+    // El inicio de sesión mostrará el error si el código no existe.
+  }
+});
 document.getElementById('cfg-currency')?.addEventListener('change', toggleCustomCurrencyFields);
 
 async function loadSettings(){
@@ -3426,7 +3416,8 @@ document.addEventListener('click', (e) => {
 async function showAppForUser(user){
   document.getElementById('login-area').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('current-user').textContent = user.username + ' (' + formatUserRoles(user) + ')';
+  const companyLabel = user.company?.name ? `${user.company.name} · ` : '';
+  document.getElementById('current-user').textContent = companyLabel + user.username + ' (' + formatUserRoles(user) + ')';
   // hide admin-only elements for non-admins
   if (!userHasRole(user, 'admin')){
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
@@ -4221,7 +4212,8 @@ document.addEventListener('app:languagechange', () => {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const currentUserOutput = document.getElementById('current-user');
   if (user && currentUserOutput) {
-    currentUserOutput.textContent = `${user.username} (${formatUserRoles(user)})`;
+    const companyLabel = user.company?.name ? `${user.company.name} · ` : '';
+    currentUserOutput.textContent = `${companyLabel}${user.username} (${formatUserRoles(user)})`;
   }
   if (eventsCache.length) {
     renderEventSelectors();

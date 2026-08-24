@@ -25,7 +25,7 @@
       })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260824-3">
+    <link rel="stylesheet" href="styles.css?v=20260825-1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -439,10 +439,12 @@
       </div>
 
       <form id="login-form" style="display:flex;flex-direction:column;gap:16px;width:100%;max-width:360px;padding:32px;background:#ffffff;border:1px solid rgba(15,23,42,0.1);border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.05);">
+        <input id="login-company" placeholder="Código de empresa" autocomplete="organization" style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
         <input id="login-username" placeholder="Nombre de usuario" required style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
         <input id="login-password" type="password" placeholder="Contraseña" required style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
         <button type="submit" style="padding:14px;background:var(--accent);color:#08101b;font-weight:700;border-radius:8px;border:none;cursor:pointer;transition:all 0.2s">Acceder al Sistema</button>
         <div id="login-error" style="color:#f87171;text-align:center;font-size:14px;min-height:20px"></div>
+        <a href="/superadmin" style="color:var(--muted);font-size:12px;text-align:center;text-decoration:none">Administración de plataforma</a>
       </form>
       <pre id="debug-info" style="display:none;width:100%;max-width:360px;margin-top:16px;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#e5e7eb;font-size:12px;line-height:1.4"></pre>
     </div>
@@ -737,7 +739,7 @@
                   <div>
                     <span class="section-eyebrow">Licencia</span>
                     <h3 id="license-management-title">Licencia de la aplicación</h3>
-                    <p>La licencia Free no vence. Las licencias Pro pueden emitirse por uno o tres años, o sin vencimiento.</p>
+                    <p>La licencia pertenece a la empresa y se aplica automáticamente a todos sus usuarios.</p>
                   </div>
                 </div>
                 <div class="license-current-status" aria-live="polite">
@@ -746,16 +748,10 @@
                   <small id="license-status-dates"></small>
                 </div>
                 <div class="license-installation-row">
-                  <span>Identificador de esta instalación</span>
-                  <code id="license-installation-id">—</code>
+                  <span>Empresa asociada</span>
+                  <code id="license-company-code">—</code>
                 </div>
-                <div class="license-activation-form">
-                  <label for="license-key-input">Clave de licencia</label>
-                  <div>
-                    <input id="license-key-input" type="text" autocomplete="off" spellcheck="false" placeholder="PENA1...">
-                    <button id="activate-license-btn" type="button">Instalar licencia</button>
-                  </div>
-                </div>
+                <p class="license-managed-note">Las altas, renovaciones y vencimientos se administran desde el panel de superadministración.</p>
               </section>
 
               <!-- Sección: Eventos -->
@@ -961,9 +957,9 @@
                 <article><span aria-hidden="true">👥</span><div><h3>Todos los roles de usuario</h3><p>Creá Administradores, Vendedores y usuarios de Puerta con permisos específicos.</p></div></article>
               </div>
               <div class="pro-upgrade-cta">
-                <div><span>Identificador de tu instalación</span><code id="pro-installation-id">—</code></div>
+                <div><span>Código de tu empresa</span><code id="pro-installation-id">—</code></div>
                 <a id="request-pro-license" href="mailto:cramirez@neoprintcardales.com.ar">Solicitar licencia Pro por correo</a>
-                <small>El correo incluirá el identificador necesario para emitir una licencia compatible.</small>
+                <small>El correo incluirá el código necesario para identificar tu empresa.</small>
               </div>
             </section>
           </div>
@@ -1505,8 +1501,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260824-8"></script>
+    <script src="i18n.js?v=20260825-1"></script>
     <script src="sidebar-menu.js?v=20260824-1"></script>
-    <script src="app.js?v=20260824-11"></script>
+    <script src="app.js?v=20260825-1"></script>
   </body>
 </html>

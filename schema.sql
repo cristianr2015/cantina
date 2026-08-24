@@ -2,14 +2,28 @@
 CREATE DATABASE IF NOT EXISTS cantina_db;
 USE cantina_db;
 
+CREATE TABLE IF NOT EXISTS companies (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  code VARCHAR(40) NOT NULL UNIQUE,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO companies (id, name, code, active) VALUES (1, 'Mi Empresa', 'principal', 1);
+
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   first_name VARCHAR(100) NOT NULL DEFAULT '',
   last_name VARCHAR(100) NOT NULL DEFAULT '',
-  username VARCHAR(100) NOT NULL UNIQUE,
+  username VARCHAR(100) NOT NULL,
   password VARCHAR(255) NOT NULL,
   role ENUM('admin','seller','puerta') NOT NULL DEFAULT 'seller',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  company_id INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_users_company_username (company_id, username),
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS user_roles (
@@ -25,7 +39,9 @@ CREATE TABLE IF NOT EXISTS events (
   date DATETIME,
   ticket_price_advance DECIMAL(10,2) NOT NULL DEFAULT 10000,
   ticket_price_door DECIMAL(10,2) NOT NULL DEFAULT 12000,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  company_id INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -144,10 +160,25 @@ CREATE TABLE IF NOT EXISTS license_activations (
   INDEX idx_license_expiry (expires_at)
 );
 
+CREATE TABLE IF NOT EXISTS company_licenses (
+  activation_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  license_id CHAR(36) NOT NULL UNIQUE,
+  company_id INT NOT NULL DEFAULT 1,
+  license_type ENUM('free','full') NOT NULL,
+  license_duration VARCHAR(20) NOT NULL DEFAULT 'forever',
+  activated_at DATETIME NOT NULL,
+  expires_at DATETIME NULL,
+  created_by VARCHAR(100),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_company_license (company_id, activation_id),
+  INDEX idx_company_license_expiry (expires_at),
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT
+);
+
 -- Datos de ejemplo
-INSERT INTO events (name, date) VALUES
-('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00')),
-('Evento Corporativo', TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 7 DAY), '20:00:00'));
+INSERT INTO events (name, date, company_id) VALUES
+('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00'), 1),
+('Evento Corporativo', TIMESTAMP(DATE_ADD(CURDATE(), INTERVAL 7 DAY), '20:00:00'), 1);
 
 INSERT INTO products (name, price_cost, price_sale, profit_pct, event_id) VALUES
 ('Bebida Cola 500ml', 0.80, 1.50, ((1.50-0.80)/0.80)*100, 1),
@@ -157,6 +188,7 @@ INSERT INTO products (name, price_cost, price_sale, profit_pct, event_id) VALUES
 -- Tabla de configuración global (un solo registro)
 CREATE TABLE IF NOT EXISTS settings (
   id INT PRIMARY KEY DEFAULT 1,
+  company_id INT NOT NULL DEFAULT 1,
   cuit VARCHAR(50),
   company_name VARCHAR(255),
   logo_path VARCHAR(255),
@@ -169,11 +201,13 @@ CREATE TABLE IF NOT EXISTS settings (
   tax_identifiers TEXT,
   ticket_price_advance DECIMAL(10,2) NOT NULL DEFAULT 10000,
   ticket_price_door DECIMAL(10,2) NOT NULL DEFAULT 12000,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_settings_company (company_id),
+  FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT
 );
 
 INSERT IGNORE INTO settings (
-  id, cuit, company_name, logo_path, address, phone, email,
+  id, company_id, cuit, company_name, logo_path, address, phone, email,
   region_code, currency_code, currency_symbol, tax_identifiers,
   ticket_price_advance, ticket_price_door
-) VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 'AR', 'ARS', '$', '{}', 10000, 12000);
+) VALUES (1, 1, '', 'Mi Empresa', NULL, '', '', '', 'AR', 'ARS', '$', '{}', 10000, 12000);

@@ -6,6 +6,7 @@ const auth = require('../middleware/authMiddleware');
 const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
 const { buildTicketPdf } = require('../lib/ticketPdf');
+const { userBelongsToCompany } = require('../lib/companyAccess');
 const { requireLicenseFeature, requireTicketSaleLicense } = require('../middleware/licenseAccess');
 
 const ticketRoles = ['admin', 'puerta'];
@@ -126,6 +127,10 @@ router.post('/', auth(ticketRoles), requireTicketSaleLicense, requireCourtesyApp
           : req.user.id);
 
     await connection.beginTransaction();
+    if (!await userBelongsToCompany(connection, userId, req.user.companyId)) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'El usuario seleccionado no pertenece a la empresa activa' });
+    }
     const [settingRows] = await connection.query(
       `SELECT ticket_price_advance, ticket_price_door, date,
               DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR) AS server_now
@@ -188,7 +193,7 @@ router.post('/pdf', auth(ticketRoles), requireFullLicense, requireEvent, async (
     if (tickets.length !== ids.length || tickets.some(ticket => !printableTypes.has(ticket.ticket_type) || !ticket.qr_token)) {
       return res.status(400).json({ error: 'Solo se pueden imprimir entradas anticipadas o de cortesía válidas' });
     }
-    const [settingsRows] = await db.query('SELECT * FROM settings WHERE id = 1 LIMIT 1');
+    const [settingsRows] = await db.query('SELECT * FROM settings WHERE company_id = ? LIMIT 1', [req.user.companyId]);
     const pdf = await buildTicketPdf(tickets, settingsRows[0] || {});
 
     res.set({

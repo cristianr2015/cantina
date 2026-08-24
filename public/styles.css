@@ -965,6 +965,7 @@ body {
 .license-status-missing,.license-status-misconfigured{background:#fef3c7;color:#92400e}
 .license-installation-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:11px 13px;border:1px dashed #d7dee7;border-radius:11px;color:#64748b;font-size:12px}
 .license-installation-row code{overflow-wrap:anywhere;color:#334155;font-size:11px}
+.license-managed-note{margin:12px 2px 0!important;color:#64748b;font-size:12px;line-height:1.45}
 .license-activation-form{margin-top:16px}
 .license-activation-form>label{display:block;margin-bottom:7px;color:#475569;font-size:12px;font-weight:750}
 .license-activation-form>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}

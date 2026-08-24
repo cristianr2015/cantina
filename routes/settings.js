@@ -29,8 +29,8 @@ router.get('/', auth(['admin', 'seller', 'puerta']), requireEvent, async (req, r
               DATE_FORMAT(e.date, '%Y-%m-%dT%H:%i:%s') AS event_date
        FROM settings s
        INNER JOIN events e ON e.id = ?
-       WHERE s.id = 1 LIMIT 1`,
-      [req.eventId]
+       WHERE s.company_id = ? LIMIT 1`,
+      [req.eventId, req.user.companyId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'El evento activo ya no existe' });
     res.json(serializeSettings(rows[0]));
@@ -70,14 +70,15 @@ router.put('/', auth(['admin']), requireEvent, async (req, res) => {
        SET cuit = ?, company_name = ?, address = ?, phone = ?, email = ?,
            region_code = ?, currency_code = ?, currency_symbol = ?, tax_identifiers = ?,
            ticket_price_advance = ?, ticket_price_door = ?
-       WHERE id = 1`,
+       WHERE company_id = ?`,
       [
         legacyCuit, String(company_name).trim(), String(address || '').trim(),
         String(phone || '').trim(), String(email || '').trim(),
         regional.region_code, regional.currency_code, regional.currency_symbol,
-        JSON.stringify(regional.tax_identifiers), advancePrice, doorPrice
+        JSON.stringify(regional.tax_identifiers), advancePrice, doorPrice, req.user.companyId
       ]
     );
+    await connection.query('UPDATE companies SET name = ? WHERE id = ?', [String(company_name).trim(), req.user.companyId]);
     const [eventUpdate] = await connection.query(
       `UPDATE events SET ticket_price_advance = ?, ticket_price_door = ? WHERE id = ?`,
       [advancePrice, doorPrice, req.eventId]
@@ -89,8 +90,8 @@ router.put('/', auth(['admin']), requireEvent, async (req, res) => {
     await connection.commit();
     const [rows] = await db.query(
       `SELECT s.*, e.ticket_price_advance, e.ticket_price_door, e.name AS event_name
-       FROM settings s INNER JOIN events e ON e.id = ? WHERE s.id = 1`,
-      [req.eventId]
+       FROM settings s INNER JOIN events e ON e.id = ? WHERE s.company_id = ?`,
+      [req.eventId, req.user.companyId]
     );
     res.json(serializeSettings(rows[0]));
   } catch (err) {
@@ -107,13 +108,13 @@ router.post('/logo', auth(['admin']), async (req, res) => {
     const { filename, data } = req.body;
     if (!data) return res.status(400).json({ error: 'data base64 requerida' });
     const ext = path.extname(filename || 'logo.png') || '.png';
-    const name = 'logo_' + Date.now() + ext;
+    const name = `logo_${req.user.companyId}_${Date.now()}${ext}`;
     const filePath = path.join(uploadDir, name);
     const buffer = Buffer.from(data, 'base64');
     fs.writeFileSync(filePath, buffer);
     const relPath = '/uploads/' + name;
-    await db.query('UPDATE settings SET logo_path = ? WHERE id = 1', [relPath]);
-    const [rows] = await db.query('SELECT * FROM settings WHERE id = 1');
+    await db.query('UPDATE settings SET logo_path = ? WHERE company_id = ?', [relPath, req.user.companyId]);
+    const [rows] = await db.query('SELECT * FROM settings WHERE company_id = ?', [req.user.companyId]);
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

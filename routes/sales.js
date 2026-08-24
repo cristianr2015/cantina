@@ -5,6 +5,7 @@ const auth = require('../middleware/authMiddleware');
 const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
 const { requireLicenseFeature } = require('../middleware/licenseAccess');
+const { userBelongsToCompany } = require('../lib/companyAccess');
 
 const allowProductSales = requireLicenseFeature('product_sales');
 
@@ -26,6 +27,10 @@ router.post('/', auth(['admin','seller']), allowProductSales, requireEvent, asyn
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
+
+      if (!await userBelongsToCompany(connection, user_id, req.user.companyId)) {
+        throw new Error('El vendedor no pertenece a la empresa activa');
+      }
 
       // Buscar porcentaje de descuento si existe
       let discountPct = 0;

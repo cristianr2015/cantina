@@ -2,7 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const roots = ['server.js', 'db.js', 'config.js', 'routes', 'middleware', 'scripts'];
+const roots = [
+  'server.js', 'db.js', 'config.js', 'routes', 'middleware', 'lib', 'scripts',
+  'public/app.js', 'public/i18n.js', 'public/sidebar-menu.js', 'public/superadmin.js'
+];
 const files = [];
 
 function collect(entry) {

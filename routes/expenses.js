@@ -7,6 +7,7 @@ const { requireLicenseFeature } = require('../middleware/licenseAccess');
 
 const requireFullLicense = requireLicenseFeature('full');
 const { normalizeExpense, normalizeSettlementPaymentMethod } = require('../lib/expenseValidation');
+const { userBelongsToCompany } = require('../lib/companyAccess');
 
 router.get('/', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
@@ -31,6 +32,9 @@ router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, 
     const normalized = normalizeExpense(req.body);
     if (normalized.error) return res.status(400).json({ error: normalized.error });
     const expense = normalized.value;
+    if (expense.user_id && !await userBelongsToCompany(db, expense.user_id, req.user.companyId)) {
+      return res.status(400).json({ error: 'El responsable no pertenece a la empresa activa' });
+    }
     const [result] = await db.query(`
       INSERT INTO expenses
         (description, category, supplier, amount, payment_method, status, expense_date, user_id, event_id)
@@ -50,6 +54,9 @@ router.put('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req
     const normalized = normalizeExpense(req.body);
     if (normalized.error) return res.status(400).json({ error: normalized.error });
     const expense = normalized.value;
+    if (expense.user_id && !await userBelongsToCompany(db, expense.user_id, req.user.companyId)) {
+      return res.status(400).json({ error: 'El responsable no pertenece a la empresa activa' });
+    }
     const [result] = await db.query(`
       UPDATE expenses
       SET description = ?, category = ?, supplier = ?, amount = ?, payment_method = ?,

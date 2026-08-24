@@ -22,22 +22,23 @@ function parsePrice(value, fallback = null) {
   return Number.isFinite(price) && price >= 0 ? price : null;
 }
 
-async function loadEvent(id) {
+async function loadEvent(id, companyId) {
   const [rows] = await db.query(
     `SELECT id, name, DATE_FORMAT(date, '%Y-%m-%dT%H:%i:%s') AS date,
             ticket_price_advance, ticket_price_door, created_at
-     FROM events WHERE id = ? LIMIT 1`,
-    [id]
+     FROM events WHERE id = ? AND company_id = ? LIMIT 1`,
+    [id, companyId]
   );
   return rows[0] || null;
 }
 
-router.get('/', auth(['admin', 'seller', 'puerta']), async (_req, res) => {
+router.get('/', auth(['admin', 'seller', 'puerta']), async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT id, name, DATE_FORMAT(date, '%Y-%m-%dT%H:%i:%s') AS date,
               ticket_price_advance, ticket_price_door, created_at
-       FROM events ORDER BY date DESC, id DESC`
+       FROM events WHERE company_id = ? ORDER BY date DESC, id DESC`,
+      [req.user.companyId]
     );
     res.json(rows);
   } catch (err) {
@@ -54,7 +55,8 @@ router.post('/', auth(['admin']), async (req, res) => {
     }
 
     const [settingsRows] = await db.query(
-      'SELECT ticket_price_advance, ticket_price_door FROM settings WHERE id = 1 LIMIT 1'
+      'SELECT ticket_price_advance, ticket_price_door FROM settings WHERE company_id = ? LIMIT 1',
+      [req.user.companyId]
     );
     const defaults = settingsRows[0] || {};
     const advancePrice = parsePrice(req.body.ticket_price_advance, Number(defaults.ticket_price_advance || 0));
@@ -64,11 +66,11 @@ router.post('/', auth(['admin']), async (req, res) => {
     }
 
     const [result] = await db.query(
-      `INSERT INTO events (name, date, ticket_price_advance, ticket_price_door)
-       VALUES (?, ?, ?, ?)`,
-      [name, date, advancePrice, doorPrice]
+      `INSERT INTO events (name, date, ticket_price_advance, ticket_price_door, company_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [name, date, advancePrice, doorPrice, req.user.companyId]
     );
-    res.status(201).json(await loadEvent(result.insertId));
+    res.status(201).json(await loadEvent(result.insertId, req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -85,11 +87,11 @@ router.put('/:id', auth(['admin']), async (req, res) => {
     }
     const [result] = await db.query(
       `UPDATE events SET name = ?, date = ?, ticket_price_advance = ?, ticket_price_door = ?
-       WHERE id = ?`,
-      [name, date, advancePrice, doorPrice, req.params.id]
+       WHERE id = ? AND company_id = ?`,
+      [name, date, advancePrice, doorPrice, req.params.id, req.user.companyId]
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Evento no encontrado' });
-    res.json(await loadEvent(req.params.id));
+    res.json(await loadEvent(req.params.id, req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -97,7 +99,7 @@ router.put('/:id', auth(['admin']), async (req, res) => {
 
 router.delete('/:id', auth(['admin']), async (req, res) => {
   try {
-    const [eventCountRows] = await db.query('SELECT COUNT(*) AS total FROM events');
+    const [eventCountRows] = await db.query('SELECT COUNT(*) AS total FROM events WHERE company_id = ?', [req.user.companyId]);
     if (Number(eventCountRows[0]?.total || 0) <= 1) {
       return res.status(409).json({ error: 'Debe existir al menos un evento en la aplicación' });
     }
@@ -112,7 +114,7 @@ router.delete('/:id', auth(['admin']), async (req, res) => {
         error: 'El evento contiene datos y no puede eliminarse. Puede conservarlo para consultar su historial.'
       });
     }
-    const [result] = await db.query('DELETE FROM events WHERE id = ?', [req.params.id]);
+    const [result] = await db.query('DELETE FROM events WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Evento no encontrado' });
     res.json({ deleted: true });
   } catch (err) {

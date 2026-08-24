@@ -119,7 +119,7 @@ router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async
     await connection.beginTransaction();
     const [settingRows] = await connection.query(
       `SELECT ticket_price_advance, ticket_price_door, date,
-              DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR) AS current_time
+              DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR) AS server_now
        FROM events WHERE id = ? LIMIT 1 FOR SHARE`,
       [req.eventId]
     );
@@ -128,7 +128,7 @@ router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async
       return res.status(404).json({ error: 'El evento activo ya no existe' });
     }
     const settings = settingRows[0] || {};
-    if (ticketType === 'anticipada' && !canSellAdvanceTicket(settings.date, settings.current_time)) {
+    if (ticketType === 'anticipada' && !canSellAdvanceTicket(settings.date, settings.server_now)) {
       await connection.rollback();
       return res.status(409).json({
         error: 'La venta anticipada está cerrada: solo se permite hasta una hora antes del evento'

@@ -14,6 +14,8 @@ test('traduce textos centrales de la interfaz al portugués y al inglés', () =>
   assert.equal(translate('Configuración', 'en'), 'Settings');
   assert.equal(translate('Registrar venta', 'pt'), 'Registrar venda');
   assert.equal(translate('Registrar venta', 'en'), 'Register sale');
+  assert.equal(translate('Desarrollado por Cristian Ramirez © 2026', 'pt'), 'Desenvolvido por Cristian Ramirez © 2026');
+  assert.equal(translate('Desarrollado por Cristian Ramirez © 2026', 'en'), 'Developed by Cristian Ramirez © 2026');
   assert.equal(translate('Configuración', 'es'), 'Configuración');
 });
 

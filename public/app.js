@@ -144,6 +144,12 @@ function applyCompanyBranding(settings = {}) {
   const logoPath = settings.logo_path || '';
   const resolvedLogo = assetUrl(logoPath, '/uploads/default-logo.png');
 
+  const favicon = document.getElementById('app-favicon');
+  if (favicon) favicon.href = resolvedLogo;
+
+  const appleTouchIcon = document.getElementById('app-apple-touch-icon');
+  if (appleTouchIcon) appleTouchIcon.href = resolvedLogo;
+
   const loginName = document.getElementById('login-company-name');
   if (loginName) loginName.textContent = companyName;
 
@@ -2859,8 +2865,12 @@ document.getElementById('upload-logo').addEventListener('click', async () => {
     });
 
     if (data && data.logo_path) {
-      document.getElementById('logo-preview').src = data.logo_path;
+      document.getElementById('logo-preview').src = assetUrl(data.logo_path);
       document.getElementById('logo-preview').style.display = 'block';
+      applyCompanyBranding({
+        company_name: document.getElementById('cfg-company-name')?.value || 'Cantina',
+        logo_path: data.logo_path
+      });
       showToast('Logo subido', 'success');
     } else {
       showToast(data.error || 'Error al subir logo', 'error');

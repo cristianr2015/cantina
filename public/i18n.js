@@ -440,7 +440,8 @@
     'Entrada compartida correctamente': { pt: 'Ingresso compartilhado corretamente', en: 'Ticket shared successfully' },
     'No se encontraron entradas para compartir': { pt: 'Nenhum ingresso foi encontrado para compartilhar', en: 'No tickets were found to share' },
     'No se pudo compartir la entrada': { pt: 'Não foi possível compartilhar o ingresso', en: 'The ticket could not be shared' },
-    'Las imágenes se guardaron en el dispositivo': { pt: 'As imagens foram salvas no dispositivo', en: 'Images were saved on the device' }
+    'Las imágenes se guardaron en el dispositivo': { pt: 'As imagens foram salvas no dispositivo', en: 'Images were saved on the device' },
+    'Desarrollado por Cristian Ramirez © 2026': { pt: 'Desenvolvido por Cristian Ramirez © 2026', en: 'Developed by Cristian Ramirez © 2026' }
   };
 
   function normalizeLanguage(language) {

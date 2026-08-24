@@ -467,6 +467,19 @@ html[data-theme="dark"] .ticket-price-panel #cfg-ticket-price-door {
   border-color: #475569 !important;
 }
 
+html[data-theme="dark"] .event-price-grid > div {
+  background: #0f172a !important;
+  border: 1px solid #334155;
+}
+
+html[data-theme="dark"] .event-price-grid span {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .event-price-grid strong {
+  color: #f1f5f9 !important;
+}
+
 /* POS y modales */
 html[data-theme="dark"] .pos-header {
   background: #111827 !important;

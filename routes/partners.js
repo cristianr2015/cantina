@@ -5,7 +5,7 @@ const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
 
 // Listar aportes
-router.get('/contributions', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/contributions', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT c.*, u.username as socio_name 

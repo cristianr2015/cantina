@@ -5,7 +5,7 @@ const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
 
 // Reporte: ventas por medio de pago (reemplaza usuario)
-router.get('/sales-by-payment', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/sales-by-payment', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query; // fechas opcionales
     let sql = `SELECT o.payment_method,
@@ -40,7 +40,7 @@ router.get('/sales-by-payment', auth(['admin', 'seller']), requireEvent, async (
 });
 
 // Dashboard Stats: Totales históricos y Top Productos
-router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/dashboard-stats', auth(['admin']), requireEvent, async (req, res) => {
   try {
     // Totales históricos
     const [totals] = await db.query(`
@@ -128,7 +128,7 @@ router.get('/dashboard-stats', auth(['admin', 'seller']), requireEvent, async (r
 });
 
 // Reporte: Detalle completo de ventas (para exportación y auditoría)
-router.get('/sales-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/sales-detail', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -165,7 +165,7 @@ router.get('/sales-detail', auth(['admin', 'seller']), requireEvent, async (req,
 });
 
 // Reporte: Detalle de entradas (con vendedor)
-router.get('/tickets-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/tickets-detail', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -194,7 +194,7 @@ router.get('/tickets-detail', auth(['admin', 'seller']), requireEvent, async (re
 });
 
 // Reporte: Resumen de Asistencia (Personas adentro)
-router.get('/attendance-summary', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/attendance-summary', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -216,7 +216,7 @@ router.get('/attendance-summary', auth(['admin', 'seller']), requireEvent, async
 });
 
 // Reporte: Arqueo de caja de Entradas (Agrupado por medio de pago)
-router.get('/tickets-by-payment', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/tickets-by-payment', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT payment_method,
@@ -236,7 +236,7 @@ router.get('/tickets-by-payment', auth(['admin', 'seller']), requireEvent, async
 });
 
 // Reporte: Detalle de Aportes de Socios
-router.get('/partners-detail', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/partners-detail', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 

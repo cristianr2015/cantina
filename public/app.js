@@ -16,9 +16,25 @@ function userHasRole(user, role) {
   return getUserRoles(user).includes(role);
 }
 
-function isDoorOnlyUser(user) {
-  const roles = getUserRoles(user);
-  return roles.length === 1 && roles[0] === 'puerta';
+const ALL_APP_PAGES = ['dashboard', 'sales', 'tickets', 'partners', 'products', 'reports', 'config'];
+
+function getAllowedPages(user) {
+  if (userHasRole(user, 'admin')) return ALL_APP_PAGES;
+  const pages = [];
+  if (userHasRole(user, 'seller')) pages.push('sales');
+  if (userHasRole(user, 'puerta')) pages.push('tickets');
+  return pages;
+}
+
+function getDefaultPage(user) {
+  if (userHasRole(user, 'admin')) return 'dashboard';
+  if (userHasRole(user, 'seller')) return 'sales';
+  if (userHasRole(user, 'puerta')) return 'tickets';
+  return 'dashboard';
+}
+
+function userCanAccessPage(user, page) {
+  return getAllowedPages(user).includes(page);
 }
 
 function formatUserRoles(user) {
@@ -352,6 +368,73 @@ function showConfirm(message, callback, title = 'Confirmar Acción') {
   cancelBtn.onclick = closeModal;
 }
 
+let pendingAdminApproval = null;
+
+function closeAdminApprovalModal(result = null) {
+  const modal = document.getElementById('admin-approval-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  document.getElementById('admin-approval-form')?.reset();
+  if (pendingAdminApproval) {
+    const resolve = pendingAdminApproval.resolve;
+    pendingAdminApproval = null;
+    resolve(result);
+  }
+}
+
+function requestAdminApproval(action, message) {
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  if (userHasRole(currentUser, 'admin')) return Promise.resolve('');
+  if (pendingAdminApproval) closeAdminApprovalModal(null);
+
+  const modal = document.getElementById('admin-approval-modal');
+  document.getElementById('admin-approval-message').textContent = message;
+  document.getElementById('admin-approval-error').textContent = '';
+  document.getElementById('admin-approval-form').reset();
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('admin-approval-username').focus(), 0);
+
+  return new Promise(resolve => {
+    pendingAdminApproval = { action, resolve };
+  });
+}
+
+document.getElementById('admin-approval-cancel')?.addEventListener('click', () => closeAdminApprovalModal(null));
+document.getElementById('admin-approval-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeAdminApprovalModal(null);
+});
+document.getElementById('admin-approval-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!pendingAdminApproval) return;
+  const submitButton = document.getElementById('admin-approval-submit');
+  const errorOutput = document.getElementById('admin-approval-error');
+  submitButton.disabled = true;
+  errorOutput.textContent = '';
+  const result = await api('/auth/admin-approval', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: document.getElementById('admin-approval-username').value.trim(),
+      password: document.getElementById('admin-approval-password').value,
+      action: pendingAdminApproval.action
+    })
+  });
+  submitButton.disabled = false;
+  if (result.error) {
+    errorOutput.textContent = result.error;
+    document.getElementById('admin-approval-password').value = '';
+    document.getElementById('admin-approval-password').focus();
+    return;
+  }
+  closeAdminApprovalModal(result.approvalToken);
+});
+
+function approvalHeaders(approvalToken) {
+  return approvalToken ? { 'X-Admin-Approval': approvalToken } : {};
+}
+
 async function api(path, opts = {}){
   const headers = addActiveEventHeader(Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {}));
   const token = getSessionToken();
@@ -618,7 +701,8 @@ async function loadEvents() {
 
 async function refreshActiveEventPage() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const hash = location.hash.replace('#', '') || (isDoorOnlyUser(user) ? 'tickets' : 'dashboard');
+  const requestedHash = location.hash.replace('#', '') || getDefaultPage(user);
+  const hash = userCanAccessPage(user, requestedHash) ? requestedHash : getDefaultPage(user);
   if (hash === 'dashboard') await loadDashboard();
   if (hash === 'products') await loadProducts();
   if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
@@ -693,18 +777,29 @@ async function loadSales(){
   
   // Crear cabecera
   const thead = document.createElement('tr');
-  thead.innerHTML = '<th>ID Venta</th><th>Items (Resumen)</th><th>Vendedor</th><th>Pago</th><th>Total</th><th>Fecha</th>';
+  thead.innerHTML = '<th>ID Venta</th><th>Items (Resumen)</th><th>Vendedor</th><th>Pago</th><th>Total</th><th>Fecha</th><th>Acciones</th>';
   table.appendChild(thead);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isAdmin = userHasRole(user, 'admin');
+  const canDeleteSales = isAdmin || userHasRole(user, 'seller');
 
   rows.forEach(r => {
     const tr = document.createElement('tr');
     const pm = r.payment_method === 'mercadopago' ? '📱 MP' : '💵 Efec';
     tr.innerHTML = `<td>#${r.id}</td><td>${r.items_summary || 'Sin items'}</td><td>${r.sold_by || '-'}</td><td>${pm}</td><td>${formatMoney(r.total)}</td><td>${formatDateTime(r.created_at)}</td>`;
-    // Si es admin, habilitar click derecho
-    if (isAdmin) {
+    const actionsCell = document.createElement('td');
+    if (canDeleteSales) {
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'sale-delete-button';
+      deleteButton.textContent = 'Eliminar';
+      deleteButton.addEventListener('click', () => confirmSaleDeletion(r));
+      actionsCell.appendChild(deleteButton);
+    }
+    tr.appendChild(actionsCell);
+    // Administradores y vendedores pueden abrir acciones; el vendedor requiere aprobación para eliminar.
+    if (canDeleteSales) {
       tr.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, r);
@@ -977,8 +1072,14 @@ document.getElementById('delete-ticket-confirm')?.addEventListener('click', asyn
   const confirmButton = document.getElementById('delete-ticket-confirm');
   confirmButton.disabled = true;
   try {
+    const approvalToken = await requestAdminApproval(
+      'delete:ticket',
+      `Para eliminar ${quantity} entrada(s), ingresá las credenciales de un administrador.`
+    );
+    if (approvalToken === null) return;
     const res = await api('/tickets/delete-batch', {
       method: 'POST',
+      headers: approvalHeaders(approvalToken),
       body: JSON.stringify({ ids })
     });
     if (res.error) return showToast(res.error, 'error');
@@ -2143,8 +2244,24 @@ document.getElementById('cancel-user-modal')?.addEventListener('click', closeUse
 document.getElementById('user-modal')?.addEventListener('click', (event) => {
   if (event.target === event.currentTarget) closeUserModal();
 });
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !document.getElementById('user-modal')?.classList.contains('hidden')) closeUserModal();
+async function closeAllOpenPopups() {
+  const scannerWasOpen = !document.getElementById('qr-scanner-modal')?.classList.contains('hidden');
+  closeAdminApprovalModal(null);
+  closeDeleteTicketModal();
+  closeUserModal();
+  document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  });
+  document.querySelectorAll('.context-menu:not(.hidden)').forEach(menu => menu.classList.add('hidden'));
+  closeSidebar();
+  if (scannerWasOpen) await stopQrScanner();
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  event.preventDefault();
+  closeAllOpenPopups().catch(error => console.error('No se pudieron cerrar todos los formularios', error));
 });
 
 document.getElementById('user-form')?.addEventListener('submit', (event) => {
@@ -2197,25 +2314,24 @@ async function initAfterLogin(){
   await loadEvents();
   if (!getActiveEventId()) {
     showToast('Cree o seleccione un evento para comenzar', 'error');
-    if (userHasRole(user, 'admin')) location.hash = '#config';
+    location.hash = userHasRole(user, 'admin') ? '#config' : '#' + getDefaultPage(user);
     navigateToHash();
     return;
   }
   await loadSettings();
-  if (isDoorOnlyUser(user)) {
-    await loadTickets();
-    navigateToHash();
-    return;
-  }
-  await loadProducts();
-  await loadSales();
-  await loadUsersSelect();
-  await loadDashboard(); // Cargar datos del dashboard
   if (userHasRole(user, 'admin')) {
+    await loadProducts();
+    await loadSales();
+    await loadUsersSelect();
+    await loadDashboard();
     await loadUsersForMgmt();
     await loadDiscountsForMgmt();
-  } else if (userHasRole(user, 'seller')) {
-    await loadMySales();
+  } else {
+    if (userHasRole(user, 'seller')) {
+      await loadProducts();
+      await loadSales();
+    }
+    if (userHasRole(user, 'puerta')) await loadTickets();
   }
   navigateToHash();
 }
@@ -2223,7 +2339,7 @@ async function initAfterLogin(){
 // --- simple client-side navigation (hash-based) ---
 function showPage(id){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (isDoorOnlyUser(user) && id !== 'tickets') id = 'tickets';
+  if (!userCanAccessPage(user, id)) id = getDefaultPage(user);
   // hide others
   document.querySelectorAll('.page').forEach(p => {
     if (p.id === 'page-' + id) return;
@@ -2247,10 +2363,10 @@ function showPage(id){
 
 function navigateToHash(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  let hash = location.hash.replace('#','') || (isDoorOnlyUser(user) ? 'tickets' : 'dashboard');
-  if (isDoorOnlyUser(user) && hash !== 'tickets') {
-    hash = 'tickets';
-    history.replaceState(null, '', '#tickets');
+  let hash = location.hash.replace('#','') || getDefaultPage(user);
+  if (!userCanAccessPage(user, hash)) {
+    hash = getDefaultPage(user);
+    history.replaceState(null, '', '#' + hash);
   }
   // load data for page
   if (hash === 'dashboard') { loadDashboard(); }
@@ -2294,7 +2410,8 @@ async function showAppForUser(user){
   }
   document.querySelectorAll('.sidebar a[data-nav]').forEach(link => {
     const menuItem = link.closest('li');
-    if (menuItem) menuItem.style.display = isDoorOnlyUser(user) && link.getAttribute('href') !== '#tickets' ? 'none' : '';
+    const page = (link.getAttribute('href') || '').replace('#', '');
+    if (menuItem) menuItem.style.display = userCanAccessPage(user, page) ? '' : 'none';
   });
 }
 
@@ -2433,20 +2550,38 @@ document.addEventListener('click', () => {
 
 function showContextMenu(e, sale) {
   currentContextSale = sale;
+  const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+  const editAction = document.getElementById('ctx-edit');
+  if (editAction) editAction.style.display = userHasRole(currentUser, 'admin') ? '' : 'none';
   // Posicionar menú donde fue el click
   ctxMenu.style.top = e.pageY + 'px';
   ctxMenu.style.left = e.pageX + 'px';
   ctxMenu.classList.remove('hidden');
 }
 
-// Acción Eliminar
-document.getElementById('ctx-delete').addEventListener('click', async () => {
-  if (!currentContextSale) return;
-  showConfirm(`¿Estás seguro de eliminar la ORDEN #${currentContextSale.id} completa?`, async () => {
-    await api('/sales/' + currentContextSale.id, { method: 'DELETE' });
+function confirmSaleDeletion(sale) {
+  if (!sale) return;
+  showConfirm(`¿Estás seguro de eliminar la ORDEN #${sale.id} completa?`, async () => {
+    const approvalToken = await requestAdminApproval(
+      'delete:sale',
+      `Para eliminar la orden #${sale.id}, ingresá las credenciales de un administrador.`
+    );
+    if (approvalToken === null) return;
+    const result = await api('/sales/' + sale.id, {
+      method: 'DELETE',
+      headers: approvalHeaders(approvalToken)
+    });
+    if (result.error) return showToast(result.error, 'error');
     await loadSales();
-    await loadDashboard();
+    const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+    if (userHasRole(currentUser, 'admin')) await loadDashboard();
+    showToast('Venta eliminada correctamente', 'success');
   });
+}
+
+// Acción Eliminar
+document.getElementById('ctx-delete').addEventListener('click', () => {
+  confirmSaleDeletion(currentContextSale);
 });
 
 // Acción Editar (Abrir Modal)

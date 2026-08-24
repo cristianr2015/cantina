@@ -3,10 +3,11 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
 const { buildTicketPdf } = require('../lib/ticketPdf');
 
-const ticketRoles = ['admin', 'seller', 'puerta'];
+const ticketRoles = ['admin', 'puerta'];
 const validTicketTypes = new Set(['anticipada', 'puerta', 'cortesia']);
 const validPaymentMethods = new Set(['cash', 'mercadopago']);
 
@@ -248,7 +249,7 @@ router.post('/validate', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/delete-batch', auth(ticketRoles), requireEvent, async (req, res) => {
+router.post('/delete-batch', auth(ticketRoles), requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
   let connection;
   try {
     const ids = parseTicketIds(req.body.ids);
@@ -282,7 +283,7 @@ router.post('/delete-batch', auth(ticketRoles), requireEvent, async (req, res) =
   }
 });
 
-router.delete('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
+router.delete('/:id', auth(ticketRoles), requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM tickets_sold WHERE id = ? AND event_id = ?',

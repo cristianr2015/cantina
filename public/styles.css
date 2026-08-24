@@ -170,6 +170,16 @@ input:focus,select:focus{outline:none;box-shadow:0 8px 20px rgba(2,6,23,0.5)}
 .user-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;padding-top:17px;border-top:1px solid #f1f5f9}
 .user-secondary-action{padding:11px 17px;background:#fff;color:#4b5563;border:1px solid #d1d5db;border-radius:11px;font-size:14px;font-weight:700}
 .user-secondary-action:hover{background:#f9fafb;color:#111827}
+.admin-approval-overlay{z-index:4000;background:rgba(15,23,42,.72)}
+.admin-approval-modal{width:min(440px,calc(100vw - 32px));padding:0;overflow:hidden;border-radius:20px;box-shadow:0 28px 70px rgba(15,23,42,.28)}
+.admin-approval-header{display:flex;align-items:center;gap:13px;padding:22px 24px;background:linear-gradient(135deg,#fff7ed,#fff);border-bottom:1px solid #f1f5f9}
+.admin-approval-header h3{margin:0 0 4px;font-size:19px}
+.admin-approval-header p{margin:0;color:#6b7280;font-size:12px;line-height:1.4}
+.admin-approval-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;border-radius:13px;background:#ffedd5;font-size:20px}
+.admin-approval-form{display:flex;flex-direction:column;gap:15px;padding:22px 24px 24px}
+.admin-approval-error{min-height:18px;margin:0;color:#dc2626;font-size:12px}
+.sale-delete-button{padding:7px 11px;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700}
+.sale-delete-button:hover{background:#fef2f2;border-color:#fca5a5}
 
 /* POS Grid (Tarjetas de Venta) */
 .pos-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:24px}

@@ -1061,6 +1061,34 @@
       </div>
     </div>
 
+    <!-- Autorización administrativa para operaciones sensibles -->
+    <div id="admin-approval-modal" class="modal-overlay admin-approval-overlay hidden" aria-hidden="true">
+      <div class="modal admin-approval-modal" role="dialog" aria-modal="true" aria-labelledby="admin-approval-title">
+        <div class="admin-approval-header">
+          <div class="admin-approval-icon" aria-hidden="true">🔐</div>
+          <div>
+            <h3 id="admin-approval-title">Autorización requerida</h3>
+            <p id="admin-approval-message">Ingresá las credenciales de un administrador para continuar.</p>
+          </div>
+        </div>
+        <form id="admin-approval-form" class="admin-approval-form">
+          <div class="user-form-field">
+            <label for="admin-approval-username">Usuario administrador</label>
+            <input id="admin-approval-username" type="text" autocomplete="username" required />
+          </div>
+          <div class="user-form-field">
+            <label for="admin-approval-password">Contraseña</label>
+            <input id="admin-approval-password" type="password" autocomplete="current-password" required />
+          </div>
+          <p id="admin-approval-error" class="admin-approval-error" aria-live="polite"></p>
+          <div class="user-form-actions">
+            <button id="admin-approval-cancel" class="user-secondary-action" type="button">Cancelar</button>
+            <button id="admin-approval-submit" class="user-primary-action" type="submit">Autorizar y eliminar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Modal para eliminar una cantidad de entradas vendidas -->
     <div id="delete-ticket-modal" class="modal-overlay hidden">
       <div class="modal" style="width:400px;text-align:center">

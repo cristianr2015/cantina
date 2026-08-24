@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
 
 router.post('/', auth(['admin','seller']), requireEvent, async (req, res) => {
@@ -113,7 +114,7 @@ router.get('/', auth(['admin','seller']), requireEvent, async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.delete('/:id', auth(['admin', 'seller']), requireAdminApproval('delete:sale'), requireEvent, async (req, res) => {
   try {
     // Aseguramos borrado manual de items por si falla la cascada
     await db.query('DELETE FROM sales WHERE order_id = ? AND event_id = ?', [req.params.id, req.eventId]);

@@ -3,6 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config');
+const auth = require('../middleware/authMiddleware');
+
+const approvalActions = new Set(['delete:sale', 'delete:ticket']);
 
 // Login: recibe { username, password }
 router.post('/login', async (req, res) => {
@@ -32,6 +35,36 @@ router.post('/login', async (req, res) => {
         roles
       }
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/admin-approval', auth(['admin', 'seller', 'puerta']), async (req, res) => {
+  try {
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '');
+    const action = String(req.body.action || '');
+    if (!username || !password || !approvalActions.has(action)) {
+      return res.status(400).json({ error: 'Solicitud de autorización inválida' });
+    }
+    const [rows] = await db.query(`
+      SELECT u.id
+      FROM users u
+      INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'admin'
+      WHERE u.username = ? AND u.password = ?
+      LIMIT 1
+    `, [username, password]);
+    const admin = rows[0];
+    if (!admin) return res.status(403).json({ error: 'Las credenciales administrativas no son válidas' });
+
+    const approvalToken = jwt.sign({
+      type: 'admin-approval',
+      action,
+      adminId: admin.id,
+      requesterId: req.user.id
+    }, jwtSecret, { expiresIn: '2m' });
+    res.json({ approvalToken, expiresIn: 120 });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

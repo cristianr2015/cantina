@@ -32,7 +32,9 @@ function priceForType(type, settings) {
 }
 
 function createQrToken(type) {
-  return type === 'anticipada' ? crypto.randomBytes(32).toString('hex') : null;
+  return type === 'anticipada' || type === 'cortesia'
+    ? crypto.randomBytes(32).toString('hex')
+    : null;
 }
 
 function canSellAdvanceTicket(eventDate, currentDate = new Date()) {
@@ -175,8 +177,9 @@ router.post('/pdf', auth(ticketRoles), requireEvent, async (req, res) => {
     }
 
     const tickets = await loadTicketsByIds(db, ids, req.eventId);
-    if (tickets.length !== ids.length || tickets.some(ticket => ticket.ticket_type !== 'anticipada')) {
-      return res.status(400).json({ error: 'Solo se pueden imprimir entradas anticipadas válidas' });
+    const printableTypes = new Set(['anticipada', 'cortesia']);
+    if (tickets.length !== ids.length || tickets.some(ticket => !printableTypes.has(ticket.ticket_type) || !ticket.qr_token)) {
+      return res.status(400).json({ error: 'Solo se pueden imprimir entradas anticipadas o de cortesía válidas' });
     }
     const [settingsRows] = await db.query('SELECT * FROM settings WHERE id = 1 LIMIT 1');
     const pdf = await buildTicketPdf(tickets, settingsRows[0] || {});
@@ -184,7 +187,7 @@ router.post('/pdf', auth(ticketRoles), requireEvent, async (req, res) => {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Length': pdf.length,
-      'Content-Disposition': `inline; filename="entradas-anticipadas-${ids[0]}.pdf"`,
+      'Content-Disposition': `inline; filename="entradas-${ids[0]}.pdf"`,
       'Cache-Control': 'private, no-store'
     });
     res.end(pdf);
@@ -253,7 +256,7 @@ router.post('/validate', auth(ticketRoles), requireEvent, async (req, res) => {
     const [update] = await db.query(
       `UPDATE tickets_sold
        SET entered = 1, entered_at = NOW()
-       WHERE qr_token = ? AND event_id = ? AND ticket_type = 'anticipada' AND entered = 0`,
+       WHERE qr_token = ? AND event_id = ? AND ticket_type IN ('anticipada', 'cortesia') AND entered = 0`,
       [token, req.eventId]
     );
     if (update.affectedRows === 0) {

@@ -304,7 +304,7 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
       );
     }
     const [withoutTokens] = await db.query(
-      "SELECT id FROM tickets_sold WHERE ticket_type = 'anticipada' AND qr_token IS NULL"
+      "SELECT id FROM tickets_sold WHERE ticket_type IN ('anticipada', 'cortesia') AND qr_token IS NULL"
     );
     for (const ticket of withoutTokens) {
       await db.query(

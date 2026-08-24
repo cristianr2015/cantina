@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const ticketsRouter = require('../routes/tickets');
 const eventsRouter = require('../routes/events');
-const { buildTicketPdf } = require('../lib/ticketPdf');
+const { buildTicketPdf, ticketValueLabel } = require('../lib/ticketPdf');
 const { parseEventId } = require('../middleware/eventContext');
 
 const {
@@ -42,14 +42,14 @@ test('valida el evento activo, su fecha de comienzo y sus precios', () => {
   assert.equal(parsePrice('', 12000), 12000);
 });
 
-test('genera tokens QR aleatorios solo para entradas anticipadas', () => {
+test('genera tokens QR aleatorios para anticipadas y cortesías', () => {
   const first = createQrToken('anticipada');
   const second = createQrToken('anticipada');
   assert.match(first, /^[a-f0-9]{64}$/);
   assert.match(second, /^[a-f0-9]{64}$/);
   assert.notEqual(first, second);
   assert.equal(createQrToken('puerta'), null);
-  assert.equal(createQrToken('cortesia'), null);
+  assert.match(createQrToken('cortesia'), /^[a-f0-9]{64}$/);
 });
 
 test('cierra la venta anticipada exactamente una hora antes del evento', () => {
@@ -88,4 +88,21 @@ test('genera un PDF imprimible con una página por entrada', async () => {
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   assert.ok(pdf.length > 5000);
   assert.match(pdf.subarray(-20).toString(), /%%EOF/);
+});
+
+test('identifica las cortesías como entradas sin cargo en el PDF', async () => {
+  const ticket = {
+    id: 3,
+    first_name: 'Ana',
+    last_name: 'Lopez',
+    dni: '22333444',
+    ticket_type: 'cortesia',
+    price_paid: 0,
+    qr_token: 'a'.repeat(64),
+    sold_at: new Date('2026-08-21T12:00:00Z')
+  };
+  assert.equal(ticketValueLabel(ticket), 'CORTESIA - SIN CARGO');
+  const pdf = await buildTicketPdf([ticket], { company_name: 'Pena Los Amigos' });
+  assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(pdf.length > 3000);
 });

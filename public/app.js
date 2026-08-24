@@ -328,6 +328,10 @@ function ticketTypeLabel(type) {
   return TICKET_TYPE_LABELS[type] || type;
 }
 
+function ticketUsesQr(type) {
+  return type === 'anticipada' || type === 'cortesia';
+}
+
 function getAdvanceSaleState(now = new Date()) {
   const activeEvent = getActiveEvent();
   const eventDateValue = activeEvent?.date || ticketSettings.event_date;
@@ -962,8 +966,8 @@ async function loadTickets(search = '') {
         <td style="text-align:center"><span class="ticket-status ${statusClass}">${statusIngreso}</span></td>
         <td><div class="ticket-row-actions">
           <button class="ticket-row-edit" onclick="editTicket(${Number(r.id)})">Editar</button>
-          ${r.ticket_type === 'anticipada' && nextUnentered ? `<button class="ticket-row-qr" onclick="showTicketQR(${Number(nextUnentered.id)})">Ver QR</button>` : ''}
-          ${r.ticket_type === 'anticipada' ? `<button class="ticket-row-pdf" onclick="printTicketPdf([${ticketIds.join(',')}]).catch(err => showToast(err.message, 'error'))">PDF</button>` : ''}
+          ${ticketUsesQr(r.ticket_type) && nextUnentered ? `<button class="ticket-row-qr" onclick="showTicketQR(${Number(nextUnentered.id)})">Ver QR</button>` : ''}
+          ${ticketUsesQr(r.ticket_type) ? `<button class="ticket-row-pdf" onclick="printTicketPdf([${ticketIds.join(',')}]).catch(err => showToast(err.message, 'error'))">PDF</button>` : ''}
           ${nextUnentered ? `<button class="ticket-row-enter" onclick="toggleEntry(${Number(nextUnentered.id)}, true)">Marcar ingreso</button>` : ''}
           <button class="ticket-row-delete" onclick="deleteTicket([${ticketIds.join(',')}])">Eliminar</button>
         </div>
@@ -982,7 +986,7 @@ window.showTicketQR = async function(id) {
     const rows = await api('/tickets');
     const ticket = rows.find(t => t.id === id);
     if (!ticket) return;
-    if (ticket.ticket_type !== 'anticipada' || !ticket.qr_token) {
+    if (!ticketUsesQr(ticket.ticket_type) || !ticket.qr_token) {
       return showToast('Esta entrada no posee QR de ingreso', 'error');
     }
     if (ticket.entered) {
@@ -990,7 +994,7 @@ window.showTicketQR = async function(id) {
     }
 
     document.getElementById('qr-viewer-title').textContent = `${ticket.first_name} ${ticket.last_name}`;
-    document.getElementById('qr-viewer-desc').textContent = `DNI: ${ticket.dni} - Tipo: ${ticket.ticket_type}`;
+    document.getElementById('qr-viewer-desc').textContent = `DNI: ${ticket.dni} · ${ticketTypeLabel(ticket.ticket_type)}`;
     
     const container = document.getElementById('qrcode-container');
     container.innerHTML = '';
@@ -1064,15 +1068,25 @@ document.getElementById('edit-ticket-save').addEventListener('click', async () =
     const payment = modal.dataset.paymentMethod || 'cash';
     const type = modal.dataset.ticketType || 'anticipada';
     
+    let approvalToken = '';
+    if (type === 'cortesia') {
+      approvalToken = await requestAdminApproval(
+        'create:courtesy',
+        'Para emitir cortesías adicionales, ingresá las credenciales de un administrador.'
+      );
+      if (approvalToken === null) return;
+    }
+
     const created = await api('/tickets', {
       method: 'POST',
+      headers: approvalHeaders(approvalToken),
       body: JSON.stringify({
         first_name: firstName, last_name: lastName, dni,
         payment_method: payment, ticket_type: type, user_id: userId, quantity: qty - 1
       })
     });
     if (created.error) return showToast(created.error, 'error');
-    if (type === 'anticipada') {
+    if (ticketUsesQr(type)) {
       try {
         await printTicketPdf(created.tickets.map(ticket => ticket.id));
       } catch (error) {
@@ -1670,7 +1684,7 @@ document.getElementById('ticket-sale-form')?.addEventListener('submit', async ev
       document.getElementById('quick-ticket-lastname').value = '';
       document.getElementById('quick-ticket-dni').value = '';
       document.getElementById('quick-ticket-qty').value = 1;
-      if (type === 'anticipada') {
+      if (ticketUsesQr(type)) {
         try {
           await printTicketPdf(res.tickets.map(ticket => ticket.id));
         } catch (error) {
@@ -3338,7 +3352,7 @@ async function processQRScan(token) {
         ok: true,
         title: 'Ingreso registrado',
         message: `${res.ticket.first_name} ${res.ticket.last_name}`,
-        detail: `DNI: ${res.ticket.dni}`
+        detail: `DNI: ${res.ticket.dni} · ${ticketTypeLabel(res.ticket.ticket_type)}`
       });
       loadTickets();
     } else {

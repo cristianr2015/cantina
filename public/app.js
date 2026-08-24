@@ -633,7 +633,7 @@ async function api(path, opts = {}){
 }
 
 function licenseTypeLabel(type) {
-  return type === 'free' ? uiText('Free') : type === 'full' ? uiText('Completa') : uiText('Sin licencia');
+  return type === 'free' ? uiText('Free') : type === 'full' ? uiText('Pro') : uiText('Sin licencia');
 }
 
 function formatLicenseDate(value) {
@@ -675,7 +675,9 @@ function applyLicenseUi() {
   }
   if (dates) {
     dates.textContent = licenseState.activatedAt
-      ? `${uiText('Activada')}: ${formatLicenseDate(licenseState.activatedAt)} · ${uiText('Vence')}: ${formatLicenseDate(licenseState.expiresAt)}`
+      ? licenseState.expiresAt
+        ? `${uiText('Activada')}: ${formatLicenseDate(licenseState.activatedAt)} · ${uiText('Vence')}: ${formatLicenseDate(licenseState.expiresAt)}`
+        : `${uiText('Activada')}: ${formatLicenseDate(licenseState.activatedAt)} · ${uiText('Sin vencimiento')}`
       : '';
   }
   if (installation) installation.textContent = licenseState.installationId || '—';

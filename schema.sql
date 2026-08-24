@@ -136,8 +136,9 @@ CREATE TABLE IF NOT EXISTS license_activations (
   license_id CHAR(36) NOT NULL UNIQUE,
   installation_id CHAR(36) NOT NULL,
   license_type ENUM('free','full') NOT NULL,
+  license_duration ENUM('1y','3y','forever') NOT NULL DEFAULT '1y',
   activated_at DATETIME NOT NULL,
-  expires_at DATETIME NOT NULL,
+  expires_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_license_installation (installation_id, activation_id),
   INDEX idx_license_expiry (expires_at)

@@ -60,16 +60,19 @@ Entradas y control de ingreso:
 Licencias:
 
 - `free`: habilita Dashboard, Registrar venta, venta de entradas en puerta, Configuración y la pantalla para solicitar Pro.
-- `full`: habilita todas las funciones de la aplicación.
-- Una instalación nueva activa automáticamente su licencia `free` por un año; al vencer no se renueva de forma automática.
-- Cada clave está vinculada a un `LICENSE_INSTALLATION_ID`, puede activarse una sola vez y vence un año después de activarla.
+- `pro` (almacenada internamente como `full`): habilita todas las funciones de la aplicación.
+- Una instalación nueva activa automáticamente su licencia `free` sin vencimiento.
+- Cada clave está vinculada a un `LICENSE_INSTALLATION_ID` y puede activarse una sola vez.
+- Las licencias Pro pueden emitirse por un año (`1y`), tres años (`3y`) o sin vencimiento (`forever`).
 - Sin una licencia vigente, un administrador solamente puede ingresar a Configuración para instalar una nueva clave.
 
 Para emitir una licencia desde un entorno seguro que tenga el secreto de firma:
 
 ```powershell
 $env:LICENSE_SIGNING_SECRET = '<secreto-seguro>'
-npm run license:create -- --type free --installation <uuid-de-la-instalacion>
+npm run license:create -- --type pro --duration 1y --installation <uuid-de-la-instalacion>
+npm run license:create -- --type pro --duration 3y --installation <uuid-de-la-instalacion>
+npm run license:create -- --type pro --duration forever --installation <uuid-de-la-instalacion>
 ```
 
 La clave generada se instala en `Configuración > Licencia de la aplicación`. El secreto de firma nunca debe entregarse al cliente ni guardarse en el repositorio.

@@ -25,7 +25,7 @@
       })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260824-2">
+    <link rel="stylesheet" href="styles.css?v=20260824-3">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -405,7 +405,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="theme.css?v=20260824-10">
+    <link rel="stylesheet" href="theme.css?v=20260824-11">
   </head>
   <body>
     <div id="login-area" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f3f4f6;">
@@ -486,12 +486,12 @@
                 </div>
                 <div class="stat-card">
                   <div class="stat-title">Ingresos en efectivo</div>
-                  <div class="stat-value" id="dash-income-cash" style="color:#16a34a">$0,00</div>
+                  <div class="stat-value" id="dash-income-cash" style="color:#16a34a">0,00</div>
                   <div class="stat-sub" id="dash-income-cash-count">0 operaciones</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-title">Ingresos en Mercado Pago</div>
-                  <div class="stat-value" id="dash-income-mercadopago" style="color:#0891b2">$0,00</div>
+                  <div class="stat-value" id="dash-income-mercadopago" style="color:#0891b2">0,00</div>
                   <div class="stat-sub" id="dash-income-mercadopago-count">0 operaciones</div>
                 </div>
                 <div class="stat-card">
@@ -560,7 +560,7 @@
                     <span class="ticket-sale-label">VENTA ANTICIPADA</span>
                     <h3>Entrada con QR</h3>
                     <p id="ticket-advance-deadline">Disponible hasta una hora antes del evento.</p>
-                    <strong id="ticket-advance-price">$0,00</strong>
+                    <strong id="ticket-advance-price">0,00</strong>
                   </div>
                   <button id="open-advance-ticket-btn" class="ticket-action-button ticket-action-advance" type="button">
                     Vender anticipada <span aria-hidden="true">→</span>
@@ -584,7 +584,7 @@
                 <article><span>Entradas vendidas</span><strong id="ticket-stat-sold">0</strong></article>
                 <article><span>Ingresos registrados</span><strong id="ticket-stat-entered">0</strong></article>
                 <article><span>Pendientes de ingreso</span><strong id="ticket-stat-pending">0</strong></article>
-                <article><span>Recaudación</span><strong id="ticket-stat-revenue">$0,00</strong></article>
+                <article><span>Recaudación</span><strong id="ticket-stat-revenue">0,00</strong></article>
               </div>
 
               <div class="ticket-list-header" data-full-license-only>
@@ -618,9 +618,9 @@
               </div>
 
               <div class="expense-summary" aria-label="Resumen de gastos">
-                <article class="expense-stat expense-stat-total"><span>Total registrado</span><strong id="expense-total">$0</strong></article>
-                <article class="expense-stat expense-stat-paid"><span>Pagado</span><strong id="expense-paid">$0</strong></article>
-                <article class="expense-stat expense-stat-pending"><span>Pendiente</span><strong id="expense-pending">$0</strong></article>
+                <article class="expense-stat expense-stat-total"><span>Total registrado</span><strong id="expense-total">0</strong></article>
+                <article class="expense-stat expense-stat-paid"><span>Pagado</span><strong id="expense-paid">0</strong></article>
+                <article class="expense-stat expense-stat-pending"><span>Pendiente</span><strong id="expense-pending">0</strong></article>
                 <article class="expense-stat"><span>Movimientos</span><strong id="expense-count">0</strong></article>
               </div>
 
@@ -784,41 +784,92 @@
                 <div id="events-grid" class="events-grid"></div>
               </section>
               
-              <!-- Sección: CUIT -->
-              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
-                <h3 style="margin-top:0;margin-bottom:16px;font-size:16px;color:#1f2937;font-weight:600">Datos de Empresa</h3>
-                <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;max-width:350px">
-                  <div style="width:100%">
-                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Nombre de la Empresa</label>
-                    <input id="cfg-company-name" type="text" placeholder="Mi Empresa" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937;margin-bottom:12px" />
-                    
-                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">CUIT</label>
-                    <input id="cfg-cuit" type="text" placeholder="20123456789" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-
-                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Dirección</label>
-                    <input id="cfg-address" type="text" placeholder="Dirección de la peña" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-
-                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Teléfono</label>
-                    <input id="cfg-phone" type="text" placeholder="Teléfono de contacto" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-
-                    <label style="display:block;margin:12px 0 8px;font-size:13px;color:var(--muted);font-weight:600">Correo electrónico</label>
-                    <input id="cfg-email" type="email" placeholder="contacto@mipeña.com" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+              <!-- Sección: empresa, región y moneda -->
+              <section class="config-panel regional-settings-panel" aria-labelledby="regional-settings-title">
+                <div class="regional-settings-header">
+                  <div>
+                    <h3 id="regional-settings-title">Datos de Empresa</h3>
+                    <p>Configurá la región, la moneda y los datos tributarios que correspondan.</p>
                   </div>
-                  <button id="save-cfg" style="width:100%;padding:10px 20px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600;transition:all .2s">Guardar</button>
                 </div>
-              </div>
+                <div class="regional-settings-grid">
+                  <div class="regional-settings-group">
+                    <h4>Datos de contacto</h4>
+                    <label for="cfg-company-name">Nombre de la Empresa</label>
+                    <input id="cfg-company-name" type="text" placeholder="Mi Empresa" />
+
+                    <label for="cfg-address">Dirección</label>
+                    <input id="cfg-address" type="text" placeholder="Dirección de la peña" />
+
+                    <label for="cfg-phone">Teléfono</label>
+                    <input id="cfg-phone" type="text" placeholder="Teléfono de contacto" />
+
+                    <label for="cfg-email">Correo electrónico</label>
+                    <input id="cfg-email" type="email" placeholder="contacto@mipeña.com" />
+                  </div>
+
+                  <div class="regional-settings-group">
+                    <h4>Región y moneda</h4>
+                    <label for="cfg-region">Región</label>
+                    <select id="cfg-region">
+                      <option value="AR">Argentina</option><option value="BO">Bolivia</option>
+                      <option value="BR">Brasil</option><option value="CL">Chile</option>
+                      <option value="CO">Colombia</option><option value="CR">Costa Rica</option>
+                      <option value="DO">República Dominicana</option><option value="EC">Ecuador</option>
+                      <option value="SV">El Salvador</option><option value="GT">Guatemala</option>
+                      <option value="HN">Honduras</option><option value="MX">México</option>
+                      <option value="NI">Nicaragua</option><option value="PA">Panamá</option>
+                      <option value="PY">Paraguay</option><option value="PE">Perú</option>
+                      <option value="UY">Uruguay</option><option value="VE">Venezuela</option>
+                    </select>
+
+                    <label for="cfg-currency">Moneda</label>
+                    <select id="cfg-currency">
+                      <option value="ARS">ARS · Peso argentino ($)</option>
+                      <option value="BOB">BOB · Boliviano (Bs)</option>
+                      <option value="BRL">BRL · Real brasileño (R$)</option>
+                      <option value="CLP">CLP · Peso chileno ($)</option>
+                      <option value="COP">COP · Peso colombiano ($)</option>
+                      <option value="CRC">CRC · Colón costarricense (₡)</option>
+                      <option value="DOP">DOP · Peso dominicano (RD$)</option>
+                      <option value="USD">USD · Dólar estadounidense (US$)</option>
+                      <option value="GTQ">GTQ · Quetzal (Q)</option>
+                      <option value="HNL">HNL · Lempira (L)</option>
+                      <option value="MXN">MXN · Peso mexicano ($)</option>
+                      <option value="NIO">NIO · Córdoba (C$)</option>
+                      <option value="PAB">PAB · Balboa (B/.)</option>
+                      <option value="PYG">PYG · Guaraní (₲)</option>
+                      <option value="PEN">PEN · Sol peruano (S/)</option>
+                      <option value="UYU">UYU · Peso uruguayo ($U)</option>
+                      <option value="VES">VES · Bolívar (Bs.)</option>
+                      <option value="custom">Personalizada por el usuario</option>
+                    </select>
+                    <div id="custom-currency-fields" class="custom-currency-fields hidden" aria-hidden="true">
+                      <div><label for="cfg-custom-currency-code">Código</label><input id="cfg-custom-currency-code" type="text" maxlength="10" placeholder="Ej.: MON" /></div>
+                      <div><label for="cfg-custom-currency-symbol">Símbolo</label><input id="cfg-custom-currency-symbol" type="text" maxlength="10" placeholder="Ej.: ¤" /></div>
+                    </div>
+                    <small>La moneda se aplicará a todos los importes y comprobantes PDF.</small>
+                  </div>
+                </div>
+
+                <div class="tax-settings-group">
+                  <div><h4>Identificación tributaria</h4><p>Estos datos son opcionales y cambian según la región seleccionada.</p></div>
+                  <div id="tax-identifiers-fields" class="tax-identifiers-grid"></div>
+                </div>
+                <button id="save-cfg" class="regional-settings-save" type="button">Guardar configuración</button>
+              </section>
 
               <!-- Sección: Precios de entradas -->
               <div class="config-panel ticket-price-panel" style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
                 <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Precios de Entradas</h3>
-                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Precios del evento activo: <strong id="ticket-price-event-name">-</strong>. Los cambios se aplican a ventas nuevas y las cortesías siempre valen $0.</p>
+                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Precios del evento activo: <strong id="ticket-price-event-name">-</strong>. Los cambios se aplican a ventas nuevas y las cortesías siempre son sin cargo.</p>
                 <div class="ticket-price-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;max-width:500px">
                   <div class="ticket-price-field">
-                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada anticipada $</label>
+                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Precio de entrada anticipada</label>
                     <input id="cfg-ticket-price-advance" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
                   </div>
                   <div class="ticket-price-field">
-                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Entrada en puerta $</label>
+                    <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);font-weight:600">Precio de entrada en puerta</label>
                     <input id="cfg-ticket-price-door" type="number" min="0" step="0.01" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
                   </div>
                 </div>
@@ -1100,10 +1151,10 @@
                 </div>
                 <div class="cart-summary-item">
                   <span>Subtotal</span>
-                  <strong id="cart-subtotal-display">$0.00</strong>
+                  <strong id="cart-subtotal-display">0.00</strong>
                 </div>
               </div>
-              <div class="cart-total">Total final <span id="cart-total-display">$0.00</span></div>
+              <div class="cart-total">Total final <span id="cart-total-display">0.00</span></div>
               <div class="cart-field">
                 <label>Método de Pago</label>
                 <select id="pos-payment-method" style="width:100%">
@@ -1199,11 +1250,11 @@
           </div>
           <div class="user-form-row">
             <div class="user-form-field">
-              <label for="event-price-advance">Entrada anticipada $</label>
+              <label for="event-price-advance">Precio de entrada anticipada</label>
               <input id="event-price-advance" type="number" min="0" step="0.01" placeholder="0,00" required />
             </div>
             <div class="user-form-field">
-              <label for="event-price-door">Entrada en puerta $</label>
+              <label for="event-price-door">Precio de entrada en puerta</label>
               <input id="event-price-door" type="number" min="0" step="0.01" placeholder="0,00" required />
             </div>
           </div>
@@ -1421,11 +1472,11 @@
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
-              <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Costo $</label>
+              <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Costo</label>
               <input id="prod-cost" type="number" step="0.01" placeholder="0.00" style="width:100%" />
             </div>
             <div>
-              <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Precio venta $</label>
+              <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Precio venta</label>
               <input id="prod-sale" type="number" step="0.01" placeholder="0.00" style="width:100%" />
             </div>
             <div style="grid-column: span 2">
@@ -1454,8 +1505,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260824-7"></script>
+    <script src="i18n.js?v=20260824-8"></script>
     <script src="sidebar-menu.js?v=20260824-1"></script>
-    <script src="app.js?v=20260824-10"></script>
+    <script src="app.js?v=20260824-11"></script>
   </body>
 </html>

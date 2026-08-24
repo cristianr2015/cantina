@@ -65,8 +65,12 @@ app.get('/health/ready', async (req, res) => {
 
 app.get('/api/public-settings', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT company_name, logo_path FROM settings WHERE id = 1 LIMIT 1');
-    res.json(rows[0] || { company_name: 'Mi Empresa', logo_path: null });
+    const [rows] = await db.query(
+      'SELECT company_name, logo_path, region_code, currency_code, currency_symbol FROM settings WHERE id = 1 LIMIT 1'
+    );
+    res.json(rows[0] || {
+      company_name: 'Mi Empresa', logo_path: null, region_code: 'AR', currency_code: 'ARS', currency_symbol: '$'
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -276,6 +280,10 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
       { name: 'address', definition: 'VARCHAR(255)' },
       { name: 'phone', definition: 'VARCHAR(100)' },
       { name: 'email', definition: 'VARCHAR(255)' },
+      { name: 'region_code', definition: "VARCHAR(5) NOT NULL DEFAULT 'AR'" },
+      { name: 'currency_code', definition: "VARCHAR(10) NOT NULL DEFAULT 'ARS'" },
+      { name: 'currency_symbol', definition: "VARCHAR(10) NOT NULL DEFAULT '$'" },
+      { name: 'tax_identifiers', definition: 'TEXT NULL' },
       { name: 'ticket_price_advance', definition: 'DECIMAL(10,2) NOT NULL DEFAULT 10000' },
       { name: 'ticket_price_door', definition: 'DECIMAL(10,2) NOT NULL DEFAULT 12000' }
     ];
@@ -292,8 +300,15 @@ const ticketingMigration = Promise.all([legacyTicketMigration, legacySettingsMig
     await db.query(
       `INSERT IGNORE INTO settings
         (id, cuit, company_name, logo_path, address, phone, email,
+         region_code, currency_code, currency_symbol, tax_identifiers,
          ticket_price_advance, ticket_price_door)
-       VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 10000, 12000)`
+       VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 'AR', 'ARS', '$', '{}', 10000, 12000)`
+    );
+    await db.query(
+      `UPDATE settings
+       SET tax_identifiers = JSON_OBJECT('CUIT', cuit)
+       WHERE id = 1 AND cuit IS NOT NULL AND TRIM(cuit) <> ''
+         AND (tax_identifiers IS NULL OR TRIM(tax_identifiers) = '' OR TRIM(tax_identifiers) = '{}')`
     );
 
     if (priceColumnAdded) {

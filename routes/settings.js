@@ -5,15 +5,25 @@ const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
 const path = require('path');
 const fs = require('fs');
+const { normalizeRegionalSettings, parseTaxIdentifiers } = require('../lib/regionalSettings');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+function serializeSettings(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    tax_identifiers: parseTaxIdentifiers(row.tax_identifiers, row.cuit, row.region_code || 'AR')
+  };
+}
 
 // Obtener settings (any authenticated user can read)
 router.get('/', auth(['admin', 'seller', 'puerta']), requireEvent, async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT s.id, s.cuit, s.company_name, s.logo_path, s.address, s.phone, s.email,
+              s.region_code, s.currency_code, s.currency_symbol, s.tax_identifiers,
               e.ticket_price_advance, e.ticket_price_door,
               e.id AS event_id, e.name AS event_name,
               DATE_FORMAT(e.date, '%Y-%m-%dT%H:%i:%s') AS event_date
@@ -23,7 +33,7 @@ router.get('/', auth(['admin', 'seller', 'puerta']), requireEvent, async (req, r
       [req.eventId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'El evento activo ya no existe' });
-    res.json(rows[0]);
+    res.json(serializeSettings(rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -35,6 +45,7 @@ router.put('/', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const {
       cuit, company_name, address, phone, email,
+      region_code, currency_code, currency_symbol, tax_identifiers,
       ticket_price_advance, ticket_price_door
     } = req.body;
     const advancePrice = Number(ticket_price_advance);
@@ -43,16 +54,28 @@ router.put('/', auth(['admin']), requireEvent, async (req, res) => {
         !Number.isFinite(doorPrice) || doorPrice < 0) {
       return res.status(400).json({ error: 'Nombre y precios válidos son requeridos' });
     }
+    let regional;
+    try {
+      regional = normalizeRegionalSettings({
+        cuit, region_code, currency_code, currency_symbol, tax_identifiers
+      });
+    } catch (validationError) {
+      return res.status(400).json({ error: validationError.message });
+    }
+    const legacyCuit = regional.region_code === 'AR' ? (regional.tax_identifiers.CUIT || '') : '';
     connection = await db.getConnection();
     await connection.beginTransaction();
     await connection.query(
       `UPDATE settings
        SET cuit = ?, company_name = ?, address = ?, phone = ?, email = ?,
+           region_code = ?, currency_code = ?, currency_symbol = ?, tax_identifiers = ?,
            ticket_price_advance = ?, ticket_price_door = ?
        WHERE id = 1`,
       [
-        String(cuit || '').trim(), String(company_name).trim(), String(address || '').trim(),
-        String(phone || '').trim(), String(email || '').trim(), advancePrice, doorPrice
+        legacyCuit, String(company_name).trim(), String(address || '').trim(),
+        String(phone || '').trim(), String(email || '').trim(),
+        regional.region_code, regional.currency_code, regional.currency_symbol,
+        JSON.stringify(regional.tax_identifiers), advancePrice, doorPrice
       ]
     );
     const [eventUpdate] = await connection.query(
@@ -69,7 +92,7 @@ router.put('/', auth(['admin']), requireEvent, async (req, res) => {
        FROM settings s INNER JOIN events e ON e.id = ? WHERE s.id = 1`,
       [req.eventId]
     );
-    res.json(rows[0]);
+    res.json(serializeSettings(rows[0]));
   } catch (err) {
     if (connection) await connection.rollback();
     res.status(500).json({ error: err.message });

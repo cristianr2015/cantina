@@ -113,3 +113,11 @@ test('identifica las cortesías como entradas sin cargo en el PDF', async () => 
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   assert.ok(pdf.length > 3000);
 });
+
+test('usa la moneda regional configurada en el valor de la entrada', () => {
+  const ticket = { ticket_type: 'anticipada', price_paid: 1500.5 };
+  assert.equal(
+    ticketValueLabel(ticket, { region_code: 'BR', currency_symbol: 'R$' }),
+    'R$ 1.500,50'
+  );
+});

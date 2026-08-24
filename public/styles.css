@@ -933,6 +933,25 @@ body {
 }
 
 .license-management{margin:0 0 24px!important;padding:22px!important;border:1px solid #e5eaf0;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.regional-settings-panel{margin-bottom:24px;padding:24px;border:1px solid #e5eaf0;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.regional-settings-header h3{margin:0 0 5px;color:#172033;font-size:18px}
+.regional-settings-header p,.tax-settings-group p{margin:0;color:#64748b;font-size:12px;line-height:1.5}
+.regional-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;margin-top:22px}
+.regional-settings-group{display:flex;flex-direction:column;min-width:0}
+.regional-settings-group h4,.tax-settings-group h4{margin:0 0 14px;color:#334155;font-size:14px}
+.regional-settings-group label,.tax-identifiers-grid label{margin:12px 0 6px;color:#64748b;font-size:12px;font-weight:700}
+.regional-settings-group h4+label{margin-top:0}
+.regional-settings-group input,.regional-settings-group select,.tax-identifiers-grid input{width:100%;border:1px solid #dce3eb;background:#fff;color:#172033}
+.regional-settings-group>small{margin-top:9px;color:#94a3b8;font-size:11px;line-height:1.4}
+.custom-currency-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
+.custom-currency-fields>div{display:flex;flex-direction:column}
+.tax-settings-group{display:grid;grid-template-columns:minmax(180px,.55fr) minmax(0,1.45fr);gap:26px;margin-top:24px;padding-top:21px;border-top:1px solid #e9edf2}
+.tax-settings-group h4{margin-bottom:5px}
+.tax-identifiers-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tax-identifier-field{display:flex;flex-direction:column}
+.tax-identifier-field label{margin-top:0}
+.tax-identifier-empty{margin:0;color:#94a3b8;font-size:12px}
+.regional-settings-save{width:100%;margin-top:22px;background:var(--accent);color:#fff;font-weight:750}
 .license-management-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
 .license-management-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border-radius:13px;background:#fff1e8;font-size:21px}
 .license-management h3{margin:2px 0 5px!important;color:#172033;font-size:18px}
@@ -979,6 +998,9 @@ body {
 .pro-upgrade-cta small{color:#94a3b8;font-size:11px}
 
 @media(max-width:620px){
+  .regional-settings-panel{padding:20px 16px}
+  .regional-settings-grid,.tax-settings-group{grid-template-columns:1fr;gap:18px}
+  .custom-currency-fields{grid-template-columns:1fr}
   .license-installation-row{align-items:flex-start;flex-direction:column}
   .license-activation-form>div{grid-template-columns:1fr}
   .license-activation-form button{width:100%}

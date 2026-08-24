@@ -163,6 +163,10 @@ CREATE TABLE IF NOT EXISTS settings (
   address VARCHAR(255),
   phone VARCHAR(100),
   email VARCHAR(255),
+  region_code VARCHAR(5) NOT NULL DEFAULT 'AR',
+  currency_code VARCHAR(10) NOT NULL DEFAULT 'ARS',
+  currency_symbol VARCHAR(10) NOT NULL DEFAULT '$',
+  tax_identifiers TEXT,
   ticket_price_advance DECIMAL(10,2) NOT NULL DEFAULT 10000,
   ticket_price_door DECIMAL(10,2) NOT NULL DEFAULT 12000,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -170,5 +174,6 @@ CREATE TABLE IF NOT EXISTS settings (
 
 INSERT IGNORE INTO settings (
   id, cuit, company_name, logo_path, address, phone, email,
+  region_code, currency_code, currency_symbol, tax_identifiers,
   ticket_price_advance, ticket_price_door
-) VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 10000, 12000);
+) VALUES (1, '', 'Mi Empresa', NULL, '', '', '', 'AR', 'ARS', '$', '{}', 10000, 12000);

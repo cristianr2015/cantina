@@ -115,6 +115,32 @@ let ticketSettings = {
   ticket_price_advance: 10000,
   ticket_price_door: 12000
 };
+const REGION_CONFIG = Object.freeze({
+  AR: { locale: 'es-AR', taxIds: ['CUIT', 'CUIL', 'CDI'] },
+  BO: { locale: 'es-BO', taxIds: ['NIT', 'CI'] },
+  BR: { locale: 'pt-BR', taxIds: ['CNPJ', 'CPF'] },
+  CL: { locale: 'es-CL', taxIds: ['RUT'] },
+  CO: { locale: 'es-CO', taxIds: ['NIT', 'CC'] },
+  CR: { locale: 'es-CR', taxIds: ['Cédula jurídica', 'Cédula física'] },
+  DO: { locale: 'es-DO', taxIds: ['RNC', 'Cédula'] },
+  EC: { locale: 'es-EC', taxIds: ['RUC', 'Cédula'] },
+  SV: { locale: 'es-SV', taxIds: ['NIT', 'NRC'] },
+  GT: { locale: 'es-GT', taxIds: ['NIT'] },
+  HN: { locale: 'es-HN', taxIds: ['RTN'] },
+  MX: { locale: 'es-MX', taxIds: ['RFC', 'CURP'] },
+  NI: { locale: 'es-NI', taxIds: ['RUC'] },
+  PA: { locale: 'es-PA', taxIds: ['RUC', 'DV'] },
+  PY: { locale: 'es-PY', taxIds: ['RUC'] },
+  PE: { locale: 'es-PE', taxIds: ['RUC', 'DNI'] },
+  UY: { locale: 'es-UY', taxIds: ['RUT', 'CI'] },
+  VE: { locale: 'es-VE', taxIds: ['RIF'] }
+});
+const CURRENCY_PRESETS = Object.freeze({
+  ARS: '$', BOB: 'Bs', BRL: 'R$', CLP: '$', COP: '$', CRC: '₡', DOP: 'RD$',
+  USD: 'US$', GTQ: 'Q', HNL: 'L', MXN: '$', NIO: 'C$', PAB: 'B/.', PYG: '₲',
+  PEN: 'S/', UYU: '$U', VES: 'Bs.'
+});
+let regionalSettings = { region_code: 'AR', currency_code: 'ARS', currency_symbol: '$' };
 const ACTIVE_EVENT_STORAGE_KEY = 'activeEventId';
 let eventsCache = [];
 
@@ -391,7 +417,13 @@ function formatDateTime(val) {
 }
 
 function formatMoney(val) {
-  return '$' + parseFloat(val || 0).toLocaleString(getAppLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const amount = Number(val || 0);
+  const locale = REGION_CONFIG[regionalSettings.region_code]?.locale || 'es-AR';
+  const symbol = String(regionalSettings.currency_symbol || '$').trim() || '$';
+  return `${symbol} ${(Number.isFinite(amount) ? amount : 0).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
 }
 
 function ticketPrice(type, row = null) {
@@ -2883,6 +2915,87 @@ setInterval(() => {
 }, DASHBOARD_REFRESH_INTERVAL_MS);
 
 // --- Settings and users management ---
+function applyRegionalSettings(settings = {}) {
+  const regionCode = REGION_CONFIG[settings.region_code] ? settings.region_code : 'AR';
+  regionalSettings = {
+    region_code: regionCode,
+    currency_code: String(settings.currency_code || 'ARS'),
+    currency_symbol: String(settings.currency_symbol || '$')
+  };
+}
+
+function collectTaxIdentifiers() {
+  const values = {};
+  document.querySelectorAll('#tax-identifiers-fields [data-tax-identifier]').forEach(input => {
+    const value = input.value.trim();
+    if (value) values[input.dataset.taxIdentifier] = value;
+  });
+  return values;
+}
+
+function renderTaxIdentifierFields(values = {}) {
+  const container = document.getElementById('tax-identifiers-fields');
+  const regionCode = document.getElementById('cfg-region')?.value || 'AR';
+  if (!container) return;
+  container.replaceChildren();
+  const identifiers = REGION_CONFIG[regionCode]?.taxIds || [];
+  if (!identifiers.length) {
+    const empty = document.createElement('p');
+    empty.className = 'tax-identifier-empty';
+    empty.textContent = uiText('Esta región no tiene identificadores configurados.');
+    container.appendChild(empty);
+    return;
+  }
+  identifiers.forEach((identifier, index) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tax-identifier-field';
+    const inputId = `cfg-tax-identifier-${index}`;
+    const label = document.createElement('label');
+    label.htmlFor = inputId;
+    label.textContent = `${identifier} (${uiText('opcional')})`;
+    const input = document.createElement('input');
+    input.id = inputId;
+    input.type = 'text';
+    input.maxLength = 100;
+    input.autocomplete = 'off';
+    input.placeholder = `${identifier} · ${uiText('opcional')}`;
+    input.dataset.taxIdentifier = identifier;
+    input.value = values[identifier] || '';
+    wrapper.append(label, input);
+    container.appendChild(wrapper);
+  });
+}
+
+function toggleCustomCurrencyFields() {
+  const isCustom = document.getElementById('cfg-currency')?.value === 'custom';
+  const fields = document.getElementById('custom-currency-fields');
+  fields?.classList.toggle('hidden', !isCustom);
+  fields?.setAttribute('aria-hidden', isCustom ? 'false' : 'true');
+}
+
+function syncRegionalSettingsForm(settings = {}) {
+  const regionCode = REGION_CONFIG[settings.region_code] ? settings.region_code : 'AR';
+  const currencyCode = String(settings.currency_code || 'ARS');
+  const currencySymbol = String(settings.currency_symbol || CURRENCY_PRESETS[currencyCode] || '$');
+  const regionSelect = document.getElementById('cfg-region');
+  const currencySelect = document.getElementById('cfg-currency');
+  if (regionSelect) regionSelect.value = regionCode;
+  const usesPreset = Object.prototype.hasOwnProperty.call(CURRENCY_PRESETS, currencyCode) &&
+    CURRENCY_PRESETS[currencyCode] === currencySymbol;
+  if (currencySelect) currencySelect.value = usesPreset ? currencyCode : 'custom';
+  const customCode = document.getElementById('cfg-custom-currency-code');
+  const customSymbol = document.getElementById('cfg-custom-currency-symbol');
+  if (customCode) customCode.value = usesPreset ? '' : currencyCode;
+  if (customSymbol) customSymbol.value = usesPreset ? '' : currencySymbol;
+  toggleCustomCurrencyFields();
+  renderTaxIdentifierFields(settings.tax_identifiers || {});
+}
+
+document.getElementById('cfg-region')?.addEventListener('change', () => {
+  renderTaxIdentifierFields(collectTaxIdentifiers());
+});
+document.getElementById('cfg-currency')?.addEventListener('change', toggleCustomCurrencyFields);
+
 async function loadSettings(){
   try {
     const cfg = await api('/settings');
@@ -2892,7 +3005,6 @@ async function loadSettings(){
     }
     
     // Actualizar campos en el modal de configuración
-    document.getElementById('cfg-cuit').value = cfg.cuit || '';
     document.getElementById('cfg-company-name').value = cfg.company_name || '';
     document.getElementById('cfg-address').value = cfg.address || '';
     document.getElementById('cfg-phone').value = cfg.phone || '';
@@ -2903,9 +3015,12 @@ async function loadSettings(){
     const eventDoorInput = document.getElementById('event-price-door');
     if (eventAdvanceInput && !eventAdvanceInput.value) eventAdvanceInput.value = Number(cfg.ticket_price_advance || 0);
     if (eventDoorInput && !eventDoorInput.value) eventDoorInput.value = Number(cfg.ticket_price_door || 0);
+    applyRegionalSettings(cfg);
+    syncRegionalSettingsForm(cfg);
     ticketSettings = Object.assign({}, ticketSettings, cfg);
     updateQuickTicketPrice();
     updateTicketSaleAvailability();
+    if (eventsCache.length) renderEventManagement();
     
     const logo = cfg.logo_path || '';
     const name = cfg.company_name || 'Mi Empresa';
@@ -2955,22 +3070,34 @@ document.getElementById('add-dsc-btn')?.addEventListener('click', async () => {
 });
 
 document.getElementById('save-cfg').addEventListener('click', async () => {
-  const cuit = document.getElementById('cfg-cuit').value;
   const company_name = document.getElementById('cfg-company-name').value;
   const address = document.getElementById('cfg-address').value;
   const phone = document.getElementById('cfg-phone').value;
   const email = document.getElementById('cfg-email').value;
   const ticket_price_advance = Number(document.getElementById('cfg-ticket-price-advance').value);
   const ticket_price_door = Number(document.getElementById('cfg-ticket-price-door').value);
+  const region_code = document.getElementById('cfg-region').value;
+  const selectedCurrency = document.getElementById('cfg-currency').value;
+  const currency_code = selectedCurrency === 'custom'
+    ? document.getElementById('cfg-custom-currency-code').value.trim().toUpperCase()
+    : selectedCurrency;
+  const currency_symbol = selectedCurrency === 'custom'
+    ? document.getElementById('cfg-custom-currency-symbol').value.trim()
+    : CURRENCY_PRESETS[selectedCurrency];
+  const tax_identifiers = collectTaxIdentifiers();
   if (!company_name || !Number.isFinite(ticket_price_advance) || ticket_price_advance < 0 ||
       !Number.isFinite(ticket_price_door) || ticket_price_door < 0) {
     return showToast('Ingresá un nombre y precios válidos', 'error');
+  }
+  if (!currency_code || !currency_symbol) {
+    return showToast('Completá el código y el símbolo de la moneda personalizada', 'error');
   }
   
   const result = await api('/settings', {
     method: 'PUT',
     body: JSON.stringify({
-      cuit, company_name, address, phone, email,
+      company_name, address, phone, email,
+      region_code, currency_code, currency_symbol, tax_identifiers,
       ticket_price_advance, ticket_price_door
     })
   });

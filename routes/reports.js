@@ -6,6 +6,7 @@ const { requireEvent } = require('../middleware/eventContext');
 const { requireLicenseFeature, licenseUsesStock } = require('../middleware/licenseAccess');
 
 const allowDashboard = requireLicenseFeature('dashboard');
+const allowEventClosing = requireLicenseFeature('event_closing_report');
 const requireFullLicense = requireLicenseFeature('full');
 const { buildClosingSummary } = require('../lib/reportMetrics');
 
@@ -24,7 +25,7 @@ function dateRange(field, start, end, dateOnly = false) {
 }
 
 // Cierre consolidado: la primera pantalla que un administrador necesita al terminar el evento.
-router.get('/event-closing', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
+router.get('/event-closing', auth(['admin']), allowEventClosing, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const ordersRange = dateRange('o.created_at', start, end);

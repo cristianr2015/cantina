@@ -1,7 +1,7 @@
 const db = require('../db');
 const { getLicenseStatus } = require('../lib/licenseService');
 
-const FREE_FEATURES = new Set(['dashboard', 'product_sales', 'product_management', 'door_ticket_sales', 'configuration']);
+const FREE_FEATURES = new Set(['dashboard', 'product_sales', 'product_management', 'door_ticket_sales', 'event_closing_report', 'configuration']);
 
 function licenseAllows(status, feature) {
   if (feature === 'configuration') return true;

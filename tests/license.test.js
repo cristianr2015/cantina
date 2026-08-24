@@ -43,6 +43,8 @@ test('la licencia free habilita solo las funciones solicitadas', () => {
   assert.equal(licenseAllows(free, 'product_sales'), true);
   assert.equal(licenseAllows(free, 'product_management'), true);
   assert.equal(licenseAllows(free, 'door_ticket_sales'), true);
+  assert.equal(licenseAllows(free, 'event_closing_report'), true);
+  assert.equal(licenseAllows(free, 'cash_summary_report'), false);
   assert.equal(licenseAllows(free, 'configuration'), true);
   assert.equal(licenseAllows(free, 'full'), false);
   assert.equal(licenseAllows({ active: false, type: 'free' }, 'dashboard'), false);

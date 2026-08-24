@@ -2,7 +2,7 @@ const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
 const APP_THEME_STORAGE_KEY = 'appTheme';
-const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'products', 'config']);
+const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'products', 'reports', 'config']);
 let licenseState = { configured: true, active: false, state: 'missing', type: null };
 
 function hasStockControl() {
@@ -705,7 +705,7 @@ function applyLicenseUi() {
   }
   if (detail) {
     detail.textContent = licenseState.active && licenseState.type === 'free'
-      ? uiText('Incluye Dashboard, Registrar venta, Productos sin control de stock, ventas de entradas en puerta y Configuración.')
+      ? uiText('Incluye Dashboard, Registrar venta, Productos sin control de stock, ventas de entradas en puerta, Cierre de evento y Configuración.')
       : licenseState.active && licenseState.type === 'full'
         ? uiText('Todas las funciones de la aplicación están habilitadas.')
         : uiText('Contactá al superadministrador para asignar una licencia vigente a la empresa.');
@@ -2270,6 +2270,7 @@ function reportTicketTypeLabel(type) {
 })();
 
 async function loadReport(type) {
+  if (licenseState.active && licenseState.type === 'free' && type !== 'closing') type = 'closing';
   activeReportType = type;
   // UI Updates
   document.querySelectorAll('.btn-rep').forEach(b => b.classList.remove('active'));

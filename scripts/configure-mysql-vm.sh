@@ -5,13 +5,17 @@ db_app_password="$(printf '%s' "$1" | base64 --decode)"
 app_admin_password="$(printf '%s' "$2" | base64 --decode)"
 schema_url="$3"
 
-data_disk='/dev/disk/azure/scsi1/lun0'
+data_disk=''
 for _ in $(seq 1 60); do
-  if [ -b "$data_disk" ]; then
-    break
-  fi
+  for candidate in /dev/disk/azure/data/by-lun/0 /dev/disk/azure/scsi1/lun0; do
+    if [ -b "$candidate" ]; then
+      data_disk="$candidate"
+      break 2
+    fi
+  done
   sleep 2
 done
+test -n "$data_disk"
 test -b "$data_disk"
 
 if ! blkid "$data_disk" >/dev/null 2>&1; then

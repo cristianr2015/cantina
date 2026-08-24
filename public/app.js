@@ -683,6 +683,7 @@ function applyLicenseUi() {
   });
   const freeNotice = document.getElementById('free-ticket-license-notice');
   if (freeNotice) freeNotice.style.display = isFree ? 'flex' : 'none';
+  syncUserRoleLicenseUi();
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   if (user) {
@@ -3098,6 +3099,7 @@ function openUserModal(user = null) {
     ? 'Actualizá sus datos de acceso y permisos.'
     : 'Completá los datos para dar acceso a una persona.';
   submit.textContent = editing ? 'Guardar cambios' : 'Crear usuario';
+  syncUserRoleLicenseUi(editing);
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
   setTimeout(() => document.getElementById('user-first-name').focus(), 0);
@@ -3291,6 +3293,31 @@ async function showAppForUser(user){
     if (menuItem) menuItem.style.display = userCanAccessPage(user, page) ? '' : 'none';
   });
   applyLicenseUi();
+}
+
+function syncUserRoleLicenseUi(editing = Boolean(document.getElementById('create-user')?.dataset.editId)) {
+  const isFree = licenseState.active && licenseState.type === 'free';
+  const restrictedOptions = document.querySelectorAll('[data-non-admin-user-role]');
+  const roleInputs = document.querySelectorAll('input[name="user-roles"]');
+  const adminInput = document.querySelector('input[name="user-roles"][value="admin"]');
+  const help = document.getElementById('user-role-license-help');
+
+  restrictedOptions.forEach(option => {
+    option.style.display = isFree && !editing ? 'none' : '';
+  });
+  roleInputs.forEach(input => { input.disabled = isFree && editing; });
+
+  if (isFree && !editing) {
+    roleInputs.forEach(input => { input.checked = input.value === 'admin'; });
+    if (adminInput) adminInput.disabled = false;
+  }
+  if (help) {
+    help.textContent = isFree
+      ? editing
+        ? uiText('La licencia Free conserva los roles existentes, pero no permite asignar Vendedor o Puerta.')
+        : uiText('La licencia Free solamente permite crear usuarios Administradores.')
+      : uiText('Podés seleccionar uno o varios roles.');
+  }
 }
 
 // --- Gestión de gastos ---

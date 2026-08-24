@@ -9,7 +9,7 @@ const {
   getLicenseStatus,
   activateLicense
 } = require('../lib/licenseService');
-const { licenseAllows } = require('../middleware/licenseAccess');
+const { licenseAllows, licenseAllowsUserRoles } = require('../middleware/licenseAccess');
 
 const signingSecret = 'test-secret-with-more-than-thirty-two-characters';
 const installationId = '5a80418f-aa50-4d3f-9293-fc0d13084c87';
@@ -43,6 +43,17 @@ test('la licencia free habilita solo las funciones solicitadas', () => {
   assert.equal(licenseAllows(free, 'full'), false);
   assert.equal(licenseAllows({ active: false, type: 'free' }, 'dashboard'), false);
   assert.equal(licenseAllows({ active: false, type: null }, 'configuration'), true);
+});
+
+test('la licencia free solamente permite nuevos usuarios administradores', () => {
+  const free = { active: true, type: 'free' };
+  const full = { active: true, type: 'full' };
+  assert.equal(licenseAllowsUserRoles(free, ['admin']), true);
+  assert.equal(licenseAllowsUserRoles(free, ['seller']), false);
+  assert.equal(licenseAllowsUserRoles(free, ['admin', 'puerta']), false);
+  assert.equal(licenseAllowsUserRoles(full, ['seller']), true);
+  assert.equal(licenseAllowsUserRoles(free, ['seller'], ['seller']), true);
+  assert.equal(licenseAllowsUserRoles(free, ['puerta'], ['seller']), false);
 });
 
 test('consulta el estado activo y detecta el vencimiento', async () => {

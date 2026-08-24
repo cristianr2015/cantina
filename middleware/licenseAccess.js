@@ -10,6 +10,20 @@ function licenseAllows(status, feature) {
   return status.type === 'free' && FREE_FEATURES.has(feature);
 }
 
+function sameRoles(left = [], right = []) {
+  const normalizedLeft = [...new Set(left)].sort();
+  const normalizedRight = [...new Set(right)].sort();
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((role, index) => role === normalizedRight[index]);
+}
+
+function licenseAllowsUserRoles(status, requestedRoles, existingRoles = null) {
+  if (status?.type !== 'free' || !status.active) return true;
+  const adminOnly = requestedRoles.length === 1 && requestedRoles[0] === 'admin';
+  if (adminOnly) return true;
+  return Array.isArray(existingRoles) && sameRoles(requestedRoles, existingRoles);
+}
+
 function licenseError(res, status) {
   const expired = status?.state === 'expired';
   return res.status(403).json({
@@ -48,4 +62,10 @@ async function requireTicketSaleLicense(req, res, next) {
   }
 }
 
-module.exports = { FREE_FEATURES, licenseAllows, requireLicenseFeature, requireTicketSaleLicense };
+module.exports = {
+  FREE_FEATURES,
+  licenseAllows,
+  licenseAllowsUserRoles,
+  requireLicenseFeature,
+  requireTicketSaleLicense
+};

@@ -1227,11 +1227,11 @@
           <div class="user-form-field">
             <label>Roles y permisos</label>
             <div class="user-role-options" role="group" aria-label="Roles y permisos del usuario">
-              <label class="user-role-option">
+              <label class="user-role-option" data-non-admin-user-role>
                 <input type="checkbox" name="user-roles" value="seller" checked />
                 <span><strong>Vendedor</strong><small>Ventas, productos y reportes</small></span>
               </label>
-              <label class="user-role-option">
+              <label class="user-role-option" data-non-admin-user-role>
                 <input type="checkbox" name="user-roles" value="puerta" />
                 <span><strong>Puerta</strong><small>Gestión y control de entradas</small></span>
               </label>
@@ -1240,7 +1240,7 @@
                 <span><strong>Administrador</strong><small>Configuración y acceso completo</small></span>
               </label>
             </div>
-            <small>Podés seleccionar uno o varios roles.</small>
+            <small id="user-role-license-help">Podés seleccionar uno o varios roles.</small>
           </div>
           <div class="user-form-actions">
             <button id="cancel-user-modal" class="user-secondary-action" type="button">Cancelar</button>
@@ -1431,8 +1431,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260824-4"></script>
+    <script src="i18n.js?v=20260824-5"></script>
     <script src="sidebar-menu.js"></script>
-    <script src="app.js?v=20260824-7"></script>
+    <script src="app.js?v=20260824-8"></script>
   </body>
 </html>

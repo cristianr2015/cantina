@@ -54,6 +54,8 @@
     'Completa': { pt: 'Completa', en: 'Full' },
     'Sin licencia': { pt: 'Sem licença', en: 'No license' },
     'En esta versión solamente está habilitada la venta de entradas en puerta.': { pt: 'Nesta versão, somente a venda de ingressos na entrada está habilitada.', en: 'This version only enables door ticket sales.' },
+    'La licencia Free solamente permite crear usuarios Administradores.': { pt: 'A licença Free permite criar apenas usuários Administradores.', en: 'The Free license only allows Administrator users to be created.' },
+    'La licencia Free conserva los roles existentes, pero no permite asignar Vendedor o Puerta.': { pt: 'A licença Free mantém os perfis existentes, mas não permite atribuir Vendedor ou Entrada.', en: 'The Free license keeps existing roles but does not allow assigning Seller or Door roles.' },
     'Resumen del evento': { pt: 'Resumo do evento', en: 'Event summary' },
     'Personas ingresadas': { pt: 'Pessoas que entraram', en: 'People checked in' },
     'Ingresos en efectivo': { pt: 'Receita em dinheiro', en: 'Cash revenue' },

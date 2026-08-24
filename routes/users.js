@@ -2,9 +2,19 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
+const { requireLicenseFeature, licenseAllowsUserRoles } = require('../middleware/licenseAccess');
 
 const rolePriority = ['admin', 'seller', 'puerta'];
 const allowedRoles = new Set(rolePriority);
+const loadConfigurationLicense = requireLicenseFeature('configuration');
+
+function freeRoleError(res, license) {
+  return res.status(403).json({
+    error: 'La licencia Free solamente permite asignar el rol Administrador a usuarios nuevos',
+    code: 'LICENSE_USER_ROLE_NOT_AVAILABLE',
+    license
+  });
+}
 
 function normalizeRequiredText(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -52,7 +62,7 @@ router.get('/', auth(['admin']), async (_req, res) => {
   }
 });
 
-router.post('/', auth(['admin']), async (req, res) => {
+router.post('/', auth(['admin']), loadConfigurationLicense, async (req, res) => {
   let connection;
   try {
     const firstName = normalizeRequiredText(req.body.first_name);
@@ -64,6 +74,7 @@ router.post('/', auth(['admin']), async (req, res) => {
       return res.status(400).json({ error: 'Nombre, apellido, usuario y contraseña son requeridos' });
     }
     if (!roles.length) return res.status(400).json({ error: 'Seleccione al menos un rol' });
+    if (!licenseAllowsUserRoles(req.license, roles)) return freeRoleError(res, req.license);
 
     connection = await db.getConnection();
     await connection.beginTransaction();
@@ -84,7 +95,7 @@ router.post('/', auth(['admin']), async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin']), async (req, res) => {
+router.put('/:id', auth(['admin']), loadConfigurationLicense, async (req, res) => {
   let connection;
   try {
     const id = Number.parseInt(req.params.id, 10);
@@ -100,6 +111,15 @@ router.put('/:id', auth(['admin']), async (req, res) => {
 
     connection = await db.getConnection();
     await connection.beginTransaction();
+    const existingUsers = await loadUsers(connection, id);
+    if (!existingUsers[0]) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (!licenseAllowsUserRoles(req.license, roles, existingUsers[0].roles)) {
+      await connection.rollback();
+      return freeRoleError(res, req.license);
+    }
     const params = [firstName, lastName, username];
     let sql = 'UPDATE users SET first_name = ?, last_name = ?, username = ?';
     if (password) {

@@ -1155,6 +1155,23 @@
       </div>
     </div>
 
+    <!-- Entrega del comprobante luego de registrar la venta -->
+    <div id="ticket-delivery-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal ticket-delivery-modal" role="dialog" aria-modal="true" aria-labelledby="ticket-delivery-title">
+        <div class="ticket-delivery-success" aria-hidden="true">✓</div>
+        <span class="ticket-delivery-kicker">VENTA REGISTRADA</span>
+        <h3 id="ticket-delivery-title">Entradas listas para entregar</h3>
+        <p id="ticket-delivery-message">El PDF se guardó en el dispositivo. Elegí cómo querés entregar las entradas.</p>
+        <div class="ticket-delivery-summary"><span>Comprobante</span><strong id="ticket-delivery-count">1 entrada generada</strong></div>
+        <div class="ticket-delivery-actions">
+          <button id="ticket-delivery-whatsapp" class="ticket-delivery-whatsapp" type="button"><span aria-hidden="true">◉</span><span><strong>Enviar por WhatsApp</strong><small>Compartir el PDF</small></span></button>
+          <button id="ticket-delivery-image" class="ticket-delivery-image" type="button"><span aria-hidden="true">▧</span><span><strong>Guardar como imagen</strong><small>Galería o archivos del celular</small></span></button>
+          <button id="ticket-delivery-pdf" class="ticket-delivery-pdf" type="button"><span aria-hidden="true">↓</span><span><strong>Descargar PDF</strong><small>Guardar otra copia</small></span></button>
+        </div>
+        <button id="ticket-delivery-close" class="ticket-delivery-close" type="button">Finalizar</button>
+      </div>
+    </div>
+
     <!-- Modal Editar Entrada -->
     <div id="edit-ticket-modal" class="modal-overlay hidden">
       <div class="modal" style="width:400px">

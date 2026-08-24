@@ -603,54 +603,251 @@ async function printTicketPdf(ids) {
   document.body.appendChild(frame);
 }
 
+function canShareFiles(files) {
+  if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
+  try {
+    return navigator.canShare({ files });
+  } catch (_) {
+    return false;
+  }
+}
+
+function openWhatsAppWithTicketMessage() {
+  const message = 'Te comparto las entradas para el evento. El PDF está adjunto o guardado en el dispositivo.';
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const whatsappWindow = window.open(whatsappUrl, '_blank', 'noopener');
+  if (!whatsappWindow) window.location.href = whatsappUrl;
+}
+
+async function shareTicketPdfBlob(blob, ids, downloadOnFallback = true) {
+  const filename = `entradas-${ids.join('-')}.pdf`;
+  const file = typeof File === 'function' ? new File([blob], filename, { type: 'application/pdf' }) : null;
+  if (file && canShareFiles([file])) {
+    try {
+      await navigator.share({
+        title: 'Entradas del evento',
+        text: 'Te comparto las entradas para el evento.',
+        files: [file]
+      });
+      return true;
+    } catch (error) {
+      if (error?.name === 'AbortError') return null;
+    }
+  }
+  if (downloadOnFallback) downloadTicketPdf(blob, ids);
+  openWhatsAppWithTicketMessage();
+  showToast('Abrimos WhatsApp. El PDF quedó guardado para adjuntarlo.', 'info');
+  return false;
+}
+
 window.shareTicketPdf = async function(ids) {
   const normalizedIds = (Array.isArray(ids) ? ids : [ids])
     .map(id => Number.parseInt(id, 10))
     .filter(id => Number.isInteger(id) && id > 0);
   if (!normalizedIds.length) return showToast('No se encontraron entradas para compartir', 'error');
-
-  const filename = `entradas-${normalizedIds.join('-')}.pdf`;
-  const canProbeFiles = typeof File === 'function' && typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function';
-  const probeFile = canProbeFiles ? new File([''], filename, { type: 'application/pdf' }) : null;
-  let canShareFile = false;
-  try {
-    canShareFile = !!probeFile && navigator.canShare({ files: [probeFile] });
-  } catch (_) {
-    canShareFile = false;
-  }
-
   try {
     const blob = await fetchTicketPdf(normalizedIds);
-    const file = typeof File === 'function'
-      ? new File([blob], filename, { type: 'application/pdf' })
-      : null;
-
-    if (canShareFile && file) {
-      try {
-        await navigator.share({
-          title: 'Entradas del evento',
-          text: 'Te comparto las entradas para el evento.',
-          files: [file]
-        });
-        return showToast('Entrada compartida correctamente', 'success');
-      } catch (shareError) {
-        if (shareError?.name === 'AbortError') return;
-        // Algunos navegadores anuncian soporte pero bloquean archivos; usamos el fallback.
-      }
-    }
-
-    downloadTicketPdf(blob, normalizedIds);
-    const message = 'Te comparto las entradas para el evento. El PDF se descargó en este dispositivo para adjuntarlo por WhatsApp.';
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    const whatsappWindow = window.open(whatsappUrl, '_blank', 'noopener');
-    if (!whatsappWindow) window.location.href = whatsappUrl;
-    showToast('PDF descargado. Adjuntalo en la conversación de WhatsApp.', 'info');
+    const shared = await shareTicketPdfBlob(blob, normalizedIds, true);
+    if (shared) showToast('Entrada compartida correctamente', 'success');
   } catch (error) {
-    if (error?.name === 'AbortError') return;
     showToast(error?.message || 'No se pudo compartir la entrada', 'error');
   }
 };
+
+function ticketImageFilename(ticket) {
+  return `entrada-${Number(ticket.id)}.png`;
+}
+
+function downloadBlobFile(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function createTicketQrSource(token) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:320px;height:320px;background:#fff';
+  document.body.appendChild(holder);
+  new QRCode(holder, { text: `PENA_TICKET:${token}`, width: 300, height: 300 });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const source = holder.querySelector('canvas, img');
+  if (!source) {
+    holder.remove();
+    throw new Error('No se pudo generar la imagen del QR');
+  }
+  if (source.tagName === 'IMG' && !source.complete) {
+    await new Promise((resolve, reject) => {
+      source.onload = resolve;
+      source.onerror = reject;
+    });
+  }
+  return { source, cleanup: () => holder.remove() };
+}
+
+function fitTicketText(context, text, maxWidth, initialSize = 46, minimumSize = 25) {
+  let size = initialSize;
+  do {
+    context.font = `800 ${size}px Inter, Arial, sans-serif`;
+    if (context.measureText(text).width <= maxWidth) break;
+    size -= 2;
+  } while (size > minimumSize);
+}
+
+async function createTicketImageAsset(ticket) {
+  if (!ticket?.qr_token) throw new Error('La entrada no tiene un QR disponible');
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 675;
+  const context = canvas.getContext('2d');
+  const isCourtesy = ticket.ticket_type === 'cortesia';
+  const accent = isCourtesy ? '#7c3aed' : '#f97316';
+  const lightAccent = isCourtesy ? '#f3e8ff' : '#fff7ed';
+  const event = getActiveEvent();
+  const company = document.getElementById('sidebar-company-name')?.textContent?.trim() || 'Entrada del evento';
+  const typeLabel = isCourtesy ? 'ENTRADA DE CORTESÍA' : 'ENTRADA ANTICIPADA';
+  const holderName = `${ticket.first_name || ''} ${ticket.last_name || ''}`.trim();
+  const qr = await createTicketQrSource(ticket.qr_token);
+
+  context.fillStyle = lightAccent;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#ffffff';
+  context.fillRect(36, 36, 1128, 603);
+  context.fillStyle = accent;
+  context.fillRect(36, 36, 18, 603);
+  context.fillStyle = '#111827';
+  context.font = '800 38px Inter, Arial, sans-serif';
+  context.fillText(company, 92, 105);
+  context.fillStyle = accent;
+  context.font = '800 20px Inter, Arial, sans-serif';
+  context.fillText(typeLabel, 92, 142);
+  context.fillStyle = '#64748b';
+  context.font = '600 18px Inter, Arial, sans-serif';
+  context.fillText(event?.name || 'Evento', 92, 182);
+  if (event?.date) context.fillText(formatDateTime(event.date), 92, 211);
+
+  context.fillStyle = '#e2e8f0';
+  context.fillRect(92, 245, 650, 2);
+  context.fillStyle = '#64748b';
+  context.font = '800 15px Inter, Arial, sans-serif';
+  context.fillText('TITULAR', 92, 287);
+  context.fillStyle = '#111827';
+  fitTicketText(context, holderName || 'Invitado', 650);
+  context.fillText(holderName || 'Invitado', 92, 341);
+  context.fillStyle = '#475569';
+  context.font = '600 22px Inter, Arial, sans-serif';
+  context.fillText(`DNI: ${ticket.dni || '-'}`, 92, 385);
+  context.fillText(`Entrada N° ${String(ticket.id).padStart(6, '0')}`, 92, 421);
+
+  context.fillStyle = accent;
+  context.font = '800 27px Inter, Arial, sans-serif';
+  context.fillText(isCourtesy ? 'CORTESÍA · SIN CARGO' : formatMoney(ticket.price_paid), 92, 490);
+  context.fillStyle = '#94a3b8';
+  context.font = '500 16px Inter, Arial, sans-serif';
+  context.fillText('Personal e intransferible. Presentar el QR al ingresar.', 92, 565);
+
+  context.fillStyle = '#ffffff';
+  context.fillRect(810, 112, 300, 300);
+  context.drawImage(qr.source, 810, 112, 300, 300);
+  qr.cleanup();
+  context.fillStyle = '#111827';
+  context.font = '800 19px Inter, Arial, sans-serif';
+  context.textAlign = 'center';
+  context.fillText('QR DE INGRESO', 960, 458);
+  context.fillStyle = '#64748b';
+  context.font = '500 16px Inter, Arial, sans-serif';
+  context.fillText('Válido para un solo ingreso', 960, 489);
+  context.textAlign = 'left';
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.96));
+  if (!blob) throw new Error('No se pudo crear la imagen de la entrada');
+  return { blob, filename: ticketImageFilename(ticket) };
+}
+
+async function createTicketImageAssets(tickets) {
+  const assets = [];
+  for (const ticket of tickets) assets.push(await createTicketImageAsset(ticket));
+  return assets;
+}
+
+let pendingTicketDelivery = null;
+
+function closeTicketDeliveryModal() {
+  document.getElementById('ticket-delivery-modal')?.classList.add('hidden');
+  document.getElementById('ticket-delivery-modal')?.setAttribute('aria-hidden', 'true');
+  pendingTicketDelivery = null;
+}
+
+async function prepareTicketDelivery(tickets) {
+  const validTickets = Array.isArray(tickets) ? tickets.filter(ticket => ticketUsesQr(ticket.ticket_type)) : [];
+  if (!validTickets.length) return;
+  const ids = validTickets.map(ticket => Number(ticket.id));
+  let pdfBlob = null;
+  let imageAssets = [];
+  let pdfSaved = false;
+  const [pdfResult, imageResult] = await Promise.allSettled([
+    fetchTicketPdf(ids),
+    createTicketImageAssets(validTickets)
+  ]);
+  if (pdfResult.status === 'fulfilled') {
+    pdfBlob = pdfResult.value;
+    downloadTicketPdf(pdfBlob, ids);
+    pdfSaved = true;
+  }
+  if (imageResult.status === 'fulfilled') imageAssets = imageResult.value;
+  if (!pdfBlob || !imageAssets.length) {
+    const error = pdfResult.status === 'rejected' ? pdfResult.reason : imageResult.reason;
+    showToast(error?.message || 'La venta se registró, pero no se pudieron preparar todos los archivos', 'error');
+  }
+
+  pendingTicketDelivery = { tickets: validTickets, ids, pdfBlob, imageAssets };
+  document.getElementById('ticket-delivery-message').textContent = pdfSaved
+    ? 'El PDF se guardó en el dispositivo. Elegí cómo querés entregar las entradas.'
+    : 'La venta quedó registrada. Podés volver a intentar descargar o compartir el comprobante.';
+  document.getElementById('ticket-delivery-count').textContent = `${validTickets.length} ${validTickets.length === 1 ? 'entrada generada' : 'entradas generadas'}`;
+  document.getElementById('ticket-delivery-whatsapp').disabled = !pdfBlob;
+  document.getElementById('ticket-delivery-pdf').disabled = !pdfBlob;
+  document.getElementById('ticket-delivery-image').disabled = imageAssets.length === 0;
+  const modal = document.getElementById('ticket-delivery-modal');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+document.getElementById('ticket-delivery-close')?.addEventListener('click', closeTicketDeliveryModal);
+document.getElementById('ticket-delivery-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeTicketDeliveryModal();
+});
+document.getElementById('ticket-delivery-pdf')?.addEventListener('click', () => {
+  if (!pendingTicketDelivery?.pdfBlob) return;
+  downloadTicketPdf(pendingTicketDelivery.pdfBlob, pendingTicketDelivery.ids);
+  showToast('PDF guardado nuevamente', 'success');
+});
+document.getElementById('ticket-delivery-whatsapp')?.addEventListener('click', async () => {
+  if (!pendingTicketDelivery?.pdfBlob) return;
+  const shared = await shareTicketPdfBlob(pendingTicketDelivery.pdfBlob, pendingTicketDelivery.ids, false);
+  if (shared) showToast('Entrada compartida correctamente', 'success');
+});
+document.getElementById('ticket-delivery-image')?.addEventListener('click', async () => {
+  const assets = pendingTicketDelivery?.imageAssets || [];
+  if (!assets.length) return;
+  const files = typeof File === 'function'
+    ? assets.map(asset => new File([asset.blob], asset.filename, { type: 'image/png' }))
+    : [];
+  if (files.length && canShareFiles(files)) {
+    try {
+      await navigator.share({ title: 'Entradas del evento', text: 'Guardá las entradas como imagen.', files });
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+  assets.forEach(asset => downloadBlobFile(asset.blob, asset.filename));
+  showToast('Las imágenes se guardaron en el dispositivo', 'success');
+});
 
 const readFileAsBase64 = (file) => {
   return new Promise((resolve, reject) => {
@@ -1152,11 +1349,7 @@ document.getElementById('edit-ticket-save').addEventListener('click', async () =
     });
     if (created.error) return showToast(created.error, 'error');
     if (ticketUsesQr(type)) {
-      try {
-        await printTicketPdf(created.tickets.map(ticket => ticket.id));
-      } catch (error) {
-        showToast('Las entradas se crearon, pero no se pudo imprimir el PDF: ' + error.message, 'error');
-      }
+      await prepareTicketDelivery(created.tickets);
     }
   }
 
@@ -1750,11 +1943,7 @@ document.getElementById('ticket-sale-form')?.addEventListener('submit', async ev
       document.getElementById('quick-ticket-dni').value = '';
       document.getElementById('quick-ticket-qty').value = 1;
       if (ticketUsesQr(type)) {
-        try {
-          await printTicketPdf(res.tickets.map(ticket => ticket.id));
-        } catch (error) {
-          showToast('La venta quedó registrada, pero no se pudo imprimir el PDF: ' + error.message, 'error');
-        }
+        await prepareTicketDelivery(res.tickets);
       }
     } else {
       showToast('Error al agregar entradas', 'error');
@@ -2656,6 +2845,7 @@ async function closeAllOpenPopups() {
   const scannerWasOpen = !document.getElementById('qr-scanner-modal')?.classList.contains('hidden');
   closeAdminApprovalModal(null);
   closeDeleteTicketModal();
+  closeTicketDeliveryModal();
   closeUserModal();
   document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
     modal.classList.add('hidden');

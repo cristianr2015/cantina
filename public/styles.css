@@ -840,6 +840,28 @@ body {
 .ticket-sale-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:17px;border-top:1px solid #edf0f4}
 .ticket-sale-form-actions button{min-width:135px}
 
+.ticket-delivery-modal{width:min(500px,calc(100vw - 28px))!important;padding:28px!important;border-radius:22px!important;text-align:center}
+.ticket-delivery-success{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 13px;border-radius:17px;background:#dcfce7;color:#059669;font-size:28px;font-weight:800}
+.ticket-delivery-kicker{display:block;margin-bottom:6px;color:#059669;font-size:10px;font-weight:850;letter-spacing:.13em}
+.ticket-delivery-modal h3{margin:0 0 8px;font-size:21px;color:#172033}
+.ticket-delivery-modal>p{max-width:390px;margin:0 auto 18px;color:#64748b;font-size:13px;line-height:1.5}
+.ticket-delivery-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:11px 13px;border:1px solid #e5e9ef;border-radius:11px;background:#f8fafc;text-align:left}
+.ticket-delivery-summary span{color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.ticket-delivery-summary strong{color:#334155;font-size:12px}
+.ticket-delivery-actions{display:grid;gap:9px}
+.ticket-delivery-actions button{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px!important;border-radius:12px!important;text-align:left;box-shadow:none!important}
+.ticket-delivery-actions button>span:first-child{display:grid;place-items:center;width:35px;height:35px;flex:0 0 auto;border-radius:10px;font-size:18px}
+.ticket-delivery-actions button>span:last-child{display:flex;flex-direction:column;gap:2px}
+.ticket-delivery-actions strong{font-size:13px}
+.ticket-delivery-actions small{font-size:10px;opacity:.72}
+.ticket-delivery-whatsapp{background:#16a34a!important;color:#fff!important}
+.ticket-delivery-whatsapp>span:first-child{background:rgba(255,255,255,.18)}
+.ticket-delivery-image{border:1px solid #ddd6fe!important;background:#f5f3ff!important;color:#6d28d9!important}
+.ticket-delivery-image>span:first-child{background:#ede9fe}
+.ticket-delivery-pdf{border:1px solid #e2e8f0!important;background:#f8fafc!important;color:#334155!important}
+.ticket-delivery-pdf>span:first-child{background:#e2e8f0}
+.ticket-delivery-close{width:100%;margin-top:14px;padding:10px!important;border:1px solid #e5e7eb!important;background:#fff!important;color:#64748b!important;box-shadow:none!important}
+
 @media(max-width:1120px){
   .ticket-sale-actions{grid-template-columns:1fr 1fr}
 }

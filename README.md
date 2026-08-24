@@ -1,3 +1,5 @@
+### SI TE RESULTA UTIL PODES APOYAR EL DESARROLLO Y CONTINUIDAD DE ESTE PROYECTO MEDIANTE GITHUB Sponsors###
+
 # Cantina / Bufet
 
 Aplicacion Node.js/Express para administrar productos, ventas, entradas, socios y eventos. Usa MySQL y sirve el frontend desde `public/`.

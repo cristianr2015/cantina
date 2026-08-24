@@ -30,3 +30,10 @@ test('rechaza estados y medios de pago desconocidos', () => {
   assert.match(normalizeExpense({ ...base, payment_method: 'crypto' }).error, /medio de pago/i);
   assert.match(normalizeExpense({ ...base, status: 'cancelled' }).error, /estado/i);
 });
+
+test('usa pendiente como estado inicial cuando no se especifica', () => {
+  const result = normalizeExpense({
+    description: 'Compra menor', category: 'Otros', amount: 100, expense_date: '2026-08-24'
+  });
+  assert.equal(result.value.status, 'pending');
+});

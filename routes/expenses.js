@@ -64,6 +64,23 @@ router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
+router.patch('/:id/pay', auth(['admin']), requireEvent, async (req, res) => {
+  try {
+    const [result] = await db.query(
+      "UPDATE expenses SET status = 'paid' WHERE id = ? AND event_id = ? AND status <> 'paid'",
+      [req.params.id, req.eventId]
+    );
+    if (!result.affectedRows) {
+      const [rows] = await db.query('SELECT status FROM expenses WHERE id = ? AND event_id = ? LIMIT 1', [req.params.id, req.eventId]);
+      if (!rows.length) return res.status(404).json({ error: 'Gasto no encontrado en el evento activo' });
+      return res.json({ ok: true, alreadyPaid: true });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
   try {
     const [result] = await db.query('DELETE FROM expenses WHERE id = ? AND event_id = ?', [req.params.id, req.eventId]);

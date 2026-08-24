@@ -2480,7 +2480,7 @@ async function openExpenseModal(expense = null) {
   document.getElementById('expense-amount').value = expense?.amount || '';
   document.getElementById('expense-date').value = expenseDateValue(expense?.expense_date) || currentLocalDateValue();
   document.getElementById('expense-payment-method').value = expense?.payment_method || 'cash';
-  document.getElementById('expense-status').value = expense?.status || 'paid';
+  document.getElementById('expense-status').value = expense?.status || 'pending';
   await populateExpenseUsers(expense?.user_id || '');
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
@@ -2538,7 +2538,7 @@ function renderExpenses() {
       <td>${escapeUserText(expensePaymentLabel(expense.payment_method))}</td>
       <td><span class="expense-badge expense-badge-${expense.status === 'paid' ? 'paid' : 'pending'}">${expense.status === 'paid' ? 'Pagado' : 'Pendiente'}</span></td>
       <td class="expense-amount">${formatMoney(expense.amount)}</td>
-      <td><div class="expense-actions"><button class="expense-action edit-expense" type="button" data-id="${expense.id}">Editar</button><button class="expense-action expense-action-delete delete-expense" type="button" data-id="${expense.id}">Eliminar</button></div></td>
+      <td><div class="expense-actions">${expense.status === 'pending' ? `<button class="expense-action expense-action-pay pay-expense" type="button" data-id="${expense.id}">Marcar pagado</button>` : ''}<button class="expense-action edit-expense" type="button" data-id="${expense.id}">Editar</button><button class="expense-action expense-action-delete delete-expense" type="button" data-id="${expense.id}">Eliminar</button></div></td>
     </tr>
   `).join('');
   enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
@@ -2595,8 +2595,21 @@ document.getElementById('expense-form')?.addEventListener('submit', async event 
 });
 
 document.getElementById('expenses-body')?.addEventListener('click', event => {
+  const payButton = event.target.closest('.pay-expense');
   const editButton = event.target.closest('.edit-expense');
   const deleteButton = event.target.closest('.delete-expense');
+  if (payButton) {
+    payButton.disabled = true;
+    api(`/expenses/${payButton.dataset.id}/pay`, { method: 'PATCH' }).then(async result => {
+      if (result.error) {
+        payButton.disabled = false;
+        return showToast(result.error, 'error');
+      }
+      showToast('Gasto marcado como pagado', 'success');
+      await loadExpenses();
+    });
+    return;
+  }
   if (editButton) {
     const expense = expensesCache.find(item => Number(item.id) === Number(editButton.dataset.id));
     if (expense) openExpenseModal(expense);

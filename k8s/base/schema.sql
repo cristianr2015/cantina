@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   supplier VARCHAR(150),
   amount DECIMAL(10,2) NOT NULL,
   payment_method ENUM('cash','mercadopago','transfer') NOT NULL DEFAULT 'cash',
-  status ENUM('paid','pending') NOT NULL DEFAULT 'paid',
+  status ENUM('paid','pending') NOT NULL DEFAULT 'pending',
   expense_date DATE NOT NULL,
   user_id INT,
   event_id INT NOT NULL,

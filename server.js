@@ -400,7 +400,7 @@ const eventScopingMigration = baseEventScopingMigration.then(async () => {
     supplier VARCHAR(150),
     amount DECIMAL(10,2) NOT NULL,
     payment_method ENUM('cash','mercadopago','transfer') NOT NULL DEFAULT 'cash',
-    status ENUM('paid','pending') NOT NULL DEFAULT 'paid',
+    status ENUM('paid','pending') NOT NULL DEFAULT 'pending',
     expense_date DATE NOT NULL,
     user_id INT,
     event_id INT NOT NULL,
@@ -409,6 +409,17 @@ const eventScopingMigration = baseEventScopingMigration.then(async () => {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
   )`);
+  const [expenseStatusColumns] = await db.query(`
+    SELECT COLUMN_DEFAULT
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'expenses'
+      AND COLUMN_NAME = 'status'
+    LIMIT 1
+  `);
+  if (expenseStatusColumns[0]?.COLUMN_DEFAULT !== 'pending') {
+    await db.query("ALTER TABLE expenses MODIFY COLUMN status ENUM('paid','pending') NOT NULL DEFAULT 'pending'");
+  }
 
   await db.query(`
     INSERT IGNORE INTO expenses

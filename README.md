@@ -57,11 +57,12 @@ Entradas y control de ingreso:
 
 ## Despliegue en Azure App Service
 
-La aplicación se publica exclusivamente en Azure App Service mediante el workflow:
+La aplicación se publica exclusivamente en Azure App Service mediante dos flujos separados:
 
-`.github/workflows/main_app-pena.yml`
+- `.github/workflows/main_app-pena.yml`: `main` publica en el slot `Production`.
+- `.github/workflows/testing_app-pena.yml`: `testing` publica en el slot `testing`.
 
-Cada push a `main` ejecuta este proceso:
+Cada push a cualquiera de esas ramas ejecuta este proceso en su slot correspondiente:
 
 1. Instala Node.js 24 y las dependencias.
 2. Ejecuta la compilación, si existe, y todas las pruebas.
@@ -77,15 +78,15 @@ El workflow utiliza estos secretos del repositorio, generados para la conexión 
 
 Las variables de la aplicación y de MySQL deben configurarse en Azure Portal, dentro de `APP-Pena > Configuración > Variables de entorno`. No deben guardarse contraseñas reales en el repositorio.
 
-Para publicar una actualización:
+El trabajo diario se realiza en `testing`. Para publicar una actualización de prueba:
 
 ```powershell
 git add <archivos>
 git commit -m "Descripción del cambio"
-git push origin main
+git push origin testing
 ```
 
-El estado de la publicación se consulta en GitHub Actions. Una vez finalizada, conviene verificar `/health/live` y `/health/ready` en la URL de producción.
+El estado de la publicación se consulta en GitHub Actions. Una vez finalizada, conviene verificar `/health/live` y `/health/ready` en la URL del slot. La rama `main` y Producción sólo deben actualizarse mediante una promoción deliberada desde `testing`.
 
 ## Base de datos en Azure
 

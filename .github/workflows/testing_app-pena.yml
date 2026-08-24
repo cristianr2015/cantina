@@ -1,0 +1,68 @@
+name: Build and deploy testing slot - APP-Pena
+
+on:
+  push:
+    branches:
+      - testing
+  workflow_dispatch:
+
+concurrency:
+  group: app-pena-testing
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout testing branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24.x'
+          cache: npm
+
+      - name: Install, build and test
+        run: |
+          npm ci
+          npm run build --if-present
+          npm test
+
+      - name: Upload testing artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app-testing
+          path: .
+          retention-days: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download testing artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: node-app-testing
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_98FF59D384B946B186988DCCCFC0A473 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DF18F91A28354D2A97D89B9E38DC1A5B }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2820691C02AD494A823B83EB733556FF }}
+
+      - name: Deploy to Azure testing slot
+        id: deploy-to-testing-slot
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'APP-Pena'
+          slot-name: 'testing'
+          package: .

@@ -375,6 +375,72 @@ html[data-theme="dark"] .reports-empty-state {
   border-color: rgba(148, 163, 184, 0.2) !important;
 }
 
+/* Resultados de reportes: los selectores originales usan un ID y requieren
+   reglas oscuras con la misma prioridad. */
+html[data-theme="dark"] .reports-results,
+html[data-theme="dark"] #report-output,
+html[data-theme="dark"] #report-output table {
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] #report-output th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] #report-output td {
+  background: #111827 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+html[data-theme="dark"] #report-output tbody tr:hover td {
+  background: #172033 !important;
+}
+
+html[data-theme="dark"] .closing-report {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .closing-card,
+html[data-theme="dark"] .closing-section,
+html[data-theme="dark"] .report-note {
+  background: #111827 !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] .closing-card-result {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+html[data-theme="dark"] .closing-card-result.is-negative {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html[data-theme="dark"] .closing-card-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+
+html[data-theme="dark"] .closing-event-label,
+html[data-theme="dark"] .closing-card span,
+html[data-theme="dark"] .closing-card small,
+html[data-theme="dark"] .closing-line,
+html[data-theme="dark"] .report-note {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .closing-line {
+  border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
 /* POS y modales */
 html[data-theme="dark"] .pos-header {
   background: #111827 !important;

@@ -3443,13 +3443,30 @@ document.getElementById('cancel-qty').addEventListener('click', () => { qtyModal
 initQtyWheel();
 
 // Registro de venta rápida en puerta
+function updateDoorSaleQuantity(value) {
+  const input = document.getElementById('door-sale-qty-input');
+  if (!input) return;
+  const quantity = Math.min(50, Math.max(1, Number.parseInt(value, 10) || 1));
+  input.value = quantity;
+  document.getElementById('door-sale-qty-minus')?.toggleAttribute('disabled', quantity <= 1);
+  document.getElementById('door-sale-qty-plus')?.toggleAttribute('disabled', quantity >= 50);
+}
+
+document.getElementById('door-sale-qty-minus')?.addEventListener('click', () => {
+  updateDoorSaleQuantity(Number(document.getElementById('door-sale-qty-input')?.value) - 1);
+});
+
+document.getElementById('door-sale-qty-plus')?.addEventListener('click', () => {
+  updateDoorSaleQuantity(Number(document.getElementById('door-sale-qty-input')?.value) + 1);
+});
+
 document.getElementById('btn-door-sale')?.addEventListener('click', async () => {
   const modal = document.getElementById('door-sale-modal');
   const input = document.getElementById('door-sale-qty-input');
   if (modal) {
-    input.value = 1;
+    updateDoorSaleQuantity(1);
     modal.classList.remove('hidden');
-    input.focus();
+    document.getElementById('door-sale-qty-plus')?.focus();
   }
 });
 

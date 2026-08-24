@@ -892,9 +892,13 @@
         <h3 style="margin-bottom:8px">Venta Rápida en Puerta</h3>
         <p style="color:var(--muted);margin-bottom:20px;font-size:14px">¿Cuántas entradas desea registrar hoy?</p>
         
-        <div style="margin-bottom:24px">
-          <input id="door-sale-qty-input" type="number" value="1" min="1" max="50"
-                 style="width:100%;font-size:28px;text-align:center;padding:12px;border-radius:12px;border:2px solid var(--accent);background:rgba(255,107,53,0.05);color:var(--text);font-weight:700">
+        <div class="door-sale-quantity" aria-label="Cantidad de entradas">
+          <button id="door-sale-qty-minus" class="door-sale-qty-button" type="button" aria-label="Disminuir cantidad">&minus;</button>
+          <div class="door-sale-qty-value">
+            <input id="door-sale-qty-input" type="number" value="1" min="1" max="50" readonly aria-label="Cantidad seleccionada">
+            <span>entradas</span>
+          </div>
+          <button id="door-sale-qty-plus" class="door-sale-qty-button" type="button" aria-label="Aumentar cantidad">+</button>
         </div>
 
         <div style="display:flex;gap:10px;justify-content:center">

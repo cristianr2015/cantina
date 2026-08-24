@@ -862,6 +862,15 @@ body {
 .ticket-delivery-pdf>span:first-child{background:#e2e8f0}
 .ticket-delivery-close{width:100%;margin-top:14px;padding:10px!important;border:1px solid #e5e7eb!important;background:#fff!important;color:#64748b!important;box-shadow:none!important}
 
+.door-sale-quantity{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:stretch;gap:10px;margin-bottom:24px}
+.door-sale-qty-button{display:grid!important;place-items:center;min-width:58px;min-height:64px;padding:0!important;border:0!important;border-radius:15px!important;background:var(--accent)!important;color:#fff!important;font-size:34px!important;font-weight:700!important;line-height:1!important;box-shadow:0 5px 13px rgba(255,107,53,.25)!important;touch-action:manipulation;user-select:none}
+.door-sale-qty-button:active:not(:disabled){transform:scale(.95)}
+.door-sale-qty-button:disabled{background:#e2e8f0!important;color:#94a3b8!important;box-shadow:none!important;cursor:not-allowed}
+.door-sale-qty-value{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border:2px solid var(--accent);border-radius:15px;background:rgba(255,107,53,.05)}
+.door-sale-qty-value input{width:100%!important;padding:2px 4px!important;border:0!important;outline:0!important;background:transparent!important;color:var(--text)!important;font-size:29px!important;font-weight:800!important;line-height:1!important;text-align:center!important;box-shadow:none!important;pointer-events:none;-moz-appearance:textfield}
+.door-sale-qty-value input::-webkit-inner-spin-button,.door-sale-qty-value input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.door-sale-qty-value span{margin-top:3px;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.04em;text-transform:uppercase}
+
 @media(max-width:1120px){
   .ticket-sale-actions{grid-template-columns:1fr 1fr}
 }

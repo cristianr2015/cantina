@@ -41,6 +41,10 @@ class SidebarMenu extends HTMLElement {
               <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 4.3 17.3l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09c.7 0 1.3-.4 1.51-1a1.65 1.65 0 0 0-.33-1.82L4.3 4.3A2 2 0 1 1 7.12 1.47l.06.06c.45.45 1.08.6 1.66.4.51-.17 1.06-.26 1.6-.26h.33c.54 0 1.09.09 1.6.26.58.2 1.21.05 1.66-.4l.06-.06A2 2 0 0 1 20 4.3l-.06.06a1.65 1.65 0 0 0-.33 1.82c.2.58.05 1.21-.4 1.66-.17.17-.26.72-.26 1.26v.33c0 .54.09 1.09.26 1.6.2.58.05 1.21.4 1.66l.06.06A2 2 0 0 1 20 19.7l-.06.06c-.45.45-1.08.6-1.66.4-.51-.17-1.06-.26-1.6-.26H16.4c-.54 0-1.09.09-1.6.26-.58.2-1.21.05-1.66-.4l-.06-.06A2 2 0 0 1 7.7 20.7l.06-.06c.45-.45.6-1.08.4-1.66-.17-.51-.26-1.06-.26-1.6v-.33c0-.54-.09-1.09-.26-1.6-.2-.58-.05-1.21.4-1.66l.06-.06A2 2 0 0 1 7 4.3l.06-.06c.45-.45 1.08-.6 1.66-.4.51.17 1.06.26 1.6.26h.33c.54 0 1.09-.09 1.6-.26.58-.2 1.21-.05 1.66.4l.06.06A2 2 0 0 1 19.7 7l-.06.06c-.45.45-.6 1.08-.4 1.66.17.51.26 1.06.26 1.6v.33c0 .54-.09 1.09-.26 1.6-.2.58-.05 1.21.4 1.66l.06.06A2 2 0 0 1 19.4 15z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>Configuración</span>
             </a></li>
+            <li id="activate-pro-menu-item" class="admin-only" style="display:none"><a href="#pro" data-nav class="activate-pro-link">
+              <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3l2.7 5.47 6.03.88-4.36 4.25 1.03 6-5.4-2.84L6.6 19.6l1.03-6-4.36-4.25 6.03-.88L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+              <span>Activar Pro</span>
+            </a></li>
           </ul>
         </nav>
       </aside>

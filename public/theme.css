@@ -628,6 +628,27 @@ html[data-theme="dark"] .free-ticket-license-notice small {
   color:#7dd3fc;
 }
 
+html[data-theme="dark"] .pro-upgrade-hero,
+html[data-theme="dark"] .pro-feature-grid article {
+  background:#111827;
+  border-color:#2b3a50;
+}
+
+html[data-theme="dark"] .pro-upgrade-hero h2,
+html[data-theme="dark"] .pro-feature-grid h3 {
+  color:#f8fafc;
+}
+
+html[data-theme="dark"] .pro-upgrade-hero p,
+html[data-theme="dark"] .pro-feature-grid p {
+  color:#a9b8cc;
+}
+
+html[data-theme="dark"] .pro-upgrade-cta {
+  background:#070d19;
+  border:1px solid #26354b;
+}
+
 /* Neutraliza colores claros definidos directamente en el HTML. */
 html[data-theme="dark"] [style*="background:#ffffff"],
 html[data-theme="dark"] [style*="background: #ffffff"],

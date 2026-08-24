@@ -7,7 +7,9 @@ const {
   verifyLicenseKey,
   getLicenseConfig,
   getLicenseStatus,
-  activateLicense
+  activateLicense,
+  defaultFreeLicenseId,
+  migrateLicenseStorage
 } = require('../lib/licenseService');
 const { licenseAllows, licenseAllowsUserRoles } = require('../middleware/licenseAccess');
 
@@ -54,6 +56,29 @@ test('la licencia free solamente permite nuevos usuarios administradores', () =>
   assert.equal(licenseAllowsUserRoles(full, ['seller']), true);
   assert.equal(licenseAllowsUserRoles(free, ['seller'], ['seller']), true);
   assert.equal(licenseAllowsUserRoles(free, ['puerta'], ['seller']), false);
+});
+
+test('genera un identificador estable para la licencia free predeterminada', () => {
+  const first = defaultFreeLicenseId(installationId);
+  assert.equal(first, defaultFreeLicenseId(installationId));
+  assert.notEqual(first, defaultFreeLicenseId(otherInstallationId));
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
+});
+
+test('instala una licencia free anual cuando la instalación todavía no tiene licencias', async () => {
+  const queries = [];
+  const db = {
+    query: async (sql, params = []) => {
+      queries.push({ sql, params });
+      return [[]];
+    }
+  };
+  await migrateLicenseStorage(db, env);
+  const insert = queries.find(query => query.sql.includes('INSERT IGNORE INTO license_activations'));
+  assert.ok(insert);
+  assert.deepEqual(insert.params, [defaultFreeLicenseId(installationId), installationId, installationId]);
+  assert.match(insert.sql, /WHERE NOT EXISTS/);
+  assert.match(insert.sql, /INTERVAL 1 YEAR/);
 });
 
 test('consulta el estado activo y detecta el vencimiento', async () => {

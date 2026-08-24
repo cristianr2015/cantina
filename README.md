@@ -59,8 +59,9 @@ Entradas y control de ingreso:
 
 Licencias:
 
-- `free`: habilita Dashboard, Registrar venta, venta de entradas en puerta y Configuración.
+- `free`: habilita Dashboard, Registrar venta, venta de entradas en puerta, Configuración y la pantalla para solicitar Pro.
 - `full`: habilita todas las funciones de la aplicación.
+- Una instalación nueva activa automáticamente su licencia `free` por un año; al vencer no se renueva de forma automática.
 - Cada clave está vinculada a un `LICENSE_INSTALLATION_ID`, puede activarse una sola vez y vence un año después de activarla.
 - Sin una licencia vigente, un administrador solamente puede ingresar a Configuración para instalar una nueva clave.
 

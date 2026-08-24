@@ -82,7 +82,11 @@ function getAllowedPages(user) {
     if (userHasRole(user, 'puerta')) pages.push('tickets');
   }
   if (licenseState.active && licenseState.type === 'full') return pages;
-  if (licenseState.active && licenseState.type === 'free') return pages.filter(page => FREE_LICENSE_PAGES.has(page));
+  if (licenseState.active && licenseState.type === 'free') {
+    const freePages = pages.filter(page => FREE_LICENSE_PAGES.has(page));
+    if (userHasRole(user, 'admin')) freePages.push('pro');
+    return freePages;
+  }
   return userHasRole(user, 'admin') ? ['config'] : [];
 }
 
@@ -683,6 +687,19 @@ function applyLicenseUi() {
   });
   const freeNotice = document.getElementById('free-ticket-license-notice');
   if (freeNotice) freeNotice.style.display = isFree ? 'flex' : 'none';
+  const proMenuItem = document.getElementById('activate-pro-menu-item');
+  if (proMenuItem) {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    proMenuItem.style.display = isFree && userHasRole(user, 'admin') ? '' : 'none';
+  }
+  const proEmailLink = document.getElementById('request-pro-license');
+  if (proEmailLink) {
+    const subject = uiText('Solicitud de licencia Pro');
+    const body = `${uiText('Hola, quiero solicitar una licencia Pro para la instalación')}: ${licenseState.installationId || '—'}`;
+    proEmailLink.href = `mailto:cramirez@neoprintcardales.com.ar?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+  const proInstallationId = document.getElementById('pro-installation-id');
+  if (proInstallationId) proInstallationId.textContent = licenseState.installationId || '—';
   syncUserRoleLicenseUi();
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');

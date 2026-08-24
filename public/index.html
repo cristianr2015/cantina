@@ -25,7 +25,7 @@
       })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260824-1">
+    <link rel="stylesheet" href="styles.css?v=20260824-2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -405,7 +405,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="theme.css?v=20260824-9">
+    <link rel="stylesheet" href="theme.css?v=20260824-10">
   </head>
   <body>
     <div id="login-area" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f3f4f6;">
@@ -891,6 +891,29 @@
                 </div>
                 <div id="users-grid" class="users-grid" aria-live="polite"></div>
               </section>
+            </section>
+          </div>
+
+          <div id="page-pro" class="page hidden admin-only">
+            <section class="pro-upgrade-page">
+              <header class="pro-upgrade-hero">
+                <span class="pro-upgrade-badge">VERSIÓN PRO</span>
+                <h2>Llevá la gestión de tus eventos al siguiente nivel</h2>
+                <p>Activá todas las herramientas de administración, control y análisis de la aplicación.</p>
+              </header>
+              <div class="pro-feature-grid">
+                <article><span aria-hidden="true">🎫</span><div><h3>Entradas anticipadas con QR</h3><p>Emití entradas personalizadas, generá el PDF y validá cada ingreso una sola vez.</p></div></article>
+                <article><span aria-hidden="true">🎁</span><div><h3>Entradas de cortesía</h3><p>Registrá invitaciones sin cargo con autorización administrativa y control de acceso.</p></div></article>
+                <article><span aria-hidden="true">📦</span><div><h3>Inventario completo</h3><p>Creá y editá productos, administrá precios y controlá el stock disponible.</p></div></article>
+                <article><span aria-hidden="true">📊</span><div><h3>Reportes avanzados</h3><p>Consultá ventas, entradas, asistencia, medios de pago y cierre financiero del evento.</p></div></article>
+                <article><span aria-hidden="true">💸</span><div><h3>Gestión de gastos</h3><p>Registrá egresos, proveedores, categorías y pagos pendientes por cada evento.</p></div></article>
+                <article><span aria-hidden="true">👥</span><div><h3>Todos los roles de usuario</h3><p>Creá Administradores, Vendedores y usuarios de Puerta con permisos específicos.</p></div></article>
+              </div>
+              <div class="pro-upgrade-cta">
+                <div><span>Identificador de tu instalación</span><code id="pro-installation-id">—</code></div>
+                <a id="request-pro-license" href="mailto:cramirez@neoprintcardales.com.ar">Solicitar licencia Pro por correo</a>
+                <small>El correo incluirá el identificador necesario para emitir una licencia compatible.</small>
+              </div>
             </section>
           </div>
         </main>
@@ -1431,8 +1454,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260824-5"></script>
-    <script src="sidebar-menu.js"></script>
-    <script src="app.js?v=20260824-8"></script>
+    <script src="i18n.js?v=20260824-6"></script>
+    <script src="sidebar-menu.js?v=20260824-1"></script>
+    <script src="app.js?v=20260824-9"></script>
   </body>
 </html>

@@ -2,6 +2,7 @@ const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
 const APP_THEME_STORAGE_KEY = 'appTheme';
+const LOGIN_COMPANY_STORAGE_KEY = 'loginCompanyCode';
 const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'products', 'reports', 'config']);
 let licenseState = { configured: true, active: false, state: 'missing', type: null };
 
@@ -243,6 +244,52 @@ function clearSession() {
   deleteCookie('token');
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+}
+
+function normalizeLoginCompanyCode(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getRememberedLoginCompanyCode() {
+  try {
+    return normalizeLoginCompanyCode(localStorage.getItem(LOGIN_COMPANY_STORAGE_KEY));
+  } catch (_error) {
+    return '';
+  }
+}
+
+function rememberLoginCompanyCode(value) {
+  const company = normalizeLoginCompanyCode(value);
+  if (!company) return;
+  try {
+    localStorage.setItem(LOGIN_COMPANY_STORAGE_KEY, company);
+  } catch (_error) {
+    // El inicio de sesión continúa aunque el dispositivo no permita almacenamiento local.
+  }
+  syncLoginCompanySelector(company);
+}
+
+function syncLoginCompanySelector(company = getRememberedLoginCompanyCode()) {
+  const input = document.getElementById('login-company');
+  const changeButton = document.getElementById('change-login-company');
+  if (!input || !changeButton) return;
+  input.value = company;
+  input.readOnly = Boolean(company);
+  changeButton.hidden = !company;
+}
+
+async function loadLoginCompanyBranding(value) {
+  const company = normalizeLoginCompanyCode(value);
+  if (!company) {
+    applyCompanyBranding({ company_name: 'Gestión de Eventos', logo_path: null });
+    return;
+  }
+  try {
+    const response = await requestJson(buildUrl(`/api/public-settings?company=${encodeURIComponent(company)}`));
+    if (response.ok && response.data) applyCompanyBranding(response.data);
+  } catch (_error) {
+    // El inicio de sesión mostrará el error si el código no existe.
+  }
 }
 
 function showLoginScreen(message = '') {
@@ -1783,6 +1830,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   if (res.token) {
     setSessionToken(res.token);
     localStorage.setItem('user', JSON.stringify(res.user));
+    rememberLoginCompanyCode(res.user?.company?.code || company);
     showDebugInfo([]);
     initAfterLogin();
   } else {
@@ -2982,15 +3030,14 @@ document.getElementById('cfg-region')?.addEventListener('change', () => {
   renderTaxIdentifierFields(collectTaxIdentifiers());
 });
 
-document.getElementById('login-company')?.addEventListener('change', async event => {
-  const company = event.target.value.trim().toLowerCase();
-  if (!company) return applyCompanyBranding({ company_name: 'Gestión de Eventos', logo_path: null });
-  try {
-    const response = await requestJson(buildUrl(`/api/public-settings?company=${encodeURIComponent(company)}`));
-    if (response.ok && response.data) applyCompanyBranding(response.data);
-  } catch (_error) {
-    // El inicio de sesión mostrará el error si el código no existe.
-  }
+document.getElementById('login-company')?.addEventListener('change', event => loadLoginCompanyBranding(event.target.value));
+document.getElementById('change-login-company')?.addEventListener('click', () => {
+  const input = document.getElementById('login-company');
+  const button = document.getElementById('change-login-company');
+  input.readOnly = false;
+  button.hidden = true;
+  input.focus();
+  input.select();
 });
 document.getElementById('cfg-currency')?.addEventListener('change', toggleCustomCurrencyFields);
 
@@ -4204,7 +4251,11 @@ async function initPublicInfo() {
     }
 
     // 2. Cargar Logo y Nombre Público
-    const settingsRes = await requestJson(buildUrl('/api/public-settings'));
+    const company = normalizeLoginCompanyCode(document.getElementById('login-company')?.value);
+    const publicSettingsPath = company
+      ? `/api/public-settings?company=${encodeURIComponent(company)}`
+      : '/api/public-settings';
+    const settingsRes = await requestJson(buildUrl(publicSettingsPath));
     const settings = settingsRes.data || {};
     applyCompanyBranding(settings);
     showDebugInfo([]);
@@ -4240,4 +4291,5 @@ document.addEventListener('app:languagechange', () => {
 });
 
 initMobileUI();
+syncLoginCompanySelector();
 initPublicInfo();

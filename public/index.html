@@ -25,7 +25,7 @@
       })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260825-1">
+    <link rel="stylesheet" href="styles.css?v=20260825-2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -439,12 +439,14 @@
       </div>
 
       <form id="login-form" style="display:flex;flex-direction:column;gap:16px;width:100%;max-width:360px;padding:32px;background:#ffffff;border:1px solid rgba(15,23,42,0.1);border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.05);">
-        <input id="login-company" placeholder="Código de empresa" autocomplete="organization" style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
+        <div class="login-company-selector">
+          <input id="login-company" placeholder="Código de empresa" autocomplete="organization" required style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
+          <button id="change-login-company" class="login-company-change" type="button" hidden>Cambiar de empresa</button>
+        </div>
         <input id="login-username" placeholder="Nombre de usuario" required style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
         <input id="login-password" type="password" placeholder="Contraseña" required style="background:#f9fafb;border:1px solid rgba(15,23,42,0.1);color:#000000;padding:12px 16px;border-radius:8px;outline:none">
         <button type="submit" style="padding:14px;background:var(--accent);color:#08101b;font-weight:700;border-radius:8px;border:none;cursor:pointer;transition:all 0.2s">Acceder al Sistema</button>
         <div id="login-error" style="color:#f87171;text-align:center;font-size:14px;min-height:20px"></div>
-        <a href="/superadmin" style="color:var(--muted);font-size:12px;text-align:center;text-decoration:none">Administración de plataforma</a>
       </form>
       <pre id="debug-info" style="display:none;width:100%;max-width:360px;margin-top:16px;padding:12px 14px;white-space:pre-wrap;word-break:break-word;background:#111827;border:1px solid rgba(255,255,255,0.08);border-radius:12px;color:#e5e7eb;font-size:12px;line-height:1.4"></pre>
     </div>
@@ -1501,8 +1503,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260825-3"></script>
+    <script src="i18n.js?v=20260825-4"></script>
     <script src="sidebar-menu.js?v=20260824-1"></script>
-    <script src="app.js?v=20260825-3"></script>
+    <script src="app.js?v=20260825-4"></script>
   </body>
 </html>

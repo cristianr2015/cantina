@@ -31,6 +31,11 @@ html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial,sans-serif;back
 #login-area{max-width:420px;margin:80px auto;padding:32px;background:#ffffff;border-radius:10px;border:1px solid rgba(15,23,42,0.08);box-shadow:0 10px 20px rgba(15,23,42,0.08)}
 #login-area input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid rgba(15,23,42,0.12);background:#fff;color:var(--text)}
 #login-area button{width:100%;padding:10px;border-radius:8px;background:var(--accent);border:none;color:#08101b;font-weight:600}
+.login-company-selector{display:flex;flex-direction:column;gap:7px;width:100%}
+#login-area .login-company-selector input{margin:0}
+#login-area .login-company-change{align-self:flex-start;width:auto;padding:2px 0;border:0;border-radius:0;background:transparent;color:var(--accent);font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:3px;box-shadow:none}
+#login-area .login-company-change[hidden]{display:none!important}
+#login-company[readonly]{cursor:default;opacity:.78}
 .app > section{background:#ffffff;border:1px solid rgba(15,23,42,0.08);padding:24px;border-radius:10px;margin-bottom:24px}
 .app .admin-only{display:block}
 .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}

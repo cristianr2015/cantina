@@ -25,6 +25,7 @@
     'Servidor sin conexión': { pt: 'Servidor sem conexão', en: 'Server offline' },
     'Nombre de usuario': { pt: 'Nome de usuário', en: 'Username' },
     'Código de empresa': { pt: 'Código da empresa', en: 'Company code' },
+    'Cambiar de empresa': { pt: 'Trocar de empresa', en: 'Change company' },
     'Contraseña': { pt: 'Senha', en: 'Password' },
     'Acceder al Sistema': { pt: 'Entrar no sistema', en: 'Sign in' },
     'Administración de plataforma': { pt: 'Administração da plataforma', en: 'Platform administration' },

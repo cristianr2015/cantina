@@ -8,4 +8,7 @@ ON DUPLICATE KEY UPDATE
   last_name = VALUES(last_name),
   role = VALUES(role);
 
+INSERT IGNORE INTO user_roles (user_id, role)
+SELECT id, 'admin' FROM users WHERE username = 'admin';
+
 -- También puedes insertar más datos de ejemplo si lo deseas

@@ -1025,13 +1025,22 @@
             <small id="user-password-help">Obligatoria para crear un usuario nuevo.</small>
           </div>
           <div class="user-form-field">
-            <label for="user-role">Rol y permisos</label>
-            <select id="user-role" name="role" required>
-              <option value="seller">Vendedor</option>
-              <option value="puerta">Puerta</option>
-              <option value="admin">Administrador</option>
-            </select>
-            <small>El rol define qué secciones puede ver y administrar.</small>
+            <label>Roles y permisos</label>
+            <div class="user-role-options" role="group" aria-label="Roles y permisos del usuario">
+              <label class="user-role-option">
+                <input type="checkbox" name="user-roles" value="seller" checked />
+                <span><strong>Vendedor</strong><small>Ventas, productos y reportes</small></span>
+              </label>
+              <label class="user-role-option">
+                <input type="checkbox" name="user-roles" value="puerta" />
+                <span><strong>Puerta</strong><small>Gestión y control de entradas</small></span>
+              </label>
+              <label class="user-role-option">
+                <input type="checkbox" name="user-roles" value="admin" />
+                <span><strong>Administrador</strong><small>Configuración y acceso completo</small></span>
+              </label>
+            </div>
+            <small>Podés seleccionar uno o varios roles.</small>
           </div>
           <div class="user-form-actions">
             <button id="cancel-user-modal" class="user-secondary-action" type="button">Cancelar</button>

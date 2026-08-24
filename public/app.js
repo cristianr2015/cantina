@@ -6,6 +6,24 @@ const ROLE_LABELS = {
   seller: 'Vendedor',
   puerta: 'Puerta'
 };
+
+function getUserRoles(user) {
+  const roles = Array.isArray(user?.roles) && user.roles.length ? user.roles : (user?.role ? [user.role] : []);
+  return [...new Set(roles.filter(role => Object.prototype.hasOwnProperty.call(ROLE_LABELS, role)))];
+}
+
+function userHasRole(user, role) {
+  return getUserRoles(user).includes(role);
+}
+
+function isDoorOnlyUser(user) {
+  const roles = getUserRoles(user);
+  return roles.length === 1 && roles[0] === 'puerta';
+}
+
+function formatUserRoles(user) {
+  return getUserRoles(user).map(role => ROLE_LABELS[role]).join(' · ');
+}
 const TICKET_TYPE_LABELS = {
   anticipada: '🎟️ Anticipada',
   puerta: '🚪 En puerta',
@@ -443,7 +461,7 @@ async function loadProducts(){
   if (list) {
     list.innerHTML = '';
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const isAdmin = user.role === 'admin';
+    const isAdmin = userHasRole(user, 'admin');
 
     prods.forEach(p => {
       const card = document.createElement('div');
@@ -600,7 +618,7 @@ async function loadEvents() {
 
 async function refreshActiveEventPage() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const hash = location.hash.replace('#', '') || (user?.role === 'puerta' ? 'tickets' : 'dashboard');
+  const hash = location.hash.replace('#', '') || (isDoorOnlyUser(user) ? 'tickets' : 'dashboard');
   if (hash === 'dashboard') await loadDashboard();
   if (hash === 'products') await loadProducts();
   if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
@@ -679,7 +697,7 @@ async function loadSales(){
   table.appendChild(thead);
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isAdmin = user.role === 'admin';
+  const isAdmin = userHasRole(user, 'admin');
 
   rows.forEach(r => {
     const tr = document.createElement('tr');
@@ -706,7 +724,7 @@ async function populateTicketUserSelect(select, selectedUser = null) {
   const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
   if (!currentUser) return;
 
-  if (currentUser.role === 'admin') {
+  if (userHasRole(currentUser, 'admin')) {
     const users = await api('/users');
     if (!Array.isArray(users)) throw new Error('No se pudo cargar la lista de usuarios');
     select.disabled = false;
@@ -714,7 +732,7 @@ async function populateTicketUserSelect(select, selectedUser = null) {
     users.forEach(user => {
       const option = document.createElement('option');
       option.value = user.id;
-      option.textContent = `${user.username} (${ROLE_LABELS[user.role] || user.role})`;
+      option.textContent = `${user.username} (${formatUserRoles(user)})`;
       select.appendChild(option);
     });
     select.value = selectedUser?.id || currentUser.id;
@@ -1322,7 +1340,7 @@ document.getElementById('open-pos-btn').addEventListener('click', async () => {
   // Cargar usuarios en el select del modal si es admin
   const userSel = document.getElementById('sale-user-modal');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  if (userSel && user.role === 'admin') {
+  if (userSel && userHasRole(user, 'admin')) {
     try {
       const users = await api('/users');
       userSel.innerHTML = '<option value="">-- Vendedor actual --</option>';
@@ -2015,8 +2033,10 @@ async function loadUsersForMgmt(){
       const safeUsername = escapeUserText(u.username);
       const fullName = [u.first_name, u.last_name].map(value => String(value || '').trim()).filter(Boolean).join(' ');
       const safeFullName = escapeUserText(fullName || u.username);
-      const safeRole = ['admin', 'seller', 'puerta'].includes(u.role) ? u.role : 'seller';
-      const roleLabel = ROLE_LABELS[safeRole] || safeRole;
+      const roles = getUserRoles(u);
+      const safeRoles = roles.length ? roles : ['seller'];
+      const roleLabels = safeRoles.map(role => ROLE_LABELS[role]);
+      const roleBadges = safeRoles.map(role => `<span class="user-role-badge user-role-${role}">${ROLE_LABELS[role]}</span>`).join('');
       const initials = fullName
         ? fullName.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')
         : String(u.username || '?').charAt(0);
@@ -2029,11 +2049,11 @@ async function loadUsersForMgmt(){
               <h4 class="user-card-name" title="${safeFullName}">${safeFullName}</h4>
               <p class="user-card-access"><span aria-hidden="true"></span> @${safeUsername}</p>
             </div>
-            <span class="user-role-badge user-role-${safeRole}">${roleLabel}</span>
+            <div class="user-role-badges">${roleBadges}</div>
           </div>
           <div class="user-card-details">
-            <span>Rol asignado</span>
-            <strong>${roleLabel}</strong>
+            <span>${safeRoles.length === 1 ? 'Rol asignado' : 'Roles asignados'}</span>
+            <strong>${roleLabels.join(' · ')}</strong>
           </div>
           <div class="user-card-actions">
             <button class="user-card-button user-card-edit edit-user" data-id="${u.id}" type="button">
@@ -2088,7 +2108,10 @@ function openUserModal(user = null) {
     document.getElementById('user-first-name').value = user.first_name || '';
     document.getElementById('user-last-name').value = user.last_name || '';
     document.getElementById('user-username').value = user.username;
-    document.getElementById('user-role').value = user.role;
+    const selectedRoles = getUserRoles(user);
+    document.querySelectorAll('input[name="user-roles"]').forEach(input => {
+      input.checked = selectedRoles.includes(input.value);
+    });
     submit.dataset.editId = user.id;
   } else {
     delete submit.dataset.editId;
@@ -2130,12 +2153,13 @@ document.getElementById('user-form')?.addEventListener('submit', (event) => {
   const lastName = document.getElementById('user-last-name').value.trim();
   const username = document.getElementById('user-username').value.trim();
   const password = document.getElementById('user-password').value;
-  const role = document.getElementById('user-role').value;
+  const roles = Array.from(document.querySelectorAll('input[name="user-roles"]:checked')).map(input => input.value);
   const editId = document.getElementById('create-user').dataset.editId;
   
   if (!firstName || !lastName) return showToast('El nombre y el apellido son requeridos', 'error');
   if (!username) return showToast('El usuario para iniciar sesión es requerido', 'error');
   if (!editId && !password) return showToast('La contraseña es requerida para usuarios nuevos', 'error');
+  if (!roles.length) return showToast('Seleccioná al menos un rol', 'error');
 
   const action = editId ? 'actualizar' : 'crear';
   const message = `¿Confirmar ${action} el usuario "${username}"?`;
@@ -2143,7 +2167,7 @@ document.getElementById('user-form')?.addEventListener('submit', (event) => {
   showConfirm(message, async () => {
     try {
       if (editId) {
-        const body = { first_name: firstName, last_name: lastName, username, role };
+        const body = { first_name: firstName, last_name: lastName, username, roles };
         if (password) body.password = password;
         const result = await api('/users/' + editId, { method: 'PUT', body: JSON.stringify(body) });
         if (result?.error) throw new Error(result.error);
@@ -2151,7 +2175,7 @@ document.getElementById('user-form')?.addEventListener('submit', (event) => {
       } else {
         const result = await api('/users', {
           method: 'POST',
-          body: JSON.stringify({ first_name: firstName, last_name: lastName, username, password, role })
+          body: JSON.stringify({ first_name: firstName, last_name: lastName, username, password, roles })
         });
         if (result?.error) throw new Error(result.error);
         showToast('Usuario creado correctamente', 'success');
@@ -2173,12 +2197,12 @@ async function initAfterLogin(){
   await loadEvents();
   if (!getActiveEventId()) {
     showToast('Cree o seleccione un evento para comenzar', 'error');
-    if (user.role === 'admin') location.hash = '#config';
+    if (userHasRole(user, 'admin')) location.hash = '#config';
     navigateToHash();
     return;
   }
   await loadSettings();
-  if (user.role === 'puerta') {
+  if (isDoorOnlyUser(user)) {
     await loadTickets();
     navigateToHash();
     return;
@@ -2187,11 +2211,11 @@ async function initAfterLogin(){
   await loadSales();
   await loadUsersSelect();
   await loadDashboard(); // Cargar datos del dashboard
-  if (user.role === 'seller') {
-    await loadMySales();
-  } else if (user.role === 'admin') {
+  if (userHasRole(user, 'admin')) {
     await loadUsersForMgmt();
     await loadDiscountsForMgmt();
+  } else if (userHasRole(user, 'seller')) {
+    await loadMySales();
   }
   navigateToHash();
 }
@@ -2199,7 +2223,7 @@ async function initAfterLogin(){
 // --- simple client-side navigation (hash-based) ---
 function showPage(id){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (user?.role === 'puerta' && id !== 'tickets') id = 'tickets';
+  if (isDoorOnlyUser(user) && id !== 'tickets') id = 'tickets';
   // hide others
   document.querySelectorAll('.page').forEach(p => {
     if (p.id === 'page-' + id) return;
@@ -2223,8 +2247,8 @@ function showPage(id){
 
 function navigateToHash(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
-  let hash = location.hash.replace('#','') || (user?.role === 'puerta' ? 'tickets' : 'dashboard');
-  if (user?.role === 'puerta' && hash !== 'tickets') {
+  let hash = location.hash.replace('#','') || (isDoorOnlyUser(user) ? 'tickets' : 'dashboard');
+  if (isDoorOnlyUser(user) && hash !== 'tickets') {
     hash = 'tickets';
     history.replaceState(null, '', '#tickets');
   }
@@ -2261,16 +2285,16 @@ document.addEventListener('click', (e) => {
 async function showAppForUser(user){
   document.getElementById('login-area').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('current-user').textContent = user.username + ' (' + (ROLE_LABELS[user.role] || user.role) + ')';
+  document.getElementById('current-user').textContent = user.username + ' (' + formatUserRoles(user) + ')';
   // hide admin-only elements for non-admins
-  if (user.role !== 'admin'){
+  if (!userHasRole(user, 'admin')){
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
   } else {
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
   }
   document.querySelectorAll('.sidebar a[data-nav]').forEach(link => {
     const menuItem = link.closest('li');
-    if (menuItem) menuItem.style.display = user.role === 'puerta' && link.getAttribute('href') !== '#tickets' ? 'none' : '';
+    if (menuItem) menuItem.style.display = isDoorOnlyUser(user) && link.getAttribute('href') !== '#tickets' ? 'none' : '';
   });
 }
 

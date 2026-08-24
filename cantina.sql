@@ -286,6 +286,14 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+DROP TABLE IF EXISTS `user_roles`;
+CREATE TABLE `user_roles` (
+  `user_id` int NOT NULL,
+  `role` enum('admin','seller','puerta') NOT NULL,
+  PRIMARY KEY (`user_id`,`role`),
+  CONSTRAINT `fk_user_roles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Dumping data for table `users`
 --

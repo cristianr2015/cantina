@@ -87,7 +87,7 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
     }
 
     const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
-    const userId = req.user.role === 'admin' && Number.isInteger(requestedUserId)
+    const userId = req.user.roles.includes('admin') && Number.isInteger(requestedUserId)
       ? requestedUserId
       : req.user.id;
 
@@ -168,7 +168,7 @@ router.put('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
     if (!first_name || !last_name || !dni) return res.status(400).json({ error: 'Faltan datos requeridos' });
 
     let update;
-    if (req.user.role === 'admin') {
+    if (req.user.roles.includes('admin')) {
       const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
       const userIdInt = Number.isInteger(requestedUserId) ? requestedUserId : req.user.id;
       [update] = await db.query(

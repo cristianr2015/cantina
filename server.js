@@ -112,6 +112,17 @@ const userProfileMigration = (async () => {
   }
 })();
 
+// Migracion idempotente: convertir el rol unico existente en roles combinables.
+const userRolesMigration = userProfileMigration.then(async () => {
+  await db.query(`CREATE TABLE IF NOT EXISTS user_roles (
+    user_id INT NOT NULL,
+    role ENUM('admin','seller','puerta') NOT NULL,
+    PRIMARY KEY (user_id, role),
+    CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await db.query('INSERT IGNORE INTO user_roles (user_id, role) SELECT id, role FROM users');
+});
+
 // Auto-fix: Verificar y crear columna image_path si falta
 (async () => {
   try {
@@ -370,7 +381,7 @@ const productStockMigration = (async () => {
 })();
 
 const eventScopingMigration = Promise.all([
-  userProfileMigration,
+  userRolesMigration,
   ticketingMigration,
   orderPaymentMigration,
   legacyPartnerMigration,

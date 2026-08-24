@@ -15,7 +15,7 @@ router.post('/', auth(['admin','seller']), requireEvent, async (req, res) => {
 
     // associate sale to user: sellers automatically use their own id; admin can specify user_id optionally
     let user_id = req.user && req.user.id ? req.user.id : null;
-    if (req.user && req.user.role === 'admin' && bodyUserId) {
+    if (req.user?.roles?.includes('admin') && bodyUserId) {
       user_id = bodyUserId;
     }
 
@@ -101,7 +101,7 @@ router.get('/', auth(['admin','seller']), requireEvent, async (req, res) => {
     
     const params = [req.eventId];
     sql += ' WHERE o.event_id = ?';
-    if (req.user && req.user.role === 'seller') {
+    if (!req.user?.roles?.includes('admin')) {
       sql += ' AND o.user_id = ?';
       params.push(req.user.id);
     }

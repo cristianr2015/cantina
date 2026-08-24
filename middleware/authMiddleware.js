@@ -8,8 +8,15 @@ function authMiddleware(requiredRoles = []){
     const token = auth.slice(7);
     try {
       const payload = jwt.verify(token, jwtSecret);
+      const roles = Array.isArray(payload.roles) && payload.roles.length
+        ? payload.roles
+        : (payload.role ? [payload.role] : []);
+      payload.roles = roles;
+      payload.role = payload.role || roles[0];
       req.user = payload;
-      if (requiredRoles.length && !requiredRoles.includes(payload.role)) return res.status(403).json({ error: 'Acceso denegado' });
+      if (requiredRoles.length && !roles.some(role => requiredRoles.includes(role))) {
+        return res.status(403).json({ error: 'Acceso denegado' });
+      }
       next();
     } catch (err) {
       res.status(401).json({ error: 'Token inválido' });

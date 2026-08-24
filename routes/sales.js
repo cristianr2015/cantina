@@ -4,8 +4,11 @@ const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
+const { requireLicenseFeature } = require('../middleware/licenseAccess');
 
-router.post('/', auth(['admin','seller']), requireEvent, async (req, res) => {
+const allowProductSales = requireLicenseFeature('product_sales');
+
+router.post('/', auth(['admin','seller']), allowProductSales, requireEvent, async (req, res) => {
   try {
     // Ahora esperamos un objeto con { items: [{product_id, quantity}], user_id (opcional) }
     const { items, user_id: bodyUserId, payment_method, discount_id } = req.body;
@@ -90,7 +93,7 @@ router.post('/', auth(['admin','seller']), requireEvent, async (req, res) => {
   }
 });
 
-router.get('/', auth(['admin','seller']), requireEvent, async (req, res) => {
+router.get('/', auth(['admin','seller']), allowProductSales, requireEvent, async (req, res) => {
   try {
     // Seleccionamos Órdenes y concatenamos los productos para mostrar un resumen
     let sql = `SELECT o.id, o.total, o.payment_method, o.created_at, u.username as sold_by,
@@ -114,7 +117,7 @@ router.get('/', auth(['admin','seller']), requireEvent, async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin', 'seller']), requireAdminApproval('delete:sale'), requireEvent, async (req, res) => {
+router.delete('/:id', auth(['admin', 'seller']), allowProductSales, requireAdminApproval('delete:sale'), requireEvent, async (req, res) => {
   try {
     // Aseguramos borrado manual de items por si falla la cascada
     await db.query('DELETE FROM sales WHERE order_id = ? AND event_id = ?', [req.params.id, req.eventId]);
@@ -126,7 +129,7 @@ router.delete('/:id', auth(['admin', 'seller']), requireAdminApproval('delete:sa
   }
 });
 
-router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.put('/:id', auth(['admin']), allowProductSales, requireEvent, async (req, res) => {
   try {
     const { total, payment_method } = req.body;
     const [result] = await db.query(

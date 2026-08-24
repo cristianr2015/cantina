@@ -25,7 +25,7 @@
       })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260824-1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ff6b35">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -405,7 +405,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="theme.css?v=20260824-8">
+    <link rel="stylesheet" href="theme.css?v=20260824-9">
   </head>
   <body>
     <div id="login-area" style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#f3f4f6;">
@@ -554,7 +554,7 @@
               </header>
 
               <div class="ticket-sale-actions" aria-label="Opciones de venta de entradas">
-                <article class="ticket-sale-card ticket-sale-card-advance">
+                <article class="ticket-sale-card ticket-sale-card-advance" data-full-license-only>
                   <div class="ticket-sale-card-icon" aria-hidden="true">🎟️</div>
                   <div class="ticket-sale-card-copy">
                     <span class="ticket-sale-label">VENTA ANTICIPADA</span>
@@ -570,24 +570,29 @@
                 <aside class="ticket-quick-actions">
                   <span>Acciones rápidas</span>
                   <button id="btn-door-sale" type="button"><span aria-hidden="true">⚡</span><span><strong>Venta rápida en puerta</strong><small>Efectivo e ingreso automático</small></span></button>
-                  <button id="btn-scan-qr" type="button"><span aria-hidden="true">▣</span><span><strong>Escanear QR</strong><small>Validar anticipada</small></span></button>
-                  <button id="open-courtesy-ticket-btn" type="button"><span aria-hidden="true">🎁</span><span><strong>Registrar cortesía</strong><small>Requiere autorización de admin</small></span></button>
+                  <button id="btn-scan-qr" data-full-license-only type="button"><span aria-hidden="true">▣</span><span><strong>Escanear QR</strong><small>Validar anticipada</small></span></button>
+                  <button id="open-courtesy-ticket-btn" data-full-license-only type="button"><span aria-hidden="true">🎁</span><span><strong>Registrar cortesía</strong><small>Requiere autorización de admin</small></span></button>
                 </aside>
               </div>
 
-              <div class="ticket-summary" aria-label="Resumen de entradas">
+              <div id="free-ticket-license-notice" class="free-ticket-license-notice" style="display:none">
+                <span aria-hidden="true">🚪</span>
+                <div><strong>Licencia Free</strong><small>En esta versión solamente está habilitada la venta de entradas en puerta.</small></div>
+              </div>
+
+              <div class="ticket-summary" data-full-license-only aria-label="Resumen de entradas">
                 <article><span>Entradas vendidas</span><strong id="ticket-stat-sold">0</strong></article>
                 <article><span>Ingresos registrados</span><strong id="ticket-stat-entered">0</strong></article>
                 <article><span>Pendientes de ingreso</span><strong id="ticket-stat-pending">0</strong></article>
                 <article><span>Recaudación</span><strong id="ticket-stat-revenue">$0,00</strong></article>
               </div>
 
-              <div class="ticket-list-header">
+              <div class="ticket-list-header" data-full-license-only>
                 <div><h3>Entradas registradas</h3><p>Buscá asistentes y gestioná sus accesos.</p></div>
                 <label class="ticket-search"><span aria-hidden="true">⌕</span><input id="ticket-search" name="no_auto_search" type="search" placeholder="Buscar por nombre, apellido o DNI" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" /></label>
               </div>
 
-              <div id="ticket-table-wrapper" class="table-wrap ticket-table-wrap">
+              <div id="ticket-table-wrapper" data-full-license-only class="table-wrap ticket-table-wrap">
                 <table id="tickets-table" class="ticket-table">
                   <thead>
                     <tr>
@@ -723,6 +728,33 @@
                       <option value="en">English</option>
                     </select>
                   </label>
+                </div>
+              </section>
+
+              <section class="license-management" aria-labelledby="license-management-title">
+                <div class="license-management-header">
+                  <span class="license-management-icon" aria-hidden="true">🔑</span>
+                  <div>
+                    <span class="section-eyebrow">Licencia</span>
+                    <h3 id="license-management-title">Licencia de la aplicación</h3>
+                    <p>Cada clave puede utilizarse una sola vez y vence un año después de su activación.</p>
+                  </div>
+                </div>
+                <div class="license-current-status" aria-live="polite">
+                  <span id="license-status" class="license-status-badge license-status-missing">Sin licencia instalada</span>
+                  <strong id="license-status-detail">Instalá una licencia vigente para habilitar la aplicación.</strong>
+                  <small id="license-status-dates"></small>
+                </div>
+                <div class="license-installation-row">
+                  <span>Identificador de esta instalación</span>
+                  <code id="license-installation-id">—</code>
+                </div>
+                <div class="license-activation-form">
+                  <label for="license-key-input">Clave de licencia</label>
+                  <div>
+                    <input id="license-key-input" type="text" autocomplete="off" spellcheck="false" placeholder="PENA1...">
+                    <button id="activate-license-btn" type="button">Instalar licencia</button>
+                  </div>
                 </div>
               </section>
 
@@ -1399,8 +1431,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260824-3"></script>
+    <script src="i18n.js?v=20260824-4"></script>
     <script src="sidebar-menu.js"></script>
-    <script src="app.js?v=20260824-6"></script>
+    <script src="app.js?v=20260824-7"></script>
   </body>
 </html>

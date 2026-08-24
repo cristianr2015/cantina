@@ -3,13 +3,17 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
+const { requireLicenseFeature } = require('../middleware/licenseAccess');
+
+const allowProductSales = requireLicenseFeature('product_sales');
+const requireFullLicense = requireLicenseFeature('full');
 const fs = require('fs');
 const path = require('path');
 
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-router.get('/', auth(['admin', 'seller']), requireEvent, async (req, res) => {
+router.get('/', auth(['admin', 'seller']), allowProductSales, requireEvent, async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM products WHERE event_id = ? ORDER BY id', [req.eventId]);
     res.json(rows);
@@ -18,7 +22,7 @@ router.get('/', auth(['admin', 'seller']), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/', auth(['admin']), requireEvent, async (req, res) => {
+router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
     let image_path = null;
@@ -43,7 +47,7 @@ router.post('/', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.put('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
     const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
@@ -74,7 +78,7 @@ router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.delete('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
     const [result] = await db.query('DELETE FROM products WHERE id = ? AND event_id = ?', [id, req.eventId]);

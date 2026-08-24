@@ -3,9 +3,12 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
+const { requireLicenseFeature } = require('../middleware/licenseAccess');
+
+const requireFullLicense = requireLicenseFeature('full');
 const { normalizeExpense, normalizeSettlementPaymentMethod } = require('../lib/expenseValidation');
 
-router.get('/', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT e.*,
@@ -23,7 +26,7 @@ router.get('/', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/', auth(['admin']), requireEvent, async (req, res) => {
+router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const normalized = normalizeExpense(req.body);
     if (normalized.error) return res.status(400).json({ error: normalized.error });
@@ -42,7 +45,7 @@ router.post('/', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.put('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const normalized = normalizeExpense(req.body);
     if (normalized.error) return res.status(400).json({ error: normalized.error });
@@ -64,7 +67,7 @@ router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.patch('/:id/pay', auth(['admin']), requireEvent, async (req, res) => {
+router.patch('/:id/pay', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const paymentMethod = normalizeSettlementPaymentMethod(req.body?.payment_method);
     if (!paymentMethod) return res.status(400).json({ error: 'Seleccioná Efectivo o Mercado Pago' });
@@ -83,7 +86,7 @@ router.patch('/:id/pay', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.delete('/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.delete('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const [result] = await db.query('DELETE FROM expenses WHERE id = ? AND event_id = ?', [req.params.id, req.eventId]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Gasto no encontrado en el evento activo' });

@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
 const { migrateEventScoping } = require('./lib/eventMigration');
+const { migrateLicenseStorage } = require('./lib/licenseService');
 
 const productsRouter = require('./routes/products');
 const eventsRouter = require('./routes/events');
@@ -15,6 +16,7 @@ const usersRouter = require('./routes/users');
 const settingsRouter = require('./routes/settings');
 const partnersRouter = require('./routes/partners');
 const expensesRouter = require('./routes/expenses');
+const licenseRouter = require('./routes/license');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +38,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/partners', partnersRouter);
 app.use('/api/expenses', expensesRouter);
+app.use('/api/license', licenseRouter);
 
 app.get('/ping', async (req, res) => {
   try {
@@ -432,6 +435,8 @@ const eventScopingMigration = baseEventScopingMigration.then(async () => {
     WHERE event_id IS NOT NULL
   `);
   console.log('Gestión de gastos configurada y aportes históricos preservados.');
+  await migrateLicenseStorage(db);
+  console.log('Sistema de licencias configurado.');
 });
 
 let server;

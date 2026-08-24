@@ -2,6 +2,8 @@ const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
 const APP_THEME_STORAGE_KEY = 'appTheme';
+const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'config']);
+let licenseState = { configured: true, active: false, state: 'missing', type: null };
 
 function getAppLocale() {
   return window.I18N?.getLocale?.() || 'es-AR';
@@ -72,18 +74,24 @@ function userHasRole(user, role) {
 const ALL_APP_PAGES = ['dashboard', 'sales', 'tickets', 'partners', 'products', 'reports', 'config'];
 
 function getAllowedPages(user) {
-  if (userHasRole(user, 'admin')) return ALL_APP_PAGES;
-  const pages = [];
-  if (userHasRole(user, 'seller')) pages.push('sales');
-  if (userHasRole(user, 'puerta')) pages.push('tickets');
-  return pages;
+  let pages;
+  if (userHasRole(user, 'admin')) pages = [...ALL_APP_PAGES];
+  else {
+    pages = [];
+    if (userHasRole(user, 'seller')) pages.push('sales');
+    if (userHasRole(user, 'puerta')) pages.push('tickets');
+  }
+  if (licenseState.active && licenseState.type === 'full') return pages;
+  if (licenseState.active && licenseState.type === 'free') return pages.filter(page => FREE_LICENSE_PAGES.has(page));
+  return userHasRole(user, 'admin') ? ['config'] : [];
 }
 
 function getDefaultPage(user) {
-  if (userHasRole(user, 'admin')) return 'dashboard';
-  if (userHasRole(user, 'seller')) return 'sales';
-  if (userHasRole(user, 'puerta')) return 'tickets';
-  return 'dashboard';
+  const allowedPages = getAllowedPages(user);
+  for (const preferred of ['dashboard', 'sales', 'tickets', 'config']) {
+    if (allowedPages.includes(preferred)) return preferred;
+  }
+  return 'config';
 }
 
 function userCanAccessPage(user, page) {
@@ -603,6 +611,15 @@ async function api(path, opts = {}){
       location.reload();
       return { error: 'Sesión expirada' };
     }
+    if (res.status === 403 && res.data?.license) {
+      licenseState = res.data.license;
+      applyLicenseUi();
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      const currentPage = location.hash.replace('#', '');
+      if (user && !userCanAccessPage(user, currentPage) && userHasRole(user, 'admin')) {
+        location.hash = '#config';
+      }
+    }
     if (res.data && typeof res.data === 'object') return res.data;
     return { error: `Error ${res.status}: Solicitud fallida` };
   }
@@ -610,6 +627,97 @@ async function api(path, opts = {}){
   showDebugInfo([]);
   return res.data;
 }
+
+function licenseTypeLabel(type) {
+  return type === 'free' ? uiText('Free') : type === 'full' ? uiText('Completa') : uiText('Sin licencia');
+}
+
+function formatLicenseDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleDateString(getAppLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : '—';
+}
+
+async function loadLicenseStatus() {
+  const result = await api('/license/status');
+  if (result && !result.error) licenseState = result;
+  applyLicenseUi();
+  return licenseState;
+}
+
+function applyLicenseUi() {
+  const status = document.getElementById('license-status');
+  const detail = document.getElementById('license-status-detail');
+  const dates = document.getElementById('license-status-dates');
+  const installation = document.getElementById('license-installation-id');
+  if (status) {
+    status.className = `license-status-badge license-status-${licenseState.state || 'missing'}`;
+    status.textContent = licenseState.active
+      ? `${uiText('Licencia instalada')}: ${licenseTypeLabel(licenseState.type)}`
+      : licenseState.state === 'expired'
+        ? uiText('Licencia vencida')
+        : licenseState.state === 'misconfigured'
+          ? uiText('Licencias no configuradas en el servidor')
+          : uiText('Sin licencia instalada');
+  }
+  if (detail) {
+    detail.textContent = licenseState.active && licenseState.type === 'free'
+      ? uiText('Incluye Dashboard, Registrar venta, ventas de entradas en puerta y Configuración.')
+      : licenseState.active && licenseState.type === 'full'
+        ? uiText('Todas las funciones de la aplicación están habilitadas.')
+        : uiText('Instalá una licencia vigente para habilitar la aplicación.');
+  }
+  if (dates) {
+    dates.textContent = licenseState.activatedAt
+      ? `${uiText('Activada')}: ${formatLicenseDate(licenseState.activatedAt)} · ${uiText('Vence')}: ${formatLicenseDate(licenseState.expiresAt)}`
+      : '';
+  }
+  if (installation) installation.textContent = licenseState.installationId || '—';
+
+  const isFree = licenseState.active && licenseState.type === 'free';
+  document.querySelector('.ticket-management')?.classList.toggle('license-free', isFree);
+  document.querySelectorAll('[data-full-license-only]').forEach(element => {
+    element.style.display = isFree ? 'none' : '';
+  });
+  const freeNotice = document.getElementById('free-ticket-license-notice');
+  if (freeNotice) freeNotice.style.display = isFree ? 'flex' : 'none';
+
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  if (user) {
+    document.querySelectorAll('.sidebar a[data-nav]').forEach(link => {
+      const item = link.closest('li');
+      const page = (link.getAttribute('href') || '').replace('#', '');
+      if (item) item.style.display = userCanAccessPage(user, page) ? '' : 'none';
+    });
+  }
+}
+
+async function activateLicenseFromSettings() {
+  const input = document.getElementById('license-key-input');
+  const button = document.getElementById('activate-license-btn');
+  const key = String(input?.value || '').trim();
+  if (!key) return showToast('Ingrese una clave de licencia', 'error');
+  if (button) button.disabled = true;
+  try {
+    const result = await api('/license/activate', { method: 'POST', body: JSON.stringify({ key }) });
+    if (result?.error) throw new Error(result.error);
+    licenseState = result.license;
+    if (input) input.value = '';
+    applyLicenseUi();
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    if (user) showAppForUser(user);
+    showToast(`Licencia ${licenseTypeLabel(licenseState.type)} instalada correctamente`, 'success');
+  } catch (error) {
+    showToast(error.message || 'No se pudo instalar la licencia', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+document.getElementById('activate-license-btn')?.addEventListener('click', activateLicenseFromSettings);
+document.addEventListener('app:languagechange', applyLicenseUi);
 
 async function fetchTicketPdf(ids) {
   const response = await fetch(buildUrl('/api/tickets/pdf'), {
@@ -1152,7 +1260,7 @@ async function refreshActiveEventPage() {
   if (hash === 'dashboard') await loadDashboard();
   if (hash === 'products') await loadProducts();
   if (hash === 'sales') await Promise.all([loadProducts(), loadSales()]);
-  if (hash === 'tickets') await loadTickets();
+  if (hash === 'tickets' && licenseState.active && licenseState.type === 'full') await loadTickets();
   if (hash === 'partners') await loadExpenses();
   if (hash === 'reports') await loadReport(activeReportType || 'closing');
   if (hash === 'config') await Promise.all([loadSettings(), loadDiscountsForMgmt()]);
@@ -3076,6 +3184,7 @@ document.getElementById('user-form')?.addEventListener('submit', (event) => {
 async function initAfterLogin(){
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   if (!user) return;
+  await loadLicenseStatus();
   showAppForUser(user);
   await loadEvents();
   if (!getActiveEventId()) {
@@ -3086,18 +3195,20 @@ async function initAfterLogin(){
   }
   await loadSettings();
   if (userHasRole(user, 'admin')) {
-    await loadProducts();
-    await loadSales();
+    if (licenseState.active) {
+      await loadProducts();
+      await loadSales();
+      await loadDashboard();
+    }
     await loadUsersSelect();
-    await loadDashboard();
     await loadUsersForMgmt();
     await loadDiscountsForMgmt();
   } else {
-    if (userHasRole(user, 'seller')) {
+    if (licenseState.active && userHasRole(user, 'seller')) {
       await loadProducts();
       await loadSales();
     }
-    if (userHasRole(user, 'puerta')) await loadTickets();
+    if (userHasRole(user, 'puerta') && licenseState.type === 'full') await loadTickets();
   }
   navigateToHash();
 }
@@ -3138,7 +3249,7 @@ function navigateToHash(){
   if (hash === 'dashboard') { loadDashboard(); }
   if (hash === 'products') { loadProducts(); }
   if (hash === 'sales') { loadProducts(); loadEvents(); loadSales(); }
-  if (hash === 'tickets') { loadTickets(); }
+  if (hash === 'tickets' && licenseState.active && licenseState.type === 'full') { loadTickets(); }
   if (hash === 'partners') { loadExpenses(); }
   if (hash === 'reports') { loadReport(activeReportType || 'closing'); }
   if (hash === 'config') { loadEvents(); loadSettings(); loadUsersForMgmt(); loadDiscountsForMgmt(); }
@@ -3179,6 +3290,7 @@ async function showAppForUser(user){
     const page = (link.getAttribute('href') || '').replace('#', '');
     if (menuItem) menuItem.style.display = userCanAccessPage(user, page) ? '' : 'none';
   });
+  applyLicenseUi();
 }
 
 // --- Gestión de gastos ---
@@ -3737,7 +3849,9 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
 
       if (successCount > 0) {
         showToast(`${successCount} entrada(s) registrada(s) correctamente`, 'success');
-        await loadTickets(document.getElementById('ticket-search')?.value.trim());
+        if (licenseState.type === 'full') {
+          await loadTickets(document.getElementById('ticket-search')?.value.trim());
+        }
         await loadDashboard();
       }
     } catch (err) {

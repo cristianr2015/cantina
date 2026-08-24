@@ -125,6 +125,18 @@ CREATE TABLE IF NOT EXISTS expenses (
   FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS license_activations (
+  activation_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  license_id CHAR(36) NOT NULL UNIQUE,
+  installation_id CHAR(36) NOT NULL,
+  license_type ENUM('free','full') NOT NULL,
+  activated_at DATETIME NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_license_installation (installation_id, activation_id),
+  INDEX idx_license_expiry (expires_at)
+);
+
 -- Datos de ejemplo
 INSERT INTO events (name, date) VALUES
 ('Partido vs Rival', TIMESTAMP(CURDATE(), '20:00:00')),

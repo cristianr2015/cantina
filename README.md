@@ -31,6 +31,8 @@ Variables principales:
 | `DB_SSL` | Establecer `true` cuando MySQL requiera TLS. |
 | `DB_SSL_CA_BASE64` | Certificado CA en Base64, si corresponde. |
 | `JWT_SECRET` | Secreto largo y aleatorio; es obligatorio en producción. |
+| `LICENSE_INSTALLATION_ID` | UUID único de la instalación o slot al que se vinculan las licencias. |
+| `LICENSE_SIGNING_SECRET` | Secreto aleatorio de al menos 32 caracteres usado para firmar y validar licencias. |
 
 Endpoints operativos:
 
@@ -54,6 +56,22 @@ Entradas y control de ingreso:
 - Las anticipadas generan un PDF con un QR único por entrada.
 - El primer escaneo registra el ingreso y los intentos posteriores se rechazan.
 - El comprobante usa el nombre, CUIT, dirección, teléfono, correo y logo configurados para la peña.
+
+Licencias:
+
+- `free`: habilita Dashboard, Registrar venta, venta de entradas en puerta y Configuración.
+- `full`: habilita todas las funciones de la aplicación.
+- Cada clave está vinculada a un `LICENSE_INSTALLATION_ID`, puede activarse una sola vez y vence un año después de activarla.
+- Sin una licencia vigente, un administrador solamente puede ingresar a Configuración para instalar una nueva clave.
+
+Para emitir una licencia desde un entorno seguro que tenga el secreto de firma:
+
+```powershell
+$env:LICENSE_SIGNING_SECRET = '<secreto-seguro>'
+npm run license:create -- --type free --installation <uuid-de-la-instalacion>
+```
+
+La clave generada se instala en `Configuración > Licencia de la aplicación`. El secreto de firma nunca debe entregarse al cliente ni guardarse en el repositorio.
 
 ## Despliegue en Azure App Service
 

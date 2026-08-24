@@ -6,12 +6,14 @@ const auth = require('../middleware/authMiddleware');
 const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
 const { buildTicketPdf } = require('../lib/ticketPdf');
+const { requireLicenseFeature, requireTicketSaleLicense } = require('../middleware/licenseAccess');
 
 const ticketRoles = ['admin', 'puerta'];
 const validTicketTypes = new Set(['anticipada', 'puerta', 'cortesia']);
 const validPaymentMethods = new Set(['cash', 'mercadopago']);
 const ADVANCE_SALE_CUTOFF_MS = 60 * 60 * 1000;
 const courtesyApproval = requireAdminApproval('create:courtesy');
+const requireFullLicense = requireLicenseFeature('full');
 
 function parseQuantity(value) {
   const quantity = Number.parseInt(value ?? 1, 10);
@@ -72,7 +74,7 @@ async function loadTicketsByIds(connection, ids, eventId) {
   return rows.sort((a, b) => positions.get(Number(a.id)) - positions.get(Number(b.id)));
 }
 
-router.get('/', auth(ticketRoles), requireEvent, async (req, res) => {
+router.get('/', auth(ticketRoles), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const search = (req.query.search || '').trim();
     let sql = 'SELECT t.*, u.username as sold_by FROM tickets_sold t LEFT JOIN users u ON t.user_id = u.id WHERE t.event_id = ?';
@@ -90,7 +92,7 @@ router.get('/', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async (req, res) => {
+router.post('/', auth(ticketRoles), requireTicketSaleLicense, requireCourtesyApproval, requireEvent, async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
@@ -172,7 +174,7 @@ router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async
   }
 });
 
-router.post('/pdf', auth(ticketRoles), requireEvent, async (req, res) => {
+router.post('/pdf', auth(ticketRoles), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const ids = Array.from(new Set((req.body.ids || [])
       .map(id => Number.parseInt(id, 10))
@@ -201,7 +203,7 @@ router.post('/pdf', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.put('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
+router.put('/:id', auth(ticketRoles), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { first_name, last_name, dni, user_id } = req.body;
     const { id } = req.params;
@@ -230,7 +232,7 @@ router.put('/:id', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.patch('/:id/enter', auth(ticketRoles), requireEvent, async (req, res) => {
+router.patch('/:id/enter', auth(ticketRoles), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { id } = req.params;
     if (req.body.entered !== true) {
@@ -252,7 +254,7 @@ router.patch('/:id/enter', auth(ticketRoles), requireEvent, async (req, res) => 
   }
 });
 
-router.post('/validate', auth(ticketRoles), requireEvent, async (req, res) => {
+router.post('/validate', auth(ticketRoles), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const token = String(req.body.token || '').trim();
     if (!/^[a-f0-9]{64}$/.test(token)) {
@@ -288,7 +290,7 @@ router.post('/validate', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/delete-batch', auth(ticketRoles), requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
+router.post('/delete-batch', auth(ticketRoles), requireFullLicense, requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
   let connection;
   try {
     const ids = parseTicketIds(req.body.ids);
@@ -322,7 +324,7 @@ router.post('/delete-batch', auth(ticketRoles), requireAdminApproval('delete:tic
   }
 });
 
-router.delete('/:id', auth(ticketRoles), requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
+router.delete('/:id', auth(ticketRoles), requireFullLicense, requireAdminApproval('delete:ticket'), requireEvent, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM tickets_sold WHERE id = ? AND event_id = ?',

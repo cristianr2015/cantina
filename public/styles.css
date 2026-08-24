@@ -798,6 +798,7 @@ body {
 .ticket-event-pill strong{color:#1f2937;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ticket-event-pill small{color:#6b7280;font-size:11px}
 .ticket-sale-actions{display:grid;grid-template-columns:minmax(300px,1.15fr) minmax(280px,.85fr);gap:16px;padding:24px 30px;background:#f8fafc}
+.ticket-management.license-free .ticket-sale-actions{grid-template-columns:1fr}
 .ticket-sale-card{position:relative;display:grid;grid-template-columns:auto 1fr;gap:14px;padding:20px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 6px 20px rgba(15,23,42,.045)}
 .ticket-sale-card::after{content:"";position:absolute;width:145px;height:145px;border-radius:50%;right:-70px;top:-75px;pointer-events:none}
 .ticket-sale-card-advance::after{background:#ffedd5}
@@ -929,4 +930,37 @@ body {
   .ticket-sale-form-grid{grid-template-columns:1fr}
   .ticket-sale-form-actions{flex-direction:column-reverse}
   .ticket-sale-form-actions button{width:100%}
+}
+
+.license-management{margin:0 0 24px!important;padding:22px!important;border:1px solid #e5eaf0;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.license-management-header{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+.license-management-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border-radius:13px;background:#fff1e8;font-size:21px}
+.license-management h3{margin:2px 0 5px!important;color:#172033;font-size:18px}
+.license-management p{margin:0;color:#64748b;font-size:13px;line-height:1.45}
+.license-current-status{display:flex;align-items:flex-start;flex-direction:column;gap:7px;padding:15px;border:1px solid #e6ebf1;border-radius:13px;background:#f8fafc}
+.license-current-status>strong{color:#334155;font-size:13px}
+.license-current-status>small{min-height:15px;color:#64748b;font-size:12px}
+.license-status-badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800}
+.license-status-active{background:#dcfce7;color:#047857}
+.license-status-expired{background:#fee2e2;color:#b91c1c}
+.license-status-missing,.license-status-misconfigured{background:#fef3c7;color:#92400e}
+.license-installation-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:11px 13px;border:1px dashed #d7dee7;border-radius:11px;color:#64748b;font-size:12px}
+.license-installation-row code{overflow-wrap:anywhere;color:#334155;font-size:11px}
+.license-activation-form{margin-top:16px}
+.license-activation-form>label{display:block;margin-bottom:7px;color:#475569;font-size:12px;font-weight:750}
+.license-activation-form>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}
+.license-activation-form input{min-width:0;border:1px solid #dce3eb;background:#fff;color:#172033;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.license-activation-form button{white-space:nowrap;color:#fff;font-weight:750}
+.license-activation-form button:disabled{cursor:wait;opacity:.6}
+.free-ticket-license-notice{align-items:center;gap:12px;margin:0 24px 18px;padding:14px 16px;border:1px solid #bae6fd;border-radius:13px;background:#f0f9ff;color:#0c4a6e}
+.free-ticket-license-notice>span{font-size:24px}
+.free-ticket-license-notice>div{display:flex;flex-direction:column;gap:2px}
+.free-ticket-license-notice strong{font-size:13px}
+.free-ticket-license-notice small{font-size:11px;color:#0369a1}
+
+@media(max-width:620px){
+  .license-installation-row{align-items:flex-start;flex-direction:column}
+  .license-activation-form>div{grid-template-columns:1fr}
+  .license-activation-form button{width:100%}
+  .free-ticket-license-notice{margin:0 18px 18px}
 }

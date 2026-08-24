@@ -3,9 +3,12 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
+const { requireLicenseFeature } = require('../middleware/licenseAccess');
+
+const requireFullLicense = requireLicenseFeature('full');
 
 // Listar aportes
-router.get('/contributions', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/contributions', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT c.*, u.username as socio_name 
@@ -21,7 +24,7 @@ router.get('/contributions', auth(['admin']), requireEvent, async (req, res) => 
 });
 
 // Registrar aporte
-router.post('/contributions', auth(['admin']), requireEvent, async (req, res) => {
+router.post('/contributions', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { user_id, amount, description } = req.body;
     if (!user_id || !amount) return res.status(400).json({ error: 'Socio y monto requeridos' });
@@ -37,7 +40,7 @@ router.post('/contributions', auth(['admin']), requireEvent, async (req, res) =>
 });
 
 // Editar aporte (Monto y descripción)
-router.put('/contributions/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.put('/contributions/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { user_id, amount, description } = req.body;
     if (!user_id || !amount) return res.status(400).json({ error: 'Socio y monto requeridos' });
@@ -54,7 +57,7 @@ router.put('/contributions/:id', auth(['admin']), requireEvent, async (req, res)
 });
 
 // Marcar como devuelto
-router.patch('/contributions/:id/return', auth(['admin']), requireEvent, async (req, res) => {
+router.patch('/contributions/:id/return', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { returned } = req.body;
     const [result] = await db.query(
@@ -69,7 +72,7 @@ router.patch('/contributions/:id/return', auth(['admin']), requireEvent, async (
 });
 
 // Eliminar registro
-router.delete('/contributions/:id', auth(['admin']), requireEvent, async (req, res) => {
+router.delete('/contributions/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM partner_contributions WHERE id = ? AND event_id = ?',

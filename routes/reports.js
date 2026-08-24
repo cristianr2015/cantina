@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
+const { requireLicenseFeature } = require('../middleware/licenseAccess');
+
+const allowDashboard = requireLicenseFeature('dashboard');
+const requireFullLicense = requireLicenseFeature('full');
 const { buildClosingSummary } = require('../lib/reportMetrics');
 
 function dateRange(field, start, end, dateOnly = false) {
@@ -20,7 +24,7 @@ function dateRange(field, start, end, dateOnly = false) {
 }
 
 // Cierre consolidado: la primera pantalla que un administrador necesita al terminar el evento.
-router.get('/event-closing', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/event-closing', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const ordersRange = dateRange('o.created_at', start, end);
@@ -61,7 +65,7 @@ router.get('/event-closing', auth(['admin']), requireEvent, async (req, res) => 
   }
 });
 
-router.get('/cash-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/cash-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const ordersRange = dateRange('created_at', start, end);
@@ -96,7 +100,7 @@ router.get('/cash-summary', auth(['admin']), requireEvent, async (req, res) => {
   }
 });
 
-router.get('/products-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/products-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const range = dateRange('o.created_at', start, end);
@@ -127,7 +131,7 @@ router.get('/products-summary', auth(['admin']), requireEvent, async (req, res) 
   }
 });
 
-router.get('/tickets-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/tickets-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const range = dateRange('t.sold_at', start, end);
@@ -149,7 +153,7 @@ router.get('/tickets-summary', auth(['admin']), requireEvent, async (req, res) =
   }
 });
 
-router.get('/expenses-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/expenses-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const range = dateRange('e.expense_date', start, end, true);
@@ -170,7 +174,7 @@ router.get('/expenses-summary', auth(['admin']), requireEvent, async (req, res) 
   }
 });
 
-router.get('/sellers-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/sellers-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     const ordersRange = dateRange('created_at', start, end);
@@ -202,7 +206,7 @@ router.get('/sellers-summary', auth(['admin']), requireEvent, async (req, res) =
 });
 
 // Reporte: ventas por medio de pago (reemplaza usuario)
-router.get('/sales-by-payment', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/sales-by-payment', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query; // fechas opcionales
     let sql = `SELECT o.payment_method,
@@ -237,7 +241,7 @@ router.get('/sales-by-payment', auth(['admin']), requireEvent, async (req, res) 
 });
 
 // Dashboard Stats: Totales históricos y Top Productos
-router.get('/dashboard-stats', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/dashboard-stats', auth(['admin']), allowDashboard, requireEvent, async (req, res) => {
   try {
     // Totales históricos
     const [totals] = await db.query(`
@@ -332,7 +336,7 @@ router.get('/dashboard-stats', auth(['admin']), requireEvent, async (req, res) =
 });
 
 // Reporte: Detalle completo de ventas (para exportación y auditoría)
-router.get('/sales-detail', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/sales-detail', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -376,7 +380,7 @@ router.get('/sales-detail', auth(['admin']), requireEvent, async (req, res) => {
 });
 
 // Reporte: Detalle de entradas (con vendedor)
-router.get('/tickets-detail', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/tickets-detail', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -405,7 +409,7 @@ router.get('/tickets-detail', auth(['admin']), requireEvent, async (req, res) =>
 });
 
 // Reporte: Resumen de Asistencia (Personas adentro)
-router.get('/attendance-summary', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/attendance-summary', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 
@@ -427,7 +431,7 @@ router.get('/attendance-summary', auth(['admin']), requireEvent, async (req, res
 });
 
 // Reporte: Arqueo de caja de Entradas (Agrupado por medio de pago)
-router.get('/tickets-by-payment', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/tickets-by-payment', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT payment_method,
@@ -447,7 +451,7 @@ router.get('/tickets-by-payment', auth(['admin']), requireEvent, async (req, res
 });
 
 // Reporte: Detalle de gastos del evento activo
-router.get('/expenses-detail', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/expenses-detail', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT
@@ -476,7 +480,7 @@ router.get('/expenses-detail', auth(['admin']), requireEvent, async (req, res) =
 });
 
 // Compatibilidad: reporte histórico de aportes de socios
-router.get('/partners-detail', auth(['admin']), requireEvent, async (req, res) => {
+router.get('/partners-detail', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
   try {
     const { start, end } = req.query;
     let sql = `SELECT 

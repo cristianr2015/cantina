@@ -1215,11 +1215,15 @@ async function loadSales(){
   }
   div.innerHTML = '';
   const table = document.createElement('table');
+  table.className = 'sales-history-table';
   
   // Crear cabecera
-  const thead = document.createElement('tr');
-  thead.innerHTML = '<th>ID Venta</th><th>Items (Resumen)</th><th>Vendedor</th><th>Pago</th><th>Total</th><th>Fecha</th><th>Acciones</th>';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  headerRow.innerHTML = '<th>ID Venta</th><th>Items (Resumen)</th><th>Vendedor</th><th>Pago</th><th>Total</th><th>Fecha</th><th>Acciones</th>';
+  thead.appendChild(headerRow);
   table.appendChild(thead);
+  const tbody = document.createElement('tbody');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isAdmin = userHasRole(user, 'admin');
@@ -1246,9 +1250,10 @@ async function loadSales(){
         showContextMenu(e, r);
       });
     }
-    table.appendChild(tr);
+    tbody.appendChild(tr);
   });
 
+  table.appendChild(tbody);
   div.appendChild(table);
   enhanceResponsiveTables(div);
 }
@@ -3401,13 +3406,15 @@ async function loadMySales(){
   const rows = await api('/sales');
   const div = document.getElementById('my-sales-list');
   const table = document.createElement('table');
-  table.innerHTML = '<tr><th>ID Venta</th><th>Items</th><th>Pago</th><th>Total</th><th>Fecha</th></tr>' +
+  table.className = 'sales-history-table';
+  table.innerHTML = '<thead><tr><th>ID Venta</th><th>Items</th><th>Pago</th><th>Total</th><th>Fecha</th></tr></thead><tbody>' +
     rows.map(r => {
       const pm = r.payment_method === 'mercadopago' ? '📱 MP' : '💵 Efec';
       return `<tr><td>#${r.id}</td><td>${r.items_summary}</td><td>${pm}</td><td>${formatMoney(r.total)}</td><td>${formatDateTime(r.created_at)}</td></tr>`;
-    }).join('');
+    }).join('') + '</tbody>';
   div.innerHTML = '';
   div.appendChild(table);
+  enhanceResponsiveTables(div);
 }
 
 // Inicializar: si ya hay token y user en localStorage, entrar

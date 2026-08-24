@@ -345,8 +345,19 @@ html[data-theme="dark"] .expense-table td {
 }
 
 html[data-theme="dark"] table thead th,
+html[data-theme="dark"] .sales-history-table .table-head-row th,
+html[data-theme="dark"] #sales-list table tr:first-child th,
+html[data-theme="dark"] #my-sales-list table tr:first-child th,
 html[data-theme="dark"] .ticket-table th,
 html[data-theme="dark"] .expense-table th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .sales-history-table thead,
+html[data-theme="dark"] .sales-history-table .table-head-row,
+html[data-theme="dark"] #sales-list table tr:first-child,
+html[data-theme="dark"] #my-sales-list table tr:first-child {
   background: #0f172a !important;
   color: #94a3b8 !important;
 }

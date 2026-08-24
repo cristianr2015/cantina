@@ -33,7 +33,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq mysql-server
 
-cat >/etc/mysql/mysql.conf.d/99-cantina.cnf <<'EOF'
+cat >/etc/mysql/mysql.conf.d/zz-cantina.cnf <<'EOF'
 [mysqld]
 bind-address = 0.0.0.0
 mysqlx-bind-address = 127.0.0.1

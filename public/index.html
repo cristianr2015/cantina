@@ -733,42 +733,25 @@
               </div>
               
               <!-- Sección: Usuarios -->
-              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08)">
-                <h3 style="margin-top:0;margin-bottom:16px;font-size:16px;color:#1f2937;font-weight:600">Gestión de Usuarios</h3>
-                <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;max-width:350px">
+              <section class="users-management" aria-labelledby="users-management-title">
+                <div class="users-management-header">
                   <div>
-                    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--muted);font-weight:600">Usuario</label>
-                    <input id="user-username" type="text" placeholder="Usuario" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
+                    <span class="section-eyebrow">Equipo</span>
+                    <h3 id="users-management-title">Gestión de usuarios</h3>
+                    <p>Administrá los accesos y permisos de las personas que usan la aplicación.</p>
                   </div>
-                  <div>
-                    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--muted);font-weight:600">Contraseña</label>
-                    <input id="user-password" type="password" placeholder="Contraseña" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937" />
-                  </div>
-                  <div>
-                    <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--muted);font-weight:600">Rol</label>
-                    <select id="user-role" style="width:100%;padding:10px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937">
-                      <option value="seller">Vendedor</option>
-                      <option value="puerta">Puerta</option>
-                      <option value="admin">Administrador</option>
-                    </select>
-                  </div>
-                  <div style="display:flex;align-items:flex-end">
-                    <button id="create-user" style="width:100%;padding:10px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600">Crear/Actualizar</button>
-                  </div>
+                  <button id="open-user-modal" class="user-primary-action" type="button">
+                    <span aria-hidden="true">＋</span>
+                    Nuevo usuario
+                  </button>
                 </div>
-                <div class="table-wrap">
-                  <table id="users-mgmt" style="width:100%;border-collapse:collapse;background:#fff;font-size:14px">
-                    <thead>
-                      <tr style="border-bottom:2px solid rgba(15,23,42,0.1)">
-                        <th style="padding:12px;text-align:left;color:#1f2937;font-weight:600">Usuario</th>
-                        <th style="padding:12px;text-align:left;color:#1f2937;font-weight:600">Rol</th>
-                        <th style="padding:12px;text-align:center;color:#1f2937;font-weight:600">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody id="users-body"></tbody>
-                  </table>
+                <div class="users-summary" aria-live="polite">
+                  <span id="users-count">Cargando usuarios…</span>
+                  <span class="users-summary-dot" aria-hidden="true"></span>
+                  <span>Accesos activos</span>
                 </div>
-              </div>
+                <div id="users-grid" class="users-grid" aria-live="polite"></div>
+              </section>
             </section>
           </div>
         </main>
@@ -999,6 +982,43 @@
     </div>
 
     <!-- Modal de Confirmación -->
+    <div id="user-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal user-form-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+        <div class="user-modal-header">
+          <div class="user-modal-icon" aria-hidden="true">👤</div>
+          <div>
+            <h3 id="user-modal-title">Crear usuario</h3>
+            <p id="user-modal-subtitle">Completá los datos para dar acceso a una persona.</p>
+          </div>
+          <button id="close-user-modal" class="user-modal-close" type="button" aria-label="Cerrar formulario">×</button>
+        </div>
+        <form id="user-form" class="user-form" novalidate>
+          <div class="user-form-field">
+            <label for="user-username">Nombre de usuario</label>
+            <input id="user-username" name="username" type="text" placeholder="Ej: vendedor3" autocomplete="off" required />
+          </div>
+          <div class="user-form-field">
+            <label for="user-password">Contraseña</label>
+            <input id="user-password" name="password" type="password" placeholder="Ingresá una contraseña" autocomplete="new-password" required />
+            <small id="user-password-help">Obligatoria para crear un usuario nuevo.</small>
+          </div>
+          <div class="user-form-field">
+            <label for="user-role">Rol y permisos</label>
+            <select id="user-role" name="role" required>
+              <option value="seller">Vendedor</option>
+              <option value="puerta">Puerta</option>
+              <option value="admin">Administrador</option>
+            </select>
+            <small>El rol define qué secciones puede ver y administrar.</small>
+          </div>
+          <div class="user-form-actions">
+            <button id="cancel-user-modal" class="user-secondary-action" type="button">Cancelar</button>
+            <button id="create-user" class="user-primary-action" type="submit">Crear usuario</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div id="confirm-modal" class="modal-overlay hidden">
       <div class="modal" style="width:400px;text-align:center">
         <h3 id="confirm-title">Confirmar Acción</h3>

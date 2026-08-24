@@ -2006,29 +2006,39 @@ document.getElementById('upload-logo').addEventListener('click', async () => {
 async function loadUsersForMgmt(){
   try {
     const users = await api('/users');
-    const tbody = document.getElementById('users-body');
-    if (!tbody) return;
-    
-    tbody.innerHTML = users.map(u => `
-      <tr style="border-bottom:1px solid rgba(15,23,42,0.08)">
-        <td style="padding:12px;color:#1f2937">${u.username}</td>
-        <td style="padding:12px;color:#1f2937">
-          <span style="padding:4px 8px;background:${u.role === 'admin' ? '#fca5a5' : (u.role === 'puerta' ? '#dbeafe' : '#d1fae5')};color:${u.role === 'admin' ? '#7f1d1d' : (u.role === 'puerta' ? '#1e40af' : '#065f46')};border-radius:4px;font-size:12px;font-weight:600">
-            ${ROLE_LABELS[u.role] || u.role}
-          </span>
-        </td>
-        <td style="padding:12px;text-align:center;display:flex;gap:6px;justify-content:center">
-          <button class="edit-user" data-id="${u.id}" style="padding:6px 12px;background:var(--accent);color:#08101b;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s">✏️ Editar</button>
-          <button class="del-user" data-id="${u.id}" style="padding:6px 12px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s">🗑️ Eliminar</button>
-        </td>
-      </tr>
-    `).join('');
-    
-    tbody.querySelectorAll('.del-user').forEach(b => b.addEventListener('click', async (e) => {
-      const id = e.target.dataset.id;
+    const grid = document.getElementById('users-grid');
+    const count = document.getElementById('users-count');
+    if (!grid || !Array.isArray(users)) return;
+
+    if (count) count.textContent = `${users.length} ${users.length === 1 ? 'usuario' : 'usuarios'}`;
+    grid.innerHTML = users.length ? users.map(u => {
+      const safeUsername = escapeUserText(u.username);
+      const safeRole = ['admin', 'seller', 'puerta'].includes(u.role) ? u.role : 'seller';
+      const roleLabel = ROLE_LABELS[safeRole] || safeRole;
+      const initial = escapeUserText(String(u.username || '?').trim().charAt(0) || '?');
+      return `
+        <article class="user-card">
+          <div class="user-card-top">
+            <div class="user-avatar" aria-hidden="true">${initial}</div>
+            <div class="user-card-identity">
+              <h4 class="user-card-name" title="${safeUsername}">${safeUsername}</h4>
+              <p class="user-card-access">Acceso habilitado</p>
+            </div>
+          </div>
+          <span class="user-role-badge user-role-${safeRole}">${roleLabel}</span>
+          <div class="user-card-actions">
+            <button class="user-card-button user-card-edit edit-user" data-id="${u.id}" type="button">Editar</button>
+            <button class="user-card-button user-card-delete del-user" data-id="${u.id}" type="button" aria-label="Eliminar a ${safeUsername}" title="Eliminar usuario">🗑</button>
+          </div>
+        </article>`;
+    }).join('') : '<div class="users-empty">Todavía no hay usuarios para mostrar.</div>';
+
+    grid.querySelectorAll('.del-user').forEach(b => b.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
       showConfirm('¿Confirmar borrado del usuario?', async () => {
         try {
-          await api('/users/' + id, { method: 'DELETE' });
+          const result = await api('/users/' + id, { method: 'DELETE' });
+          if (result?.error) throw new Error(result.error);
           showToast('Usuario eliminado correctamente', 'success');
           await loadUsersForMgmt();
           await loadUsersSelect();
@@ -2038,21 +2048,69 @@ async function loadUsersForMgmt(){
         }
       });
     }));
-    tbody.querySelectorAll('.edit-user').forEach(b => b.addEventListener('click', async (e) => {
-      const id = e.target.dataset.id;
+    grid.querySelectorAll('.edit-user').forEach(b => b.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
       const user = users.find(u => u.id == id);
       if (!user) return;
-      document.getElementById('user-username').value = user.username;
-      document.getElementById('user-role').value = user.role;
-      document.getElementById('create-user').dataset.editId = id;
-      showToast('Completa la contraseña (opcional) y actualiza', 'info');
+      openUserModal(user);
     }));
-    enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
   } catch (e) { console.error(e); }
 }
 
-document.getElementById('create-user').addEventListener('click', async () => {
-  const username = document.getElementById('user-username').value;
+function escapeUserText(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  })[char]);
+}
+
+function openUserModal(user = null) {
+  const modal = document.getElementById('user-modal');
+  const form = document.getElementById('user-form');
+  const submit = document.getElementById('create-user');
+  const password = document.getElementById('user-password');
+  const editing = Boolean(user);
+  form.reset();
+  if (editing) {
+    document.getElementById('user-username').value = user.username;
+    document.getElementById('user-role').value = user.role;
+    submit.dataset.editId = user.id;
+  } else {
+    delete submit.dataset.editId;
+  }
+  password.required = !editing;
+  password.placeholder = editing ? 'Dejar vacía para conservar la actual' : 'Ingresá una contraseña';
+  document.getElementById('user-password-help').textContent = editing
+    ? 'Opcional: completala solamente si querés cambiarla.'
+    : 'Obligatoria para crear un usuario nuevo.';
+  document.getElementById('user-modal-title').textContent = editing ? 'Editar usuario' : 'Crear usuario';
+  document.getElementById('user-modal-subtitle').textContent = editing
+    ? 'Actualizá sus datos de acceso y permisos.'
+    : 'Completá los datos para dar acceso a una persona.';
+  submit.textContent = editing ? 'Guardar cambios' : 'Crear usuario';
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('user-username').focus(), 0);
+}
+
+function closeUserModal() {
+  const modal = document.getElementById('user-modal');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('open-user-modal')?.addEventListener('click', () => openUserModal());
+document.getElementById('close-user-modal')?.addEventListener('click', closeUserModal);
+document.getElementById('cancel-user-modal')?.addEventListener('click', closeUserModal);
+document.getElementById('user-modal')?.addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) closeUserModal();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !document.getElementById('user-modal')?.classList.contains('hidden')) closeUserModal();
+});
+
+document.getElementById('user-form')?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const username = document.getElementById('user-username').value.trim();
   const password = document.getElementById('user-password').value;
   const role = document.getElementById('user-role').value;
   const editId = document.getElementById('create-user').dataset.editId;
@@ -2068,18 +2126,19 @@ document.getElementById('create-user').addEventListener('click', async () => {
       if (editId) {
         const body = { username, role };
         if (password) body.password = password;
-        await api('/users/' + editId, { method: 'PUT', body: JSON.stringify(body) });
-        delete document.getElementById('create-user').dataset.editId;
+        const result = await api('/users/' + editId, { method: 'PUT', body: JSON.stringify(body) });
+        if (result?.error) throw new Error(result.error);
         showToast('Usuario actualizado correctamente', 'success');
       } else {
-        await api('/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+        const result = await api('/users', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+        if (result?.error) throw new Error(result.error);
         showToast('Usuario creado correctamente', 'success');
       }
-      document.getElementById('user-username').value=''; document.getElementById('user-password').value='';
+      closeUserModal();
       await loadUsersForMgmt(); await loadUsersSelect();
     } catch (e) {
       console.error(e);
-      showToast('Error al ' + action + ' usuario', 'error');
+      showToast(e.message || ('Error al ' + action + ' usuario'), 'error');
     }
   });
 });

@@ -42,6 +42,26 @@ test('rechaza el acceso cuando ningun rol coincide', () => {
   assert.equal(result.response.statusCode, 403);
 });
 
+test('rechaza un token de sesión vencido antes de mostrar la aplicación', () => {
+  const token = jwt.sign({ id: 4, role: 'admin', roles: ['admin'] }, jwtSecret, { expiresIn: -1 });
+  const req = { headers: { authorization: `Bearer ${token}` } };
+  const response = { statusCode: 200, body: null };
+  const res = {
+    status(code) {
+      response.statusCode = code;
+      return this;
+    },
+    json(body) {
+      response.body = body;
+      return this;
+    }
+  };
+  let allowed = false;
+  auth()(req, res, () => { allowed = true; });
+  assert.equal(allowed, false);
+  assert.equal(response.statusCode, 401);
+});
+
 function approve(action, user, approvalPayload = null) {
   const req = {
     user,

@@ -40,6 +40,18 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Valida el token antes de mostrar la interfaz privada en el navegador.
+router.get('/session', auth(), (req, res) => {
+  res.json({
+    user: {
+      id: req.user.id,
+      username: req.user.username,
+      role: req.user.role,
+      roles: req.user.roles
+    }
+  });
+});
+
 router.post('/admin-approval', auth(['admin', 'seller', 'puerta']), async (req, res) => {
   try {
     const username = String(req.body.username || '').trim();

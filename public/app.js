@@ -203,6 +203,12 @@ function clearSession() {
   localStorage.removeItem('user');
 }
 
+function showLoginScreen(message = '') {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-area').style.display = 'flex';
+  if (message) showLoginError(message);
+}
+
 function showDebugInfo(lines = []) {
   const box = document.getElementById('debug-info');
   if (!box) return;
@@ -3435,14 +3441,31 @@ async function loadMySales(){
   enhanceResponsiveTables(div);
 }
 
-// Inicializar: si ya hay token y user en localStorage, entrar
+// Validar la sesión guardada antes de revelar cualquier contenido privado.
 (async function(){
   const token = getSessionToken();
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
-  if (token && user) {
+  const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!token || !storedUser) {
+    if (token || storedUser) clearSession();
+    showLoginScreen();
+    return;
+  }
+
+  try {
+    const result = await requestJson(buildUrl('/api/auth/session'), {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!result.ok || !result.data?.user) {
+      clearSession();
+      showLoginScreen();
+      return;
+    }
+
+    localStorage.setItem('user', JSON.stringify(Object.assign({}, storedUser, result.data.user)));
     await initAfterLogin();
-  } else {
-    if (user) localStorage.removeItem('user');
+  } catch (error) {
+    console.error('No se pudo validar la sesión guardada', error);
+    showLoginScreen('No se pudo validar la sesión. Intentá nuevamente.');
   }
 })();
 

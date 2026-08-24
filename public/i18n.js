@@ -371,6 +371,7 @@
     'Error de Base de Datos': { pt: 'Erro no banco de dados', en: 'Database error' },
     'Error de conexión': { pt: 'Erro de conexão', en: 'Connection error' },
     'Sesión inválida': { pt: 'Sessão inválida', en: 'Invalid session' },
+    'No se pudo validar la sesión. Intentá nuevamente.': { pt: 'Não foi possível validar a sessão. Tente novamente.', en: 'The session could not be validated. Please try again.' },
     'No se pudieron cargar los productos': { pt: 'Não foi possível carregar os produtos', en: 'Products could not be loaded' },
     'No se pudieron cargar los eventos': { pt: 'Não foi possível carregar os eventos', en: 'Events could not be loaded' },
     'No se pudieron cargar las ventas del evento.': { pt: 'Não foi possível carregar as vendas do evento.', en: 'Event sales could not be loaded.' },

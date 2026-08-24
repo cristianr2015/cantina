@@ -271,11 +271,16 @@ router.get('/dashboard-stats', auth(['admin']), requireEvent, async (req, res) =
       ORDER BY stock ASC, name ASC
     `, [req.eventId]);
 
-    // Personas que ingresaron hoy
-    const [entriesToday] = await db.query(`
-      SELECT COUNT(*) as count FROM tickets_sold 
-      WHERE event_id = ? AND entered = 1
+    // Comparación de entradas vendidas y personas que ingresaron al evento.
+    const [ticketStatsRows] = await db.query(`
+      SELECT COUNT(*) AS sold,
+             COALESCE(SUM(CASE WHEN entered = 1 THEN 1 ELSE 0 END), 0) AS entered
+      FROM tickets_sold
+      WHERE event_id = ?
     `, [req.eventId]);
+    const ticketStats = ticketStatsRows[0] || {};
+    const ticketsSold = Number(ticketStats.sold || 0);
+    const peopleEntered = Number(ticketStats.entered || 0);
 
     // Ingresos por medio de pago: ventas de productos + entradas del evento.
     const [paymentIncomeRows] = await db.query(`
@@ -315,8 +320,10 @@ router.get('/dashboard-stats', auth(['admin']), requireEvent, async (req, res) =
       top_products: topProducts,
       low_stock_count: lowStockItems.length,
       low_stock_items: lowStockItems,
-      entries_today: Number(entriesToday[0].count || 0),
-      people_entered: Number(entriesToday[0].count || 0),
+      entries_today: peopleEntered,
+      tickets_sold: ticketsSold,
+      people_entered: peopleEntered,
+      attendance_rate: ticketsSold > 0 ? Math.round((peopleEntered / ticketsSold) * 100) : 0,
       payment_income: paymentIncome
     });
   } catch (err) {

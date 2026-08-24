@@ -2536,7 +2536,16 @@ async function loadDashboard(){
     const paymentIncome = stats.payment_income || {};
     const cash = paymentIncome.cash || {};
     const mercadoPago = paymentIncome.mercadopago || {};
-    document.getElementById('dash-people-entered').textContent = Number(stats.people_entered || 0);
+    const ticketsSold = Number(stats.tickets_sold || 0);
+    const peopleEntered = Number(stats.people_entered || 0);
+    const attendanceRate = ticketsSold > 0 ? Math.min(100, Math.round((peopleEntered / ticketsSold) * 100)) : 0;
+    const pendingEntry = Math.max(0, ticketsSold - peopleEntered);
+    document.getElementById('dash-tickets-sold').textContent = ticketsSold;
+    document.getElementById('dash-people-entered').textContent = peopleEntered;
+    document.getElementById('dash-attendance-progress').style.width = `${attendanceRate}%`;
+    document.getElementById('dash-attendance-summary').textContent = ticketsSold > 0
+      ? `${attendanceRate}% de asistencia · ${pendingEntry} ${pendingEntry === 1 ? 'entrada pendiente' : 'entradas pendientes'}`
+      : 'Todavía no hay entradas registradas';
     document.getElementById('dash-income-cash').textContent = formatMoney(cash.amount || 0);
     document.getElementById('dash-income-cash-count').textContent = operationLabel(cash.operations);
     document.getElementById('dash-income-mercadopago').textContent = formatMoney(mercadoPago.amount || 0);

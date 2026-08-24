@@ -434,10 +434,15 @@
                 <select id="dashboard-event-select" style="min-width:260px;margin-left:auto;padding:10px 12px;border:1px solid rgba(15,23,42,0.12);border-radius:8px;background:#fff;color:#1f2937;font-weight:600"></select>
               </div>
               <div class="dashboard-grid">
-                <div class="stat-card">
-                  <div class="stat-title">Personas ingresadas</div>
-                  <div class="stat-value" id="dash-people-entered" style="color:#2563eb">0</div>
-                  <div class="stat-sub">Accesos registrados en el evento</div>
+                <div class="stat-card attendance-stat-card">
+                  <div class="stat-title">Entradas y asistencia</div>
+                  <div class="attendance-comparison" aria-label="Comparación de entradas vendidas y personas ingresadas">
+                    <div><strong id="dash-tickets-sold">0</strong><span>Vendidas</span></div>
+                    <span class="attendance-versus" aria-hidden="true">vs.</span>
+                    <div><strong id="dash-people-entered">0</strong><span>Ingresaron</span></div>
+                  </div>
+                  <div class="attendance-progress" aria-hidden="true"><span id="dash-attendance-progress"></span></div>
+                  <div class="stat-sub" id="dash-attendance-summary">0% de asistencia</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-title">Ingresos en efectivo</div>

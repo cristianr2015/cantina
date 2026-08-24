@@ -746,9 +746,20 @@
                   </button>
                 </div>
                 <div class="users-summary" aria-live="polite">
-                  <span id="users-count">Cargando usuarios…</span>
-                  <span class="users-summary-dot" aria-hidden="true"></span>
-                  <span>Accesos activos</span>
+                  <div class="users-summary-item">
+                    <span class="users-summary-icon" aria-hidden="true">👥</span>
+                    <span>
+                      <strong id="users-count">Cargando usuarios…</strong>
+                      <small>registrados en el sistema</small>
+                    </span>
+                  </div>
+                  <div class="users-summary-item">
+                    <span class="users-status-icon" aria-hidden="true"></span>
+                    <span>
+                      <strong>Accesos habilitados</strong>
+                      <small>administración centralizada</small>
+                    </span>
+                  </div>
                 </div>
                 <div id="users-grid" class="users-grid" aria-live="polite"></div>
               </section>

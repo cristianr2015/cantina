@@ -2022,13 +2022,22 @@ async function loadUsersForMgmt(){
             <div class="user-avatar" aria-hidden="true">${initial}</div>
             <div class="user-card-identity">
               <h4 class="user-card-name" title="${safeUsername}">${safeUsername}</h4>
-              <p class="user-card-access">Acceso habilitado</p>
+              <p class="user-card-access"><span aria-hidden="true"></span> Acceso habilitado</p>
             </div>
+            <span class="user-role-badge user-role-${safeRole}">${roleLabel}</span>
           </div>
-          <span class="user-role-badge user-role-${safeRole}">${roleLabel}</span>
+          <div class="user-card-details">
+            <span>Rol asignado</span>
+            <strong>${roleLabel}</strong>
+          </div>
           <div class="user-card-actions">
-            <button class="user-card-button user-card-edit edit-user" data-id="${u.id}" type="button">Editar</button>
-            <button class="user-card-button user-card-delete del-user" data-id="${u.id}" type="button" aria-label="Eliminar a ${safeUsername}" title="Eliminar usuario">🗑</button>
+            <button class="user-card-button user-card-edit edit-user" data-id="${u.id}" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Editar usuario
+            </button>
+            <button class="user-card-button user-card-delete del-user" data-id="${u.id}" type="button" aria-label="Eliminar a ${safeUsername}" title="Eliminar usuario">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+            </button>
           </div>
         </article>`;
     }).join('') : '<div class="users-empty">Todavía no hay usuarios para mostrar.</div>';

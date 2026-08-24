@@ -11,6 +11,7 @@ const ticketRoles = ['admin', 'puerta'];
 const validTicketTypes = new Set(['anticipada', 'puerta', 'cortesia']);
 const validPaymentMethods = new Set(['cash', 'mercadopago']);
 const ADVANCE_SALE_CUTOFF_MS = 60 * 60 * 1000;
+const courtesyApproval = requireAdminApproval('create:courtesy');
 
 function parseQuantity(value) {
   const quantity = Number.parseInt(value ?? 1, 10);
@@ -39,6 +40,15 @@ function canSellAdvanceTicket(eventDate, currentDate = new Date()) {
   const currentTime = new Date(currentDate).getTime();
   if (!Number.isFinite(eventTime) || !Number.isFinite(currentTime)) return false;
   return currentTime <= eventTime - ADVANCE_SALE_CUTOFF_MS;
+}
+
+function needsAdminApprovalForTicketType(ticketType) {
+  return String(ticketType || 'anticipada') === 'cortesia';
+}
+
+function requireCourtesyApproval(req, res, next) {
+  if (!needsAdminApprovalForTicketType(req.body?.ticket_type)) return next();
+  return courtesyApproval(req, res, next);
 }
 
 async function loadTicketsByIds(connection, ids, eventId) {
@@ -73,16 +83,20 @@ router.get('/', auth(ticketRoles), requireEvent, async (req, res) => {
   }
 });
 
-router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
+router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
-    const { first_name, last_name, dni, user_id, entered } = req.body;
+    const { user_id } = req.body;
     const ticketType = String(req.body.ticket_type || 'anticipada');
-    const paymentMethod = String(req.body.payment_method || 'cash');
+    const isDoorSale = ticketType === 'puerta';
+    const firstName = isDoorSale ? 'Venta' : String(req.body.first_name || '').trim();
+    const lastName = isDoorSale ? 'en Puerta' : String(req.body.last_name || '').trim();
+    const dni = isDoorSale ? '0' : String(req.body.dni || '').trim();
+    const paymentMethod = isDoorSale ? 'cash' : String(req.body.payment_method || 'cash');
     const quantity = parseQuantity(req.body.quantity);
 
-    if (!first_name || !last_name || !dni) {
+    if (!firstName || !lastName || !dni) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
     if (!validTicketTypes.has(ticketType)) {
@@ -96,9 +110,11 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
     }
 
     const requestedUserId = user_id ? Number.parseInt(user_id, 10) : null;
-    const userId = req.user.roles.includes('admin') && Number.isInteger(requestedUserId)
-      ? requestedUserId
-      : req.user.id;
+    const userId = ticketType === 'cortesia'
+      ? Number(req.adminApproval?.adminId || req.user.id)
+      : (req.user.roles.includes('admin') && Number.isInteger(requestedUserId)
+          ? requestedUserId
+          : req.user.id);
 
     await connection.beginTransaction();
     const [settingRows] = await connection.query(
@@ -119,7 +135,7 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
       });
     }
     const pricePaid = priceForType(ticketType, settings);
-    const enteredValue = ticketType === 'puerta' && entered ? 1 : 0;
+    const enteredValue = isDoorSale ? 1 : 0;
     const enteredAt = enteredValue ? new Date() : null;
     const ids = [];
 
@@ -130,7 +146,7 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
            user_id, event_id, entered, entered_at, sold_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [
-          String(first_name).trim(), String(last_name).trim(), String(dni).trim(),
+          firstName, lastName, dni,
           paymentMethod, ticketType, pricePaid, createQrToken(ticketType), userId, req.eventId,
           enteredValue, enteredAt
         ]
@@ -317,5 +333,6 @@ module.exports.__test = {
   parseTicketIds,
   priceForType,
   createQrToken,
-  canSellAdvanceTicket
+  canSellAdvanceTicket,
+  needsAdminApprovalForTicketType
 };

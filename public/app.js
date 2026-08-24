@@ -373,9 +373,7 @@ function updateTicketSaleAvailability() {
     ? `Comienza ${formatDateTime(advanceState.eventDate)}`
     : 'Seleccioná un evento';
   const advancePriceOutput = document.getElementById('ticket-advance-price');
-  const doorPriceOutput = document.getElementById('ticket-door-price');
   if (advancePriceOutput) advancePriceOutput.textContent = formatMoney(ticketPrice('anticipada'));
-  if (doorPriceOutput) doorPriceOutput.textContent = formatMoney(ticketPrice('puerta'));
 }
 
 function updateTicketSummary(rows = []) {
@@ -1551,14 +1549,9 @@ const TICKET_SALE_MODAL_CONTENT = {
     description: 'Se generará una entrada con código QR para presentar en el acceso.',
     badge: 'Anticipada', button: 'Confirmar venta anticipada'
   },
-  puerta: {
-    icon: '🚪', kicker: 'VENTA EN PUERTA', title: 'Nueva venta en puerta',
-    description: 'La venta quedará registrada junto con el ingreso del asistente.',
-    badge: 'En puerta', button: 'Registrar venta e ingreso'
-  },
   cortesia: {
     icon: '🎁', kicker: 'ENTRADA DE CORTESÍA', title: 'Registrar cortesía',
-    description: 'Se registrará una entrada sin cargo para el evento activo.',
+    description: 'Se registrará sin cargo y a nombre del administrador que la autorice.',
     badge: 'Cortesía', button: 'Registrar cortesía'
   }
 };
@@ -1585,7 +1578,6 @@ function closeTicketSaleModal() {
 }
 
 document.getElementById('open-advance-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('anticipada'));
-document.getElementById('open-door-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('puerta'));
 document.getElementById('open-courtesy-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('cortesia'));
 
 function updateQuickTicketPrice() {
@@ -1605,7 +1597,7 @@ function updateQuickTicketPrice() {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
-  document.getElementById('ticket-sale-entry-note')?.classList.toggle('hidden', type !== 'puerta');
+  document.getElementById('ticket-sale-user-field')?.classList.toggle('hidden', type === 'cortesia');
 }
 
 document.getElementById('quick-ticket-cancel')?.addEventListener('click', closeTicketSaleModal);
@@ -1639,23 +1631,32 @@ document.getElementById('ticket-sale-form')?.addEventListener('submit', async ev
     return showToast('La venta anticipada cerró una hora antes del evento', 'error');
   }
 
+  let approvalToken = '';
+  if (type === 'cortesia') {
+    approvalToken = await requestAdminApproval(
+      'create:courtesy',
+      'Para registrar una entrada de cortesía, ingresá las credenciales de un administrador.'
+    );
+    if (approvalToken === null) return;
+  }
+
   const confirmButton = document.getElementById('quick-ticket-confirm');
   confirmButton.disabled = true;
   try {
     const res = await api('/tickets', {
       method: 'POST',
+      headers: approvalHeaders(approvalToken),
       body: JSON.stringify({
         first_name: firstName, last_name: lastName, dni,
-        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty,
-        entered: type === 'puerta'
+        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty
       })
     });
     if (res.error) return showToast(res.error, 'error');
     const successCount = res.quantity || 0;
     
     if (successCount > 0) {
-      const successMessage = type === 'puerta'
-        ? `${successCount} venta(s) en puerta e ingreso(s) registrados`
+      const successMessage = type === 'cortesia'
+        ? `${successCount} entrada(s) de cortesía registrada(s)`
         : `${successCount} entrada(s) agregada(s) correctamente`;
       showToast(successMessage, 'success');
       closeTicketSaleModal();

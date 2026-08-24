@@ -499,7 +499,7 @@
                 <div>
                   <span class="ticket-eyebrow">ACCESOS</span>
                   <h2>Venta y control de entradas</h2>
-                  <p>Registrá ventas, entregá anticipadas con QR y controlá el ingreso al evento.</p>
+                  <p>Vendé anticipadas con QR, registrá ventas rápidas en puerta y controlá los ingresos.</p>
                 </div>
                 <div class="ticket-event-pill">
                   <span>Evento activo</span>
@@ -522,24 +522,11 @@
                   </button>
                 </article>
 
-                <article class="ticket-sale-card ticket-sale-card-door">
-                  <div class="ticket-sale-card-icon" aria-hidden="true">🚪</div>
-                  <div class="ticket-sale-card-copy">
-                    <span class="ticket-sale-label">VENTA EN PUERTA</span>
-                    <h3>Registrar ingreso</h3>
-                    <p>Guardá los datos del asistente y marcá el ingreso automáticamente.</p>
-                    <strong id="ticket-door-price">$0,00</strong>
-                  </div>
-                  <button id="open-door-ticket-btn" class="ticket-action-button ticket-action-door" type="button">
-                    Vender en puerta <span aria-hidden="true">→</span>
-                  </button>
-                </article>
-
                 <aside class="ticket-quick-actions">
                   <span>Acciones rápidas</span>
-                  <button id="btn-door-sale" type="button"><span aria-hidden="true">⚡</span><span><strong>Ingreso sin datos</strong><small>Venta en efectivo</small></span></button>
+                  <button id="btn-door-sale" type="button"><span aria-hidden="true">⚡</span><span><strong>Venta rápida en puerta</strong><small>Efectivo e ingreso automático</small></span></button>
                   <button id="btn-scan-qr" type="button"><span aria-hidden="true">▣</span><span><strong>Escanear QR</strong><small>Validar anticipada</small></span></button>
-                  <button id="open-courtesy-ticket-btn" class="admin-only" type="button"><span aria-hidden="true">🎁</span><span><strong>Registrar cortesía</strong><small>Sin cargo</small></span></button>
+                  <button id="open-courtesy-ticket-btn" type="button"><span aria-hidden="true">🎁</span><span><strong>Registrar cortesía</strong><small>Requiere autorización de admin</small></span></button>
                 </aside>
               </div>
 
@@ -1116,7 +1103,7 @@
           <p id="admin-approval-error" class="admin-approval-error" aria-live="polite"></p>
           <div class="user-form-actions">
             <button id="admin-approval-cancel" class="user-secondary-action" type="button">Cancelar</button>
-            <button id="admin-approval-submit" class="user-primary-action" type="submit">Autorizar y eliminar</button>
+            <button id="admin-approval-submit" class="user-primary-action" type="submit">Autorizar y continuar</button>
           </div>
         </form>
       </div>
@@ -1157,10 +1144,9 @@
             <label><span>Apellido</span><input id="quick-ticket-lastname" type="text" autocomplete="family-name" required></label>
             <label><span>DNI</span><input id="quick-ticket-dni" type="text" inputmode="numeric" autocomplete="off" required></label>
             <label><span>Forma de pago</span><select id="quick-ticket-payment" required><option value="cash">Efectivo</option><option value="mercadopago">Mercado Pago</option></select></label>
-            <label><span>Vendedor</span><select id="quick-ticket-user" required><option value="">Seleccionar vendedor</option></select></label>
+            <label id="ticket-sale-user-field"><span>Vendedor</span><select id="quick-ticket-user" required><option value="">Seleccionar vendedor</option></select></label>
             <label><span>Cantidad</span><input id="quick-ticket-qty" type="number" value="1" min="1" max="50" required></label>
           </div>
-          <p id="ticket-sale-entry-note" class="ticket-sale-entry-note hidden">Las entradas de puerta se registrarán como ingresadas.</p>
           <div class="ticket-sale-form-actions">
             <button id="quick-ticket-cancel" class="btn-ghost" type="button">Cancelar</button>
             <button id="quick-ticket-confirm" type="submit">Confirmar venta</button>

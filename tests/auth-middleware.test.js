@@ -85,3 +85,15 @@ test('un vendedor necesita una aprobacion administrativa valida y vinculada a la
   assert.equal(wrongAction.allowed, false);
   assert.equal(wrongAction.response.statusCode, 403);
 });
+
+test('un usuario de puerta necesita autorización administrativa para registrar una cortesía', () => {
+  const user = { id: 9, roles: ['puerta'] };
+  const missing = approve('create:courtesy', user);
+  assert.equal(missing.allowed, false);
+  assert.equal(missing.response.statusCode, 403);
+
+  const valid = approve('create:courtesy', user, {
+    type: 'admin-approval', action: 'create:courtesy', adminId: 1, requesterId: 9
+  });
+  assert.equal(valid.allowed, true);
+});

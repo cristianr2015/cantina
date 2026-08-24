@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config');
 const auth = require('../middleware/authMiddleware');
 
-const approvalActions = new Set(['delete:sale', 'delete:ticket']);
+const approvalActions = new Set(['delete:sale', 'delete:ticket', 'create:courtesy']);
 
 // Login: recibe { username, password }
 router.post('/login', async (req, res) => {

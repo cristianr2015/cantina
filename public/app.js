@@ -975,42 +975,92 @@ function renderEventSelectors() {
 }
 
 function renderEventManagement() {
-  const tbody = document.getElementById('events-config-body');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+  const grid = document.getElementById('events-grid');
+  if (!grid) return;
   const activeEventId = getActiveEventId();
-  eventsCache.forEach(event => {
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid rgba(15,23,42,0.08)';
-    const nameCell = document.createElement('td');
-    nameCell.style.padding = '10px';
-    nameCell.textContent = event.name;
-    const dateCell = document.createElement('td');
-    dateCell.style.padding = '10px';
-    dateCell.textContent = formatDateTime(event.date);
-    const statusCell = document.createElement('td');
-    statusCell.style.cssText = 'padding:10px;text-align:center';
-    statusCell.textContent = Number(event.id) === activeEventId ? 'Activo' : '-';
-    const actionsCell = document.createElement('td');
-    actionsCell.style.cssText = 'padding:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
+  const count = document.getElementById('events-count');
+  const activeSummary = document.getElementById('active-event-summary');
+  const activeEvent = eventsCache.find(event => Number(event.id) === activeEventId);
+  if (count) count.textContent = `${eventsCache.length} ${eventsCache.length === 1 ? 'evento' : 'eventos'}`;
+  if (activeSummary) activeSummary.textContent = activeEvent?.name || 'Sin evento activo';
 
-    const selectButton = document.createElement('button');
-    selectButton.textContent = Number(event.id) === activeEventId ? 'Seleccionado' : 'Seleccionar';
-    selectButton.disabled = Number(event.id) === activeEventId;
-    selectButton.style.cssText = 'padding:6px 10px;font-size:12px';
-    selectButton.addEventListener('click', () => setActiveEvent(event.id));
-    actionsCell.appendChild(selectButton);
+  grid.innerHTML = eventsCache.length ? eventsCache.map(event => {
+    const parsedDate = new Date(event.date);
+    const validDate = !Number.isNaN(parsedDate.getTime());
+    const day = validDate ? String(parsedDate.getDate()).padStart(2, '0') : '--';
+    const month = validDate
+      ? parsedDate.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '').toUpperCase()
+      : 'FECHA';
+    const isActive = Number(event.id) === activeEventId;
+    const isPast = validDate && parsedDate.getTime() < Date.now();
+    const stateClass = isActive ? 'active' : (isPast ? 'past' : 'upcoming');
+    const stateLabel = isActive ? 'Activo' : (isPast ? 'Finalizado' : 'Próximo');
+    const safeName = escapeUserText(event.name);
+    return `
+      <article class="user-card event-card ${isActive ? 'is-active' : ''}">
+        <div class="event-card-top">
+          <div class="event-date-tile" aria-hidden="true"><strong>${day}</strong><span>${month}</span></div>
+          <div class="event-card-title">
+            <h4 title="${safeName}">${safeName}</h4>
+            <p>${escapeUserText(formatDateTime(event.date))}</p>
+          </div>
+          <span class="event-state event-state-${stateClass}">${stateLabel}</span>
+        </div>
+        <div class="event-price-grid">
+          <div><span>Anticipada</span><strong>${formatMoney(event.ticket_price_advance)}</strong></div>
+          <div><span>En puerta</span><strong>${formatMoney(event.ticket_price_door)}</strong></div>
+        </div>
+        <div class="event-card-actions">
+          <button class="event-card-select select-event" data-id="${Number(event.id)}" type="button" ${isActive ? 'disabled' : ''}>${isActive ? 'Evento activo' : 'Seleccionar'}</button>
+          <button class="event-card-edit edit-event" data-id="${Number(event.id)}" type="button">Editar</button>
+          <button class="event-card-delete delete-event" data-id="${Number(event.id)}" type="button" aria-label="Eliminar ${safeName}" title="Eliminar evento">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+          </button>
+        </div>
+      </article>`;
+  }).join('') : '<div class="users-empty">Todavía no hay eventos para mostrar.</div>';
 
-    const deleteButton = document.createElement('button');
-    deleteButton.textContent = 'Eliminar';
-    deleteButton.style.cssText = 'padding:6px 10px;font-size:12px;background:#ef4444;color:#fff';
-    deleteButton.addEventListener('click', () => deleteEvent(event.id));
-    actionsCell.appendChild(deleteButton);
+  grid.querySelectorAll('.select-event').forEach(button => button.addEventListener('click', () => setActiveEvent(button.dataset.id)));
+  grid.querySelectorAll('.edit-event').forEach(button => button.addEventListener('click', () => {
+    const event = eventsCache.find(item => Number(item.id) === Number(button.dataset.id));
+    if (event) openEventModal(event);
+  }));
+  grid.querySelectorAll('.delete-event').forEach(button => button.addEventListener('click', () => deleteEvent(button.dataset.id)));
+}
 
-    tr.append(nameCell, dateCell, statusCell, actionsCell);
-    tbody.appendChild(tr);
-  });
-  enhanceResponsiveTables(tbody.closest('.table-wrap') || document);
+function eventDateInputValue(value) {
+  return String(value || '').replace(' ', 'T').slice(0, 16);
+}
+
+function openEventModal(event = null) {
+  const modal = document.getElementById('event-modal');
+  const form = document.getElementById('event-form');
+  if (!modal || !form) return;
+  const editing = Boolean(event);
+  form.reset();
+  document.getElementById('event-id').value = event?.id || '';
+  document.getElementById('event-name').value = event?.name || '';
+  document.getElementById('event-date').value = eventDateInputValue(event?.date);
+  document.getElementById('event-price-advance').value = editing
+    ? Number(event.ticket_price_advance || 0)
+    : Number(ticketSettings.ticket_price_advance || 0);
+  document.getElementById('event-price-door').value = editing
+    ? Number(event.ticket_price_door || 0)
+    : Number(ticketSettings.ticket_price_door || 0);
+  document.getElementById('event-modal-title').textContent = editing ? 'Editar evento' : 'Crear evento';
+  document.getElementById('event-modal-subtitle').textContent = editing
+    ? 'Actualizá la fecha y los precios de esta edición.'
+    : 'Definí la fecha y los precios para comenzar.';
+  document.getElementById('event-save').textContent = editing ? 'Guardar cambios' : 'Crear evento';
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('event-name')?.focus(), 0);
+}
+
+function closeEventModal() {
+  const modal = document.getElementById('event-modal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden', 'true');
 }
 
 async function loadEvents() {
@@ -1075,25 +1125,40 @@ async function deleteEvent(eventId) {
   document.getElementById(id)?.addEventListener('change', event => setActiveEvent(event.target.value));
 });
 
-document.getElementById('create-event-btn')?.addEventListener('click', async () => {
+document.getElementById('open-event-modal')?.addEventListener('click', () => openEventModal());
+document.getElementById('close-event-modal')?.addEventListener('click', closeEventModal);
+document.getElementById('cancel-event-modal')?.addEventListener('click', closeEventModal);
+document.getElementById('event-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeEventModal();
+});
+
+document.getElementById('event-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('event-id').value;
   const name = document.getElementById('event-name').value.trim();
   const date = document.getElementById('event-date').value;
   const ticket_price_advance = Number(document.getElementById('event-price-advance').value);
   const ticket_price_door = Number(document.getElementById('event-price-door').value);
   if (!name || !date || !Number.isFinite(ticket_price_advance) || ticket_price_advance < 0 ||
       !Number.isFinite(ticket_price_door) || ticket_price_door < 0) {
-    return showToast('Complete el nombre, la fecha, la hora y los precios del evento', 'error');
+    return showToast('Completá el nombre, la fecha, la hora y los precios del evento', 'error');
   }
-  const result = await api('/events', {
-    method: 'POST',
-    body: JSON.stringify({ name, date, ticket_price_advance, ticket_price_door })
-  });
-  if (result.error) return showToast(result.error, 'error');
-  document.getElementById('event-name').value = '';
-  document.getElementById('event-date').value = '';
-  await loadEvents();
-  await setActiveEvent(result.id, false);
-  showToast(`Evento "${result.name}" creado y seleccionado`, 'success');
+  const saveButton = document.getElementById('event-save');
+  saveButton.disabled = true;
+  try {
+    const result = await api(id ? `/events/${id}` : '/events', {
+      method: id ? 'PUT' : 'POST',
+      body: JSON.stringify({ name, date, ticket_price_advance, ticket_price_door })
+    });
+    if (result.error) return showToast(result.error, 'error');
+    const wasActive = Number(id) === getActiveEventId();
+    closeEventModal();
+    await loadEvents();
+    if (!id || wasActive) await setActiveEvent(result.id, false);
+    showToast(id ? `Evento "${result.name}" actualizado` : `Evento "${result.name}" creado y seleccionado`, 'success');
+  } finally {
+    saveButton.disabled = false;
+  }
 });
 
 async function loadSales(){
@@ -2856,6 +2921,7 @@ async function closeAllOpenPopups() {
   closeDeleteTicketModal();
   closeTicketDeliveryModal();
   closeExpensePaymentModal();
+  closeEventModal();
   closeUserModal();
   document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
     modal.classList.add('hidden');

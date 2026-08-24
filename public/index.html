@@ -659,40 +659,30 @@
               <h2>Configuración</h2>
 
               <!-- Sección: Eventos -->
-              <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
-                <h3 style="margin-top:0;margin-bottom:8px;font-size:16px;color:#1f2937;font-weight:600">Eventos</h3>
-                <p style="margin:0 0 16px;color:var(--muted);font-size:13px">Cada evento comienza sin productos, ventas, entradas, descuentos ni gastos. Los datos de la peña y los usuarios se mantienen.</p>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px">
+              <section class="users-management events-management" aria-labelledby="events-management-title">
+                <div class="users-management-header">
                   <div>
-                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Nombre del evento</label>
-                    <input id="event-name" type="text" placeholder="Peña de septiembre" style="width:100%" />
+                    <span class="section-eyebrow">Agenda</span>
+                    <h3 id="events-management-title">Gestión de eventos</h3>
+                    <p>Creá y administrá cada fecha de la peña con sus propios precios, ventas y movimientos.</p>
                   </div>
-                  <div>
-                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Fecha y hora de comienzo</label>
-                    <input id="event-date" type="datetime-local" style="width:100%" />
+                  <button id="open-event-modal" class="user-primary-action" type="button">
+                    <span aria-hidden="true">＋</span>
+                    Nuevo evento
+                  </button>
+                </div>
+                <div class="users-summary events-summary" aria-live="polite">
+                  <div class="users-summary-item">
+                    <span class="users-summary-icon event-summary-icon" aria-hidden="true">🗓️</span>
+                    <span><strong id="events-count">Cargando eventos…</strong><small>registrados en la aplicación</small></span>
                   </div>
-                  <div>
-                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Entrada anticipada $</label>
-                    <input id="event-price-advance" type="number" min="0" step="0.01" style="width:100%" />
-                  </div>
-                  <div>
-                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--muted);font-weight:600">Entrada en puerta $</label>
-                    <input id="event-price-door" type="number" min="0" step="0.01" style="width:100%" />
+                  <div class="users-summary-item">
+                    <span class="users-status-icon" aria-hidden="true"></span>
+                    <span><strong id="active-event-summary">Evento activo</strong><small>seleccionado para trabajar</small></span>
                   </div>
                 </div>
-                <button id="create-event-btn" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:700">Crear y seleccionar evento</button>
-                <div class="table-wrap" style="margin-top:18px">
-                  <table style="width:100%;border-collapse:collapse;font-size:14px">
-                    <thead><tr style="border-bottom:2px solid rgba(15,23,42,0.1)">
-                      <th style="padding:10px;text-align:left">Evento</th>
-                      <th style="padding:10px;text-align:left">Comienzo</th>
-                      <th style="padding:10px;text-align:center">Estado</th>
-                      <th style="padding:10px;text-align:right">Acciones</th>
-                    </tr></thead>
-                    <tbody id="events-config-body"></tbody>
-                  </table>
-                </div>
-              </div>
+                <div id="events-grid" class="events-grid"></div>
+              </section>
               
               <!-- Sección: CUIT -->
               <div style="background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(15,23,42,0.08);margin-bottom:24px">
@@ -1062,7 +1052,47 @@
       </div>
     </div>
 
-    <!-- Modal de Confirmación -->
+    <!-- Alta y edición de eventos -->
+    <div id="event-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal user-form-modal event-form-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+        <div class="user-modal-header">
+          <div class="user-modal-icon event-modal-icon" aria-hidden="true">🗓️</div>
+          <div>
+            <h3 id="event-modal-title">Crear evento</h3>
+            <p id="event-modal-subtitle">Definí la fecha y los precios para comenzar.</p>
+          </div>
+          <button id="close-event-modal" class="user-modal-close" type="button" aria-label="Cerrar formulario">×</button>
+        </div>
+        <form id="event-form" class="user-form event-form" novalidate>
+          <input id="event-id" type="hidden" />
+          <div class="user-form-field">
+            <label for="event-name">Nombre del evento</label>
+            <input id="event-name" type="text" placeholder="Ej: Peña de septiembre" maxlength="150" required />
+          </div>
+          <div class="user-form-field">
+            <label for="event-date">Fecha y hora de comienzo</label>
+            <input id="event-date" type="datetime-local" required />
+            <small>La venta anticipada se cerrará una hora antes.</small>
+          </div>
+          <div class="user-form-row">
+            <div class="user-form-field">
+              <label for="event-price-advance">Entrada anticipada $</label>
+              <input id="event-price-advance" type="number" min="0" step="0.01" placeholder="0,00" required />
+            </div>
+            <div class="user-form-field">
+              <label for="event-price-door">Entrada en puerta $</label>
+              <input id="event-price-door" type="number" min="0" step="0.01" placeholder="0,00" required />
+            </div>
+          </div>
+          <div class="user-form-actions">
+            <button id="cancel-event-modal" class="user-secondary-action" type="button">Cancelar</button>
+            <button id="event-save" class="user-primary-action" type="submit">Crear evento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal de usuarios -->
     <div id="user-modal" class="modal-overlay hidden" aria-hidden="true">
       <div class="modal user-form-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
         <div class="user-modal-header">

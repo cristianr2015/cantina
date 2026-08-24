@@ -66,3 +66,22 @@ jobs:
           app-name: 'APP-Pena'
           slot-name: 'testing'
           package: .
+
+      - name: Restart testing slot
+        run: az webapp restart --name APP-Pena --resource-group APP-Pena --slot testing
+
+      - name: Verify testing slot health
+        shell: bash
+        run: |
+          set -euo pipefail
+          testing_url="https://app-pena-testing-fqddcbd6htaeemfq.brazilsouth-01.azurewebsites.net"
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error "$testing_url/health/live" >/dev/null \
+              && curl --fail --silent --show-error "$testing_url/health/ready" >/dev/null; then
+              echo "Testing slot is healthy."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Testing slot did not become healthy after deployment." >&2
+          exit 1

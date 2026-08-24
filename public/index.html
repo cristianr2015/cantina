@@ -496,7 +496,7 @@
                   <div class="stat-value" id="dash-income-mercadopago" style="color:#0891b2">0,00</div>
                   <div class="stat-sub" id="dash-income-mercadopago-count">0 operaciones</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card" data-stock-control>
                   <div class="stat-title">Productos con stock bajo</div>
                   <div class="stat-value" id="dash-low-stock" style="color:#f87171">0</div>
                   <div class="stat-sub">Productos con menos de 5 unidades</div>
@@ -508,7 +508,7 @@
                   <h3>Top 5 productos más vendidos</h3>
                   <div style="height:280px;position:relative"><canvas id="topProductsChart"></canvas></div>
                 </div>
-                <div class="chart-card">
+                <div class="chart-card" data-stock-control>
                   <h3>Productos con stock menor a 5</h3>
                   <div id="low-stock-list" style="margin-top:14px"></div>
                 </div>
@@ -520,7 +520,7 @@
           <div id="page-products" class="page hidden">
             <section>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-                <h2 style="margin:0">Inventario de Productos</h2>
+                <h2 id="product-page-title" style="margin:0">Inventario de Productos</h2>
                 <button id="open-add-product-btn" class="admin-only" style="padding:12px 24px;font-size:16px;display:flex;align-items:center;gap:8px;background:var(--accent);color:#08101b;border:none;border-radius:8px;cursor:pointer;font-weight:600">+ Agregar Producto</button>
               </div>
 
@@ -987,7 +987,7 @@
         <label>Nombre: <input id="edit-prod-name"></label>
         <label>Costo: <input id="edit-prod-cost" type="number" step="0.01"></label>
         <label>Precio Venta: <input id="edit-prod-sale" type="number" step="0.01"></label>
-        <label>Stock: <input id="edit-prod-stock" type="number" step="1"></label>
+        <label data-stock-control>Stock: <input id="edit-prod-stock" type="number" step="1"></label>
         <label>Imagen (opcional): <input id="edit-prod-image" type="file" accept="image/*"></label>
         <div style="margin-top:16px; text-align:right; display:flex; gap:8px; justify-content:flex-end">
           <button id="cancel-prod-edit" class="btn-ghost">Cancelar</button>
@@ -1475,7 +1475,7 @@
               <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Precio venta</label>
               <input id="prod-sale" type="number" step="0.01" placeholder="0.00" style="width:100%" />
             </div>
-            <div style="grid-column: span 2">
+            <div data-stock-control style="grid-column: span 2">
               <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Stock Disponible (Unidades)</label>
               <input id="prod-stock" type="number" placeholder="0" style="width:100%" />
             </div>
@@ -1501,8 +1501,8 @@
     <footer class="app-footer">Desarrollado por Cristian Ramirez &copy; 2026</footer>
 
     <script src="app-config.js"></script>
-    <script src="i18n.js?v=20260825-1"></script>
+    <script src="i18n.js?v=20260825-2"></script>
     <script src="sidebar-menu.js?v=20260824-1"></script>
-    <script src="app.js?v=20260825-1"></script>
+    <script src="app.js?v=20260825-2"></script>
   </body>
 </html>

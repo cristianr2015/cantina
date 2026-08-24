@@ -4,7 +4,7 @@ const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireAdminApproval } = require('../middleware/adminApproval');
 const { requireEvent } = require('../middleware/eventContext');
-const { requireLicenseFeature } = require('../middleware/licenseAccess');
+const { requireLicenseFeature, licenseUsesStock } = require('../middleware/licenseAccess');
 const { userBelongsToCompany } = require('../lib/companyAccess');
 
 const allowProductSales = requireLicenseFeature('product_sales');
@@ -51,8 +51,9 @@ router.post('/', auth(['admin','seller']), allowProductSales, requireEvent, asyn
       const orderId = orderResult.insertId;
 
       let subtotalOrder = 0;
+      const controlStock = licenseUsesStock(req.license);
 
-      // 2. Insertar items y validar stock
+      // 2. Insertar items; el stock se controla exclusivamente con licencia Pro.
       for (const item of items) {
         const [prows] = await connection.query(
           'SELECT price_sale, stock, name FROM products WHERE id = ? AND event_id = ? FOR UPDATE',
@@ -62,15 +63,19 @@ router.post('/', auth(['admin','seller']), allowProductSales, requireEvent, asyn
         
         const product = prows[0];
         const qty = Number.parseInt(item.quantity, 10) || 1;
-        if (qty < 1 || Number(product.stock) < qty) {
+        if (qty < 1) {
+          throw new Error(`Cantidad inválida para ${product.name}`);
+        }
+        if (controlStock && Number(product.stock) < qty) {
           throw new Error(`Stock insuficiente para ${product.name}`);
         }
 
-        // Descontar stock
-        await connection.query(
-          'UPDATE products SET stock = stock - ? WHERE id = ? AND event_id = ?',
-          [qty, item.product_id, req.eventId]
-        );
+        if (controlStock) {
+          await connection.query(
+            'UPDATE products SET stock = stock - ? WHERE id = ? AND event_id = ?',
+            [qty, item.product_id, req.eventId]
+          );
+        }
 
         // Registrar venta
         await connection.query(

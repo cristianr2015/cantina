@@ -11,7 +11,7 @@ const {
   defaultFreeLicenseId,
   migrateLicenseStorage
 } = require('../lib/licenseService');
-const { licenseAllows, licenseAllowsUserRoles } = require('../middleware/licenseAccess');
+const { licenseAllows, licenseAllowsUserRoles, licenseUsesStock } = require('../middleware/licenseAccess');
 
 const signingSecret = 'test-secret-with-more-than-thirty-two-characters';
 const installationId = '5a80418f-aa50-4d3f-9293-fc0d13084c87';
@@ -41,11 +41,18 @@ test('la licencia free habilita solo las funciones solicitadas', () => {
   const free = { active: true, type: 'free' };
   assert.equal(licenseAllows(free, 'dashboard'), true);
   assert.equal(licenseAllows(free, 'product_sales'), true);
+  assert.equal(licenseAllows(free, 'product_management'), true);
   assert.equal(licenseAllows(free, 'door_ticket_sales'), true);
   assert.equal(licenseAllows(free, 'configuration'), true);
   assert.equal(licenseAllows(free, 'full'), false);
   assert.equal(licenseAllows({ active: false, type: 'free' }, 'dashboard'), false);
   assert.equal(licenseAllows({ active: false, type: null }, 'configuration'), true);
+});
+
+test('el control de stock se aplica solamente con una licencia Pro activa', () => {
+  assert.equal(licenseUsesStock({ active: true, type: 'free' }), false);
+  assert.equal(licenseUsesStock({ active: true, type: 'full' }), true);
+  assert.equal(licenseUsesStock({ active: false, type: 'full' }), false);
 });
 
 test('la licencia free solamente permite nuevos usuarios administradores', () => {

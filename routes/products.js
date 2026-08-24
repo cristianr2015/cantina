@@ -3,10 +3,10 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
-const { requireLicenseFeature } = require('../middleware/licenseAccess');
+const { requireLicenseFeature, licenseUsesStock } = require('../middleware/licenseAccess');
 
 const allowProductSales = requireLicenseFeature('product_sales');
-const requireFullLicense = requireLicenseFeature('full');
+const allowProductManagement = requireLicenseFeature('product_management');
 const fs = require('fs');
 const path = require('path');
 
@@ -22,7 +22,7 @@ router.get('/', auth(['admin', 'seller']), allowProductSales, requireEvent, asyn
   }
 });
 
-router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
+router.post('/', auth(['admin']), allowProductManagement, requireEvent, async (req, res) => {
   try {
     const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
     let image_path = null;
@@ -34,7 +34,7 @@ router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, 
     }
     const [result] = await db.query(
       'INSERT INTO products (name, price_cost, price_sale, stock, image_path, event_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, price_cost, price_sale, Number.parseInt(stock, 10) || 0, image_path, req.eventId]
+      [name, price_cost, price_sale, licenseUsesStock(req.license) ? Number.parseInt(stock, 10) || 0 : 0, image_path, req.eventId]
     );
     const [rows] = await db.query('SELECT * FROM products WHERE id = ? AND event_id = ?', [result.insertId, req.eventId]);
     res.json(rows[0]);
@@ -47,13 +47,18 @@ router.post('/', auth(['admin']), requireFullLicense, requireEvent, async (req, 
   }
 });
 
-router.put('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
+router.put('/:id', auth(['admin']), allowProductManagement, requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
     const { name, price_cost, price_sale, stock, image_name, image_data } = req.body;
     
-    let sql = 'UPDATE products SET name = ?, price_cost = ?, price_sale = ?, stock = ?';
-    const params = [name, price_cost, price_sale, Number.parseInt(stock, 10) || 0];
+    let sql = 'UPDATE products SET name = ?, price_cost = ?, price_sale = ?';
+    const params = [name, price_cost, price_sale];
+
+    if (licenseUsesStock(req.license)) {
+      sql += ', stock = ?';
+      params.push(Number.parseInt(stock, 10) || 0);
+    }
 
     if (image_data) {
       const ext = path.extname(image_name || 'prod.png') || '.png';
@@ -78,7 +83,7 @@ router.put('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req
   }
 });
 
-router.delete('/:id', auth(['admin']), requireFullLicense, requireEvent, async (req, res) => {
+router.delete('/:id', auth(['admin']), allowProductManagement, requireEvent, async (req, res) => {
   try {
     const id = req.params.id;
     const [result] = await db.query('DELETE FROM products WHERE id = ? AND event_id = ?', [id, req.eventId]);

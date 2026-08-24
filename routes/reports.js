@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
-const { requireLicenseFeature } = require('../middleware/licenseAccess');
+const { requireLicenseFeature, licenseUsesStock } = require('../middleware/licenseAccess');
 
 const allowDashboard = requireLicenseFeature('dashboard');
 const requireFullLicense = requireLicenseFeature('full');
@@ -268,12 +268,15 @@ router.get('/dashboard-stats', auth(['admin']), allowDashboard, requireEvent, as
       LIMIT 5
     `, [req.eventId]);
 
-    // Productos con stock bajo (ej. < 5)
-    const [lowStockItems] = await db.query(`
-      SELECT name, stock FROM products
-      WHERE event_id = ? AND stock < 5
-      ORDER BY stock ASC, name ASC
-    `, [req.eventId]);
+    // El inventario y las alertas de stock son funciones exclusivas de Pro.
+    let lowStockItems = [];
+    if (licenseUsesStock(req.license)) {
+      [lowStockItems] = await db.query(`
+        SELECT name, stock FROM products
+        WHERE event_id = ? AND stock < 5
+        ORDER BY stock ASC, name ASC
+      `, [req.eventId]);
+    }
 
     // Comparación de entradas vendidas y personas que ingresaron al evento.
     const [ticketStatsRows] = await db.query(`

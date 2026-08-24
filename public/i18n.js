@@ -73,7 +73,7 @@
     'Licencias no configuradas en el servidor': { pt: 'Licenças não configuradas no servidor', en: 'Licensing is not configured on the server' },
     'Instalá una licencia vigente para habilitar la aplicación.': { pt: 'Instale uma licença válida para habilitar o aplicativo.', en: 'Install a valid license to enable the application.' },
     'Contactá al superadministrador para asignar una licencia vigente a la empresa.': { pt: 'Entre em contato com o superadministrador para atribuir uma licença válida à empresa.', en: 'Contact the super administrator to assign a valid license to the company.' },
-    'Incluye Dashboard, Registrar venta, ventas de entradas en puerta y Configuración.': { pt: 'Inclui Painel, Registrar venda, vendas de ingressos na entrada e Configurações.', en: 'Includes Dashboard, Register sale, door ticket sales, and Settings.' },
+    'Incluye Dashboard, Registrar venta, Productos sin control de stock, ventas de entradas en puerta y Configuración.': { pt: 'Inclui Painel, Registrar venda, Produtos sem controle de estoque, vendas de ingressos na entrada e Configurações.', en: 'Includes Dashboard, Register sale, Products without stock control, door ticket sales, and Settings.' },
     'Todas las funciones de la aplicación están habilitadas.': { pt: 'Todas as funções do aplicativo estão habilitadas.', en: 'All application features are enabled.' },
     'Identificador de esta instalación': { pt: 'Identificador desta instalação', en: 'This installation ID' },
     'Clave de licencia': { pt: 'Chave de licença', en: 'License key' },

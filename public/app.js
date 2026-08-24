@@ -2,8 +2,12 @@ const APP_CONFIG = window.APP_CONFIG || {};
 const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.getItem('apiBaseUrl') || '');
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
 const APP_THEME_STORAGE_KEY = 'appTheme';
-const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'config']);
+const FREE_LICENSE_PAGES = new Set(['dashboard', 'sales', 'tickets', 'products', 'config']);
 let licenseState = { configured: true, active: false, state: 'missing', type: null };
+
+function hasStockControl() {
+  return Boolean(licenseState.active && licenseState.type === 'full');
+}
 
 function getAppLocale() {
   return window.I18N?.getLocale?.() || 'es-AR';
@@ -701,7 +705,7 @@ function applyLicenseUi() {
   }
   if (detail) {
     detail.textContent = licenseState.active && licenseState.type === 'free'
-      ? uiText('Incluye Dashboard, Registrar venta, ventas de entradas en puerta y Configuración.')
+      ? uiText('Incluye Dashboard, Registrar venta, Productos sin control de stock, ventas de entradas en puerta y Configuración.')
       : licenseState.active && licenseState.type === 'full'
         ? uiText('Todas las funciones de la aplicación están habilitadas.')
         : uiText('Contactá al superadministrador para asignar una licencia vigente a la empresa.');
@@ -720,6 +724,11 @@ function applyLicenseUi() {
   document.querySelectorAll('[data-full-license-only]').forEach(element => {
     element.style.display = isFree ? 'none' : '';
   });
+  document.querySelectorAll('[data-stock-control]').forEach(element => {
+    element.style.display = hasStockControl() ? '' : 'none';
+  });
+  const productPageTitle = document.getElementById('product-page-title');
+  if (productPageTitle) productPageTitle.textContent = uiText(hasStockControl() ? 'Inventario de Productos' : 'Productos');
   const freeNotice = document.getElementById('free-ticket-license-notice');
   if (freeNotice) freeNotice.style.display = isFree ? 'flex' : 'none';
   const proMenuItem = document.getElementById('activate-pro-menu-item');
@@ -1094,9 +1103,7 @@ async function loadProducts(){
             <span class="prod-cost" title="Costo">Costo: ${formatMoney(p.price_cost)}</span>
             <span class="prod-price" title="Precio Venta">${formatMoney(p.price_sale)}</span>
           </div>
-          <div style="margin-top:8px;font-size:13px;font-weight:600;color:${p.stock <= 5 ? '#ef4444' : 'var(--muted)'}">
-            Stock actual: ${p.stock || 0}
-          </div>
+          ${hasStockControl() ? `<div style="margin-top:8px;font-size:13px;font-weight:600;color:${p.stock <= 5 ? '#ef4444' : 'var(--muted)'}">Stock actual: ${p.stock || 0}</div>` : ''}
           <div class="prod-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="editProduct(${p.id})" style="flex:1;padding:8px 12px;font-size:12px;font-weight:600;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Editar</button>
             <button onclick="deleteProduct(${p.id})" style="flex:1;padding:8px 12px;font-size:12px;font-weight:600;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Borrar</button>
@@ -1124,7 +1131,7 @@ async function loadProducts(){
             <h4 class="pos-title">${p.name}</h4>
             <div style="display:flex; justify-content:space-between; align-items:center; padding: 0 12px 12px 12px">
               <div class="pos-price">${formatMoney(p.price_sale)}</div>
-              <div style="font-size:11px; color:${p.stock <= 5 ? '#ef4444' : 'var(--text-secondary)'}; font-weight:700">Stock: ${p.stock || 0}</div>
+              ${hasStockControl() ? `<div style="font-size:11px; color:${p.stock <= 5 ? '#ef4444' : 'var(--text-secondary)'}; font-weight:700">Stock: ${p.stock || 0}</div>` : ''}
             </div>
           </div>
           <div class="pos-actions" style="padding: 0 12px 12px 12px">
@@ -1826,13 +1833,13 @@ async function submitProductForm() {
   const name = document.getElementById('prod-name').value.trim();
   const cost = parseFloat(document.getElementById('prod-cost').value) || 0;
   const sale = parseFloat(document.getElementById('prod-sale').value) || 0;
-  const stock = parseInt(document.getElementById('prod-stock')?.value) || 0;
   const fileInput = document.getElementById('prod-image');
 
   if (!name) return showToast('Ingrese el nombre del producto', 'error');
   if (sale <= 0) return showToast('Ingrese un precio de venta válido', 'error');
 
-  const payload = { name, price_cost: cost, price_sale: sale, stock };
+  const payload = { name, price_cost: cost, price_sale: sale };
+  if (hasStockControl()) payload.stock = parseInt(document.getElementById('prod-stock')?.value, 10) || 0;
   if (fileInput.files.length > 0) {
     if (fileInput.files[0].size > 5 * 1024 * 1024) return showToast('La imagen es muy pesada (máximo 5MB)', 'error');
     const fileData = await readFileAsBase64(fileInput.files[0]);
@@ -1915,7 +1922,7 @@ async function addToCart(product_id, manualQty = null) {
     quantity = parseInt(qtyInput.value) || 1;
   }
 
-  if (product.stock !== undefined && product.stock < quantity) {
+  if (hasStockControl() && product.stock !== undefined && product.stock < quantity) {
     return showToast(`Stock insuficiente para ${product.name} (Disponible: ${product.stock})`, 'error');
   }
 
@@ -2005,7 +2012,7 @@ window.updateCartQty = function(index, delta) {
     return;
   }
 
-  if (product && product.stock !== undefined && product.stock < newQty) {
+  if (hasStockControl() && product && product.stock !== undefined && product.stock < newQty) {
     return showToast('No hay más stock disponible', 'error');
   }
 
@@ -3851,15 +3858,17 @@ document.getElementById('save-prod-edit').addEventListener('click', async () => 
   const name = document.getElementById('edit-prod-name').value;
   const price_cost = parseFloat(document.getElementById('edit-prod-cost').value) || 0;
   const price_sale = parseFloat(document.getElementById('edit-prod-sale').value) || 0;
-  const stock = parseInt(document.getElementById('edit-prod-stock')?.value, 10);
   const fileInput = document.getElementById('edit-prod-image');
 
   let payload = {
     name,
     price_cost,
-    price_sale,
-    stock: Number.isFinite(stock) ? stock : 0
+    price_sale
   };
+  if (hasStockControl()) {
+    const stock = parseInt(document.getElementById('edit-prod-stock')?.value, 10);
+    payload.stock = Number.isFinite(stock) ? stock : 0;
+  }
   if (fileInput.files.length > 0) {
     const fileData = await readFileAsBase64(fileInput.files[0]);
     payload.image_name = fileData.filename;

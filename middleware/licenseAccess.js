@@ -1,13 +1,17 @@
 const db = require('../db');
 const { getLicenseStatus } = require('../lib/licenseService');
 
-const FREE_FEATURES = new Set(['dashboard', 'product_sales', 'door_ticket_sales', 'configuration']);
+const FREE_FEATURES = new Set(['dashboard', 'product_sales', 'product_management', 'door_ticket_sales', 'configuration']);
 
 function licenseAllows(status, feature) {
   if (feature === 'configuration') return true;
   if (!status?.active) return false;
   if (status.type === 'full') return true;
   return status.type === 'free' && FREE_FEATURES.has(feature);
+}
+
+function licenseUsesStock(status) {
+  return Boolean(status?.active && status.type === 'full');
 }
 
 function sameRoles(left = [], right = []) {
@@ -65,6 +69,7 @@ async function requireTicketSaleLicense(req, res, next) {
 module.exports = {
   FREE_FEATURES,
   licenseAllows,
+  licenseUsesStock,
   licenseAllowsUserRoles,
   requireLicenseFeature,
   requireTicketSaleLicense

@@ -546,7 +546,7 @@ async function api(path, opts = {}){
   return res.data;
 }
 
-async function printTicketPdf(ids) {
+async function fetchTicketPdf(ids) {
   const response = await fetch(buildUrl('/api/tickets/pdf'), {
     method: 'POST',
     cache: 'no-store',
@@ -566,7 +566,22 @@ async function printTicketPdf(ids) {
     throw new Error(message);
   }
 
-  const blob = await response.blob();
+  return response.blob();
+}
+
+function downloadTicketPdf(blob, ids) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `entradas-${ids.join('-')}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function printTicketPdf(ids) {
+  const blob = await fetchTicketPdf(ids);
   const url = URL.createObjectURL(blob);
   const frame = document.createElement('iframe');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
@@ -587,6 +602,55 @@ async function printTicketPdf(ids) {
   frame.src = url;
   document.body.appendChild(frame);
 }
+
+window.shareTicketPdf = async function(ids) {
+  const normalizedIds = (Array.isArray(ids) ? ids : [ids])
+    .map(id => Number.parseInt(id, 10))
+    .filter(id => Number.isInteger(id) && id > 0);
+  if (!normalizedIds.length) return showToast('No se encontraron entradas para compartir', 'error');
+
+  const filename = `entradas-${normalizedIds.join('-')}.pdf`;
+  const canProbeFiles = typeof File === 'function' && typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function';
+  const probeFile = canProbeFiles ? new File([''], filename, { type: 'application/pdf' }) : null;
+  let canShareFile = false;
+  try {
+    canShareFile = !!probeFile && navigator.canShare({ files: [probeFile] });
+  } catch (_) {
+    canShareFile = false;
+  }
+
+  try {
+    const blob = await fetchTicketPdf(normalizedIds);
+    const file = typeof File === 'function'
+      ? new File([blob], filename, { type: 'application/pdf' })
+      : null;
+
+    if (canShareFile && file) {
+      try {
+        await navigator.share({
+          title: 'Entradas del evento',
+          text: 'Te comparto las entradas para el evento.',
+          files: [file]
+        });
+        return showToast('Entrada compartida correctamente', 'success');
+      } catch (shareError) {
+        if (shareError?.name === 'AbortError') return;
+        // Algunos navegadores anuncian soporte pero bloquean archivos; usamos el fallback.
+      }
+    }
+
+    downloadTicketPdf(blob, normalizedIds);
+    const message = 'Te comparto las entradas para el evento. El PDF se descargó en este dispositivo para adjuntarlo por WhatsApp.';
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const whatsappWindow = window.open(whatsappUrl, '_blank', 'noopener');
+    if (!whatsappWindow) window.location.href = whatsappUrl;
+    showToast('PDF descargado. Adjuntalo en la conversación de WhatsApp.', 'info');
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    showToast(error?.message || 'No se pudo compartir la entrada', 'error');
+  }
+};
 
 const readFileAsBase64 = (file) => {
   return new Promise((resolve, reject) => {
@@ -968,6 +1032,7 @@ async function loadTickets(search = '') {
           <button class="ticket-row-edit" onclick="editTicket(${Number(r.id)})">Editar</button>
           ${ticketUsesQr(r.ticket_type) && nextUnentered ? `<button class="ticket-row-qr" onclick="showTicketQR(${Number(nextUnentered.id)})">Ver QR</button>` : ''}
           ${ticketUsesQr(r.ticket_type) ? `<button class="ticket-row-pdf" onclick="printTicketPdf([${ticketIds.join(',')}]).catch(err => showToast(err.message, 'error'))">PDF</button>` : ''}
+          ${ticketUsesQr(r.ticket_type) ? `<button class="ticket-row-whatsapp" onclick="shareTicketPdf([${ticketIds.join(',')}])">WhatsApp</button>` : ''}
           ${nextUnentered ? `<button class="ticket-row-enter" onclick="toggleEntry(${Number(nextUnentered.id)}, true)">Marcar ingreso</button>` : ''}
           <button class="ticket-row-delete" onclick="deleteTicket([${ticketIds.join(',')}])">Eliminar</button>
         </div>

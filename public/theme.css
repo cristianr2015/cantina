@@ -37,6 +37,20 @@ html[data-theme="dark"] {
   z-index: 20;
 }
 
+.login-preferences {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-preferences .theme-picker {
+  min-width: 350px;
+}
+
 .theme-picker-icon,
 .appearance-icon {
   display: grid;
@@ -49,6 +63,11 @@ html[data-theme="dark"] {
   color: #ea580c;
   font-size: 20px;
   font-weight: 800;
+}
+
+.language-picker-icon {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .theme-picker > span:nth-child(2) {
@@ -112,7 +131,8 @@ html[data-theme="dark"] {
   line-height: 1.45;
 }
 
-.appearance-management > label {
+.appearance-management > label,
+.appearance-controls label {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -120,6 +140,16 @@ html[data-theme="dark"] {
   color: #64748b;
   font-size: 11px;
   font-weight: 750;
+}
+
+.appearance-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.appearance-controls label {
+  min-width: 145px;
 }
 
 .appearance-management select {
@@ -567,19 +597,24 @@ html[data-theme="dark"] .report-choice-icon {
 }
 
 @media (max-width: 680px) {
-  .theme-picker-login {
+  .login-preferences {
     top: 12px;
     left: 12px;
     right: 12px;
+  }
+
+  .login-preferences .theme-picker {
+    min-width: 0;
+    width: 100%;
     justify-content: space-between;
   }
 
-  .theme-picker-login > span:nth-child(2) {
+  .login-preferences .theme-picker > span:nth-child(2) {
     display: none;
   }
 
   #db-status {
-    top: 70px !important;
+    top: 128px !important;
     right: 12px !important;
   }
 
@@ -589,7 +624,13 @@ html[data-theme="dark"] .report-choice-icon {
     padding: 18px;
   }
 
+  .appearance-controls,
   .appearance-management > label {
     width: 100%;
+  }
+
+  .appearance-controls {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

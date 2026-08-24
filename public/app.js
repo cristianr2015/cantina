@@ -3,6 +3,14 @@ const API_BASE_URL = normalizeBaseUrl(APP_CONFIG.API_BASE_URL || localStorage.ge
 const CAPACITOR_HTTP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp;
 const APP_THEME_STORAGE_KEY = 'appTheme';
 
+function getAppLocale() {
+  return window.I18N?.getLocale?.() || 'es-AR';
+}
+
+function uiText(value) {
+  return window.I18N?.t?.(value) || value;
+}
+
 function normalizeAppTheme(theme) {
   return theme === 'dark' ? 'dark' : 'light';
 }
@@ -83,7 +91,7 @@ function userCanAccessPage(user, page) {
 }
 
 function formatUserRoles(user) {
-  return getUserRoles(user).map(role => ROLE_LABELS[role]).join(' · ');
+  return getUserRoles(user).map(role => uiText(ROLE_LABELS[role])).join(' · ');
 }
 const TICKET_TYPE_LABELS = {
   anticipada: '🎟️ Anticipada',
@@ -359,7 +367,7 @@ function formatDateTime(val) {
 }
 
 function formatMoney(val) {
-  return '$' + parseFloat(val || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + parseFloat(val || 0).toLocaleString(getAppLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function ticketPrice(type, row = null) {
@@ -370,7 +378,7 @@ function ticketPrice(type, row = null) {
 }
 
 function ticketTypeLabel(type) {
-  return TICKET_TYPE_LABELS[type] || type;
+  return uiText(TICKET_TYPE_LABELS[type] || type);
 }
 
 function ticketUsesQr(type) {
@@ -1034,7 +1042,7 @@ function renderEventManagement() {
     const validDate = !Number.isNaN(parsedDate.getTime());
     const day = validDate ? String(parsedDate.getDate()).padStart(2, '0') : '--';
     const month = validDate
-      ? parsedDate.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '').toUpperCase()
+      ? parsedDate.toLocaleDateString(getAppLocale(), { month: 'short' }).replace('.', '').toUpperCase()
       : 'FECHA';
     const isActive = Number(event.id) === activeEventId;
     const isPast = validDate && parsedDate.getTime() < Date.now();
@@ -2076,7 +2084,7 @@ let activeReportType = null;
 let currentReportTitle = '';
 
 function formatReportPercent(value) {
-  return `${Number(value || 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`;
+  return `${Number(value || 0).toLocaleString(getAppLocale(), { maximumFractionDigits: 1 })}%`;
 }
 
 function reportTicketTypeLabel(type) {
@@ -2719,7 +2727,7 @@ async function loadDashboard(){
     }
     const updatedAt = document.getElementById('dashboard-last-update');
     if (updatedAt) {
-      updatedAt.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      updatedAt.textContent = `Actualizado: ${new Date().toLocaleTimeString(getAppLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     }
   } catch (e) {
     console.error("Error cargando dashboard", e);
@@ -2875,8 +2883,8 @@ async function loadUsersForMgmt(){
       const safeFullName = escapeUserText(fullName || u.username);
       const roles = getUserRoles(u);
       const safeRoles = roles.length ? roles : ['seller'];
-      const roleLabels = safeRoles.map(role => ROLE_LABELS[role]);
-      const roleBadges = safeRoles.map(role => `<span class="user-role-badge user-role-${role}">${ROLE_LABELS[role]}</span>`).join('');
+      const roleLabels = safeRoles.map(role => uiText(ROLE_LABELS[role]));
+      const roleBadges = safeRoles.map(role => `<span class="user-role-badge user-role-${role}">${uiText(ROLE_LABELS[role])}</span>`).join('');
       const initials = fullName
         ? fullName.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')
         : String(u.username || '?').charAt(0);
@@ -3249,11 +3257,11 @@ function updateExpenseCategoryFilter() {
 function renderExpenses() {
   const tbody = document.getElementById('expenses-body');
   if (!tbody) return;
-  const search = (document.getElementById('expense-search')?.value || '').trim().toLocaleLowerCase('es');
+  const search = (document.getElementById('expense-search')?.value || '').trim().toLocaleLowerCase(window.I18N?.getLanguage?.() || 'es');
   const category = document.getElementById('expense-category-filter')?.value || '';
   const status = document.getElementById('expense-status-filter')?.value || '';
   const filtered = expensesCache.filter(expense => {
-    const searchable = [expense.description, expense.supplier, expense.category, expenseResponsible(expense)].join(' ').toLocaleLowerCase('es');
+    const searchable = [expense.description, expense.supplier, expense.category, expenseResponsible(expense)].join(' ').toLocaleLowerCase(window.I18N?.getLanguage?.() || 'es');
     return (!search || searchable.includes(search)) && (!category || expense.category === category) && (!status || expense.status === status);
   });
 
@@ -3888,6 +3896,26 @@ async function initPublicInfo() {
     ]);
   }
 }
+
+document.addEventListener('app:languagechange', () => {
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const currentUserOutput = document.getElementById('current-user');
+  if (user && currentUserOutput) {
+    currentUserOutput.textContent = `${user.username} (${formatUserRoles(user)})`;
+  }
+  if (eventsCache.length) {
+    renderEventSelectors();
+    renderEventManagement();
+  }
+  updateTicketSaleAvailability();
+  if (typeof renderCart === 'function') renderCart();
+  if (getSessionToken()) {
+    loadUsersSelect().catch(error => console.warn('No se pudieron actualizar los usuarios traducidos', error));
+    if (location.hash === '#config') {
+      loadUsersForMgmt().catch(error => console.warn('No se pudo actualizar la gestión de usuarios traducida', error));
+    }
+  }
+});
 
 initMobileUI();
 initPublicInfo();

@@ -370,6 +370,43 @@ html[data-theme="dark"] .pos-header {
   border-color: rgba(148, 163, 184, 0.2) !important;
 }
 
+html[data-theme="dark"] .pos-body,
+html[data-theme="dark"] .pos-cart-title-row,
+html[data-theme="dark"] .cart-items-wrapper,
+html[data-theme="dark"] .cart-footer {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html[data-theme="dark"] .pos-cart-title-row,
+html[data-theme="dark"] .cart-footer {
+  background: #111827 !important;
+}
+
+html[data-theme="dark"] .pos-cart-kicker,
+html[data-theme="dark"] .cart-summary-item span,
+html[data-theme="dark"] .cart-field label,
+html[data-theme="dark"] .cart-empty-state span {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .pos-count-badge,
+html[data-theme="dark"] .cart-summary-item {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] #cart-table {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] .pos-submit-btn {
+  background: #f97316 !important;
+  color: #111827 !important;
+}
+
 html[data-theme="dark"] .pos-img {
   background: #0b1120 !important;
 }

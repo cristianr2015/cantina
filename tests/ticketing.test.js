@@ -6,7 +6,7 @@ const { buildTicketPdf, ticketValueLabel } = require('../lib/ticketPdf');
 const { parseEventId } = require('../middleware/eventContext');
 
 const {
-  parseQuantity, parseTicketIds, priceForType, createQrToken,
+  parseQuantity, parsePaymentMethod, parseTicketIds, priceForType, createQrToken,
   canSellAdvanceTicket, needsAdminApprovalForTicketType
 } = ticketsRouter.__test;
 const { normalizeEventDate, parsePrice } = eventsRouter.__test;
@@ -19,6 +19,13 @@ test('valida cantidades y determina el precio por tipo', () => {
   assert.equal(priceForType('anticipada', { ticket_price_advance: '15000' }), 15000);
   assert.equal(priceForType('puerta', { ticket_price_door: '18000' }), 18000);
   assert.equal(priceForType('cortesia', {}), 0);
+});
+
+test('acepta efectivo y Mercado Pago en la venta de entradas', () => {
+  assert.equal(parsePaymentMethod('cash'), 'cash');
+  assert.equal(parsePaymentMethod('mercadopago'), 'mercadopago');
+  assert.equal(parsePaymentMethod(), 'cash');
+  assert.equal(parsePaymentMethod('crypto'), null);
 });
 
 test('valida y normaliza los IDs para una eliminación parcial de entradas', () => {

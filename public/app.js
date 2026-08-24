@@ -3474,6 +3474,8 @@ document.getElementById('btn-door-sale')?.addEventListener('click', async () => 
   const input = document.getElementById('door-sale-qty-input');
   if (modal) {
     updateDoorSaleQuantity(1);
+    const cashPayment = document.querySelector('input[name="door-sale-payment"][value="cash"]');
+    if (cashPayment) cashPayment.checked = true;
     modal.classList.remove('hidden');
     document.getElementById('door-sale-qty-plus')?.focus();
   }
@@ -3486,13 +3488,16 @@ document.getElementById('door-sale-cancel')?.addEventListener('click', () => {
 document.getElementById('door-sale-continue')?.addEventListener('click', () => {
   const qty = parseInt(document.getElementById('door-sale-qty-input').value);
   if (!Number.isInteger(qty) || qty < 1 || qty > 50) return showToast('La cantidad debe estar entre 1 y 50', 'error');
+  const paymentMethod = document.querySelector('input[name="door-sale-payment"]:checked')?.value;
+  if (!['cash', 'mercadopago'].includes(paymentMethod)) return showToast('Seleccioná un método de pago', 'error');
+  const paymentLabel = paymentMethod === 'mercadopago' ? 'Mercado Pago' : 'Efectivo';
   
   document.getElementById('door-sale-modal').classList.add('hidden');
 
   const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
   if (!currentUser) return showToast('Sesión inválida', 'error');
 
-  showConfirm(`¿Registrar ${qty} venta(s) rápida(s) en puerta? (Vendedor: ${currentUser.username})`, async () => {
+  showConfirm(`¿Registrar ${qty} venta(s) rápida(s) en puerta por ${paymentLabel}? (Vendedor: ${currentUser.username})`, async () => {
     try {
       const res = await api('/tickets', {
         method: 'POST',
@@ -3500,7 +3505,7 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
           first_name: 'Venta',
           last_name: 'en Puerta',
           dni: '0',
-          payment_method: 'cash',
+          payment_method: paymentMethod,
           ticket_type: 'puerta',
           user_id: currentUser.id,
           quantity: qty,

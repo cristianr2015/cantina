@@ -906,6 +906,20 @@
           <button id="door-sale-qty-plus" class="door-sale-qty-button" type="button" aria-label="Aumentar cantidad">+</button>
         </div>
 
+        <fieldset class="door-sale-payment">
+          <legend>Método de pago</legend>
+          <div>
+            <label>
+              <input type="radio" name="door-sale-payment" value="cash" checked>
+              <span><strong aria-hidden="true">💵</strong><small>Efectivo</small></span>
+            </label>
+            <label>
+              <input type="radio" name="door-sale-payment" value="mercadopago">
+              <span><strong aria-hidden="true">📱</strong><small>Mercado Pago</small></span>
+            </label>
+          </div>
+        </fieldset>
+
         <div style="display:flex;gap:10px;justify-content:center">
           <button id="door-sale-cancel" class="btn-ghost" style="flex:1">Cancelar</button>
           <button id="door-sale-continue" style="flex:1;background:var(--accent);color:#08101b;border:none;border-radius:8px;font-weight:600;cursor:pointer">Continuar</button>

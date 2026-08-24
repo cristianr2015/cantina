@@ -18,6 +18,11 @@ function parseQuantity(value) {
   return Number.isInteger(quantity) && quantity >= 1 && quantity <= 50 ? quantity : null;
 }
 
+function parsePaymentMethod(value) {
+  const method = String(value || 'cash');
+  return validPaymentMethods.has(method) ? method : null;
+}
+
 function parseTicketIds(value) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 1000) return null;
   const ids = value.map(id => Number(id));
@@ -95,7 +100,7 @@ router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async
     const firstName = isDoorSale ? 'Venta' : String(req.body.first_name || '').trim();
     const lastName = isDoorSale ? 'en Puerta' : String(req.body.last_name || '').trim();
     const dni = isDoorSale ? '0' : String(req.body.dni || '').trim();
-    const paymentMethod = isDoorSale ? 'cash' : String(req.body.payment_method || 'cash');
+    const paymentMethod = parsePaymentMethod(req.body.payment_method);
     const quantity = parseQuantity(req.body.quantity);
 
     if (!firstName || !lastName || !dni) {
@@ -104,7 +109,7 @@ router.post('/', auth(ticketRoles), requireCourtesyApproval, requireEvent, async
     if (!validTicketTypes.has(ticketType)) {
       return res.status(400).json({ error: 'Tipo de entrada inválido' });
     }
-    if (!validPaymentMethods.has(paymentMethod)) {
+    if (!paymentMethod) {
       return res.status(400).json({ error: 'Forma de pago inválida' });
     }
     if (!quantity) {
@@ -333,6 +338,7 @@ router.delete('/:id', auth(ticketRoles), requireAdminApproval('delete:ticket'), 
 module.exports = router;
 module.exports.__test = {
   parseQuantity,
+  parsePaymentMethod,
   parseTicketIds,
   priceForType,
   createQrToken,

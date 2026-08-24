@@ -5,7 +5,7 @@ const eventsRouter = require('../routes/events');
 const { buildTicketPdf } = require('../lib/ticketPdf');
 const { parseEventId } = require('../middleware/eventContext');
 
-const { parseQuantity, parseTicketIds, priceForType, createQrToken } = ticketsRouter.__test;
+const { parseQuantity, parseTicketIds, priceForType, createQrToken, canSellAdvanceTicket } = ticketsRouter.__test;
 const { normalizeEventDate, parsePrice } = eventsRouter.__test;
 
 test('valida cantidades y determina el precio por tipo', () => {
@@ -47,6 +47,14 @@ test('genera tokens QR aleatorios solo para entradas anticipadas', () => {
   assert.notEqual(first, second);
   assert.equal(createQrToken('puerta'), null);
   assert.equal(createQrToken('cortesia'), null);
+});
+
+test('cierra la venta anticipada exactamente una hora antes del evento', () => {
+  const eventDate = new Date('2026-09-12T20:00:00Z');
+  assert.equal(canSellAdvanceTicket(eventDate, new Date('2026-09-12T18:59:59Z')), true);
+  assert.equal(canSellAdvanceTicket(eventDate, new Date('2026-09-12T19:00:00Z')), true);
+  assert.equal(canSellAdvanceTicket(eventDate, new Date('2026-09-12T19:00:00.001Z')), false);
+  assert.equal(canSellAdvanceTicket('fecha-invalida', new Date()), false);
 });
 
 test('genera un PDF imprimible con una página por entrada', async () => {

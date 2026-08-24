@@ -45,6 +45,7 @@ const TICKET_TYPE_LABELS = {
   puerta: '🚪 En puerta',
   cortesia: '🎁 Cortesía'
 };
+const ADVANCE_SALE_CUTOFF_MS = 60 * 60 * 1000;
 let ticketSettings = {
   ticket_price_advance: 10000,
   ticket_price_door: 12000
@@ -325,6 +326,72 @@ function ticketPrice(type, row = null) {
 
 function ticketTypeLabel(type) {
   return TICKET_TYPE_LABELS[type] || type;
+}
+
+function getAdvanceSaleState(now = new Date()) {
+  const activeEvent = getActiveEvent();
+  const eventDateValue = activeEvent?.date || ticketSettings.event_date;
+  const normalizedEventDate = typeof eventDateValue === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(eventDateValue)
+    ? `${eventDateValue}-03:00`
+    : eventDateValue;
+  const eventDate = new Date(normalizedEventDate);
+  if (!eventDateValue || Number.isNaN(eventDate.getTime())) {
+    return { open: false, eventDate: null, deadline: null, message: 'Definí la fecha y hora del evento para habilitar la venta.' };
+  }
+  const deadline = new Date(eventDate.getTime() - ADVANCE_SALE_CUTOFF_MS);
+  const open = now.getTime() <= deadline.getTime();
+  return {
+    open,
+    eventDate,
+    deadline,
+    message: open
+      ? `Disponible hasta el ${formatDateTime(deadline)} (una hora antes).`
+      : `Venta cerrada desde el ${formatDateTime(deadline)}.`
+  };
+}
+
+function updateTicketSaleAvailability() {
+  const activeEvent = getActiveEvent();
+  const advanceState = getAdvanceSaleState();
+  const advanceButton = document.getElementById('open-advance-ticket-btn');
+  const advanceCard = advanceButton?.closest('.ticket-sale-card');
+  const deadlineOutput = document.getElementById('ticket-advance-deadline');
+  const eventNameOutput = document.getElementById('ticket-active-event-name');
+  const eventDateOutput = document.getElementById('ticket-active-event-date');
+
+  if (advanceButton) {
+    advanceButton.disabled = !advanceState.open;
+    advanceButton.innerHTML = advanceState.open
+      ? 'Vender anticipada <span aria-hidden="true">→</span>'
+      : 'Venta anticipada cerrada';
+  }
+  advanceCard?.classList.toggle('is-closed', !advanceState.open);
+  if (deadlineOutput) deadlineOutput.textContent = advanceState.message;
+  if (eventNameOutput) eventNameOutput.textContent = activeEvent?.name || ticketSettings.event_name || 'Sin evento activo';
+  if (eventDateOutput) eventDateOutput.textContent = advanceState.eventDate
+    ? `Comienza ${formatDateTime(advanceState.eventDate)}`
+    : 'Seleccioná un evento';
+  const advancePriceOutput = document.getElementById('ticket-advance-price');
+  const doorPriceOutput = document.getElementById('ticket-door-price');
+  if (advancePriceOutput) advancePriceOutput.textContent = formatMoney(ticketPrice('anticipada'));
+  if (doorPriceOutput) doorPriceOutput.textContent = formatMoney(ticketPrice('puerta'));
+}
+
+function updateTicketSummary(rows = []) {
+  const sold = rows.length;
+  const entered = rows.reduce((total, row) => total + (row.entered ? 1 : 0), 0);
+  const revenue = rows.reduce((total, row) => total + ticketPrice(row.ticket_type, row), 0);
+  const values = {
+    'ticket-stat-sold': String(sold),
+    'ticket-stat-entered': String(entered),
+    'ticket-stat-pending': String(Math.max(0, sold - entered)),
+    'ticket-stat-revenue': formatMoney(revenue)
+  };
+  Object.entries(values).forEach(([id, value]) => {
+    const output = document.getElementById(id);
+    if (output) output.textContent = value;
+  });
 }
 
 // Toast notification function
@@ -641,6 +708,7 @@ function renderEventSelectors() {
   }
   const priceEventName = document.getElementById('ticket-price-event-name');
   if (priceEventName) priceEventName.textContent = activeEvent?.name || '-';
+  updateTicketSaleAvailability();
 }
 
 function renderEventManagement() {
@@ -856,6 +924,9 @@ async function loadTickets(search = '') {
       return;
     }
 
+    if (!search) updateTicketSummary(rows);
+    updateTicketSaleAvailability();
+
     tbody.innerHTML = '';
 
     if (rows.length === 0) {
@@ -863,40 +934,41 @@ async function loadTickets(search = '') {
       return;
     }
 
-  const grouped = rows.reduce((acc, r) => {
-    const key = `${r.dni}-${r.ticket_type}-${r.price_paid}`;
-    if (!acc[key]) {
-      acc[key] = { ...r, qty: 0, entered_count: 0, ticket_ids: [] };
-    }
-    acc[key].qty++;
-    acc[key].ticket_ids.push({ id: r.id, entered: !!r.entered, qr_token: r.qr_token });
-    if (r.entered) acc[key].entered_count++;
-    return acc;
-  }, {});
+    const grouped = rows.reduce((acc, r) => {
+      const key = `${r.dni}-${r.ticket_type}-${r.price_paid}`;
+      if (!acc[key]) acc[key] = { ...r, qty: 0, entered_count: 0, ticket_ids: [] };
+      acc[key].qty++;
+      acc[key].ticket_ids.push({ id: r.id, entered: !!r.entered, qr_token: r.qr_token });
+      if (r.entered) acc[key].entered_count++;
+      return acc;
+    }, {});
 
-  Object.values(grouped).forEach(r => {
+    Object.values(grouped).forEach(r => {
       const price = ticketPrice(r.ticket_type, r);
-      const typeStr = ticketTypeLabel(r.ticket_type);
+      const typeStr = escapeUserText(ticketTypeLabel(r.ticket_type));
       const tr = document.createElement('tr');
       const nextUnentered = r.ticket_ids.find(t => !t.entered);
-    const statusIngreso = r.qty > 1 ? `${r.entered_count}/${r.qty}` : (r.entered ? 'SI' : 'NO');
+      const statusIngreso = r.qty > 1 ? `${r.entered_count}/${r.qty}` : (r.entered_count ? 'Sí' : 'No');
+      const statusClass = r.entered_count === r.qty ? 'ticket-status-entered' : 'ticket-status-pending';
+      const ticketIds = r.ticket_ids.map(ticket => Number(ticket.id));
 
       tr.innerHTML = `
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2)">${r.first_name}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2)">${r.last_name}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2)">${r.dni}</td>
-      <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);text-align:center;font-weight:700">${r.qty}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);font-size:12px">${typeStr}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);font-weight:600">${formatMoney(price)}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);font-weight:600">${formatMoney(price * r.qty)}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2)">${r.sold_by || '-'}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);text-align:center">${statusIngreso}</td>
-        <td style="padding:8px;border-bottom:1px solid rgba(120,120,120,0.2);display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap">
-          <button onclick="editTicket(${r.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Editar</button>
-          ${r.ticket_type === 'anticipada' && nextUnentered ? `<button onclick="showTicketQR(${nextUnentered.id})" style="padding:6px 12px;font-size:12px;font-weight:600;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">QR</button>` : ''}
-          ${r.ticket_type === 'anticipada' ? `<button onclick="printTicketPdf([${r.ticket_ids.map(t => t.id).join(',')}]).catch(err => showToast(err.message, 'error'))" style="padding:6px 12px;font-size:12px;font-weight:600;background:#0f172a;color:#fff;border:none;border-radius:6px;cursor:pointer;transition:all .2s">PDF</button>` : ''}
-          ${nextUnentered ? `<button onclick="toggleEntry(${nextUnentered.id}, true)" style="padding:6px 12px;font-size:12px;font-weight:600;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Entró</button>` : ''}
-          <button onclick="deleteTicket([${r.ticket_ids.map(t => t.id).join(',')}])" style="padding:6px 12px;font-size:12px;font-weight:600;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;transition:all .2s">Eliminar</button>
+        <td>${escapeUserText(r.first_name)}</td>
+        <td>${escapeUserText(r.last_name)}</td>
+        <td>${escapeUserText(r.dni)}</td>
+        <td style="text-align:center;font-weight:750">${r.qty}</td>
+        <td><span class="ticket-type-pill">${typeStr}</span></td>
+        <td>${formatMoney(price)}</td>
+        <td style="font-weight:750">${formatMoney(price * r.qty)}</td>
+        <td>${escapeUserText(r.sold_by || '-')}</td>
+        <td style="text-align:center"><span class="ticket-status ${statusClass}">${statusIngreso}</span></td>
+        <td><div class="ticket-row-actions">
+          <button class="ticket-row-edit" onclick="editTicket(${Number(r.id)})">Editar</button>
+          ${r.ticket_type === 'anticipada' && nextUnentered ? `<button class="ticket-row-qr" onclick="showTicketQR(${Number(nextUnentered.id)})">Ver QR</button>` : ''}
+          ${r.ticket_type === 'anticipada' ? `<button class="ticket-row-pdf" onclick="printTicketPdf([${ticketIds.join(',')}]).catch(err => showToast(err.message, 'error'))">PDF</button>` : ''}
+          ${nextUnentered ? `<button class="ticket-row-enter" onclick="toggleEntry(${Number(nextUnentered.id)}, true)">Marcar ingreso</button>` : ''}
+          <button class="ticket-row-delete" onclick="deleteTicket([${ticketIds.join(',')}])">Eliminar</button>
+        </div>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1472,27 +1544,78 @@ document.getElementById('close-pos').addEventListener('click', () => {
   document.getElementById('pos-modal').classList.add('hidden');
 });
 
-// Modal Entrada Rápida
-document.getElementById('open-quick-ticket-btn').addEventListener('click', async () => {
+// Modal de venta de entradas
+const TICKET_SALE_MODAL_CONTENT = {
+  anticipada: {
+    icon: '🎟️', kicker: 'VENTA ANTICIPADA', title: 'Nueva entrada anticipada',
+    description: 'Se generará una entrada con código QR para presentar en el acceso.',
+    badge: 'Anticipada', button: 'Confirmar venta anticipada'
+  },
+  puerta: {
+    icon: '🚪', kicker: 'VENTA EN PUERTA', title: 'Nueva venta en puerta',
+    description: 'La venta quedará registrada junto con el ingreso del asistente.',
+    badge: 'En puerta', button: 'Registrar venta e ingreso'
+  },
+  cortesia: {
+    icon: '🎁', kicker: 'ENTRADA DE CORTESÍA', title: 'Registrar cortesía',
+    description: 'Se registrará una entrada sin cargo para el evento activo.',
+    badge: 'Cortesía', button: 'Registrar cortesía'
+  }
+};
+
+async function openTicketSaleModal(type) {
+  if (type === 'anticipada' && !getAdvanceSaleState().open) {
+    updateTicketSaleAvailability();
+    return showToast('La venta anticipada cerró una hora antes del evento', 'error');
+  }
+  const modal = document.getElementById('quick-ticket-modal');
   const userSel = document.getElementById('quick-ticket-user');
+  document.getElementById('quick-ticket-type').value = type;
   await populateTicketUserSelect(userSel);
   updateQuickTicketPrice();
-  document.getElementById('quick-ticket-modal').classList.remove('hidden');
-});
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  window.requestAnimationFrame(() => document.getElementById('quick-ticket-firstname')?.focus());
+}
+
+function closeTicketSaleModal() {
+  const modal = document.getElementById('quick-ticket-modal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('open-advance-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('anticipada'));
+document.getElementById('open-door-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('puerta'));
+document.getElementById('open-courtesy-ticket-btn')?.addEventListener('click', () => openTicketSaleModal('cortesia'));
 
 function updateQuickTicketPrice() {
   const type = document.getElementById('quick-ticket-type')?.value || 'anticipada';
+  const content = TICKET_SALE_MODAL_CONTENT[type] || TICKET_SALE_MODAL_CONTENT.anticipada;
   const output = document.getElementById('quick-ticket-price');
   if (output) output.textContent = `Valor unitario: ${formatMoney(ticketPrice(type))}`;
+  const assignments = {
+    'ticket-sale-modal-icon': content.icon,
+    'ticket-sale-modal-kicker': content.kicker,
+    'ticket-sale-modal-title': content.title,
+    'ticket-sale-modal-description': content.description,
+    'quick-ticket-type-badge': content.badge,
+    'quick-ticket-confirm': content.button
+  };
+  Object.entries(assignments).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
+  document.getElementById('ticket-sale-entry-note')?.classList.toggle('hidden', type !== 'puerta');
 }
 
-document.getElementById('quick-ticket-type')?.addEventListener('change', updateQuickTicketPrice);
-
-document.getElementById('quick-ticket-cancel').addEventListener('click', () => {
-  document.getElementById('quick-ticket-modal').classList.add('hidden');
+document.getElementById('quick-ticket-cancel')?.addEventListener('click', closeTicketSaleModal);
+document.getElementById('quick-ticket-close')?.addEventListener('click', closeTicketSaleModal);
+document.getElementById('quick-ticket-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeTicketSaleModal();
 });
 
-document.getElementById('quick-ticket-confirm').addEventListener('click', async () => {
+document.getElementById('ticket-sale-form')?.addEventListener('submit', async event => {
+  event.preventDefault();
   const firstName = document.getElementById('quick-ticket-firstname').value.trim();
   const lastName = document.getElementById('quick-ticket-lastname').value.trim();
   const dni = document.getElementById('quick-ticket-dni').value.trim();
@@ -1506,26 +1629,39 @@ document.getElementById('quick-ticket-confirm').addEventListener('click', async 
     return;
   }
 
-  if (qty < 1) {
-    showToast('La cantidad debe ser al menos 1', 'error');
+  if (qty < 1 || qty > 50) {
+    showToast('La cantidad debe estar entre 1 y 50', 'error');
     return;
   }
+  if (type === 'anticipada' && !getAdvanceSaleState().open) {
+    closeTicketSaleModal();
+    updateTicketSaleAvailability();
+    return showToast('La venta anticipada cerró una hora antes del evento', 'error');
+  }
 
+  const confirmButton = document.getElementById('quick-ticket-confirm');
+  confirmButton.disabled = true;
   try {
     const res = await api('/tickets', {
       method: 'POST',
       body: JSON.stringify({
         first_name: firstName, last_name: lastName, dni,
-        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty
+        payment_method: payment, ticket_type: type, user_id: userId, quantity: qty,
+        entered: type === 'puerta'
       })
     });
     if (res.error) return showToast(res.error, 'error');
     const successCount = res.quantity || 0;
     
     if (successCount > 0) {
-      showToast(`${successCount} entrada(s) agregada(s) correctamente`, 'success');
-      document.getElementById('quick-ticket-modal').classList.add('hidden');
-      await loadTickets(); // Esperar a que cargue la lista actualizada
+      const successMessage = type === 'puerta'
+        ? `${successCount} venta(s) en puerta e ingreso(s) registrados`
+        : `${successCount} entrada(s) agregada(s) correctamente`;
+      showToast(successMessage, 'success');
+      closeTicketSaleModal();
+      const searchInput = document.getElementById('ticket-search');
+      if (searchInput) searchInput.value = '';
+      await loadTickets();
       
       // Limpiar formulario
       document.getElementById('quick-ticket-firstname').value = '';
@@ -1544,6 +1680,8 @@ document.getElementById('quick-ticket-confirm').addEventListener('click', async 
     }
   } catch (err) {
     showToast('Error al agregar entrada', 'error');
+  } finally {
+    confirmButton.disabled = false;
   }
 });
 
@@ -2207,6 +2345,7 @@ async function loadSettings(){
     if (eventDoorInput && !eventDoorInput.value) eventDoorInput.value = Number(cfg.ticket_price_door || 0);
     ticketSettings = Object.assign({}, ticketSettings, cfg);
     updateQuickTicketPrice();
+    updateTicketSaleAvailability();
     
     const logo = cfg.logo_path || '';
     const name = cfg.company_name || 'Mi Empresa';
@@ -3049,7 +3188,7 @@ document.getElementById('door-sale-cancel')?.addEventListener('click', () => {
 
 document.getElementById('door-sale-continue')?.addEventListener('click', () => {
   const qty = parseInt(document.getElementById('door-sale-qty-input').value);
-  if (isNaN(qty) || qty <= 0) return showToast('Ingrese una cantidad válida', 'error');
+  if (!Number.isInteger(qty) || qty < 1 || qty > 50) return showToast('La cantidad debe estar entre 1 y 50', 'error');
   
   document.getElementById('door-sale-modal').classList.add('hidden');
 
@@ -3084,6 +3223,11 @@ document.getElementById('door-sale-continue')?.addEventListener('click', () => {
     }
   }, 'Venta Rápida');
 });
+
+setInterval(() => {
+  const activePage = location.hash.replace('#', '') || 'dashboard';
+  if (activePage === 'tickets' && document.visibilityState === 'visible') updateTicketSaleAvailability();
+}, 60000);
 
 // --- QR Scanner Logic ---
 let html5QrCode = null;

@@ -494,35 +494,73 @@
           </div>
 
           <div id="page-tickets" class="page hidden">
-            <section>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                <h2 style="margin:0">Control de Entradas Vendidas</h2>
+            <section class="ticket-management">
+              <header class="ticket-page-header">
+                <div>
+                  <span class="ticket-eyebrow">ACCESOS</span>
+                  <h2>Venta y control de entradas</h2>
+                  <p>Registrá ventas, entregá anticipadas con QR y controlá el ingreso al evento.</p>
+                </div>
+                <div class="ticket-event-pill">
+                  <span>Evento activo</span>
+                  <strong id="ticket-active-event-name">—</strong>
+                  <small id="ticket-active-event-date">Seleccioná un evento</small>
+                </div>
+              </header>
+
+              <div class="ticket-sale-actions" aria-label="Opciones de venta de entradas">
+                <article class="ticket-sale-card ticket-sale-card-advance">
+                  <div class="ticket-sale-card-icon" aria-hidden="true">🎟️</div>
+                  <div class="ticket-sale-card-copy">
+                    <span class="ticket-sale-label">VENTA ANTICIPADA</span>
+                    <h3>Entrada con QR</h3>
+                    <p id="ticket-advance-deadline">Disponible hasta una hora antes del evento.</p>
+                    <strong id="ticket-advance-price">$0,00</strong>
+                  </div>
+                  <button id="open-advance-ticket-btn" class="ticket-action-button ticket-action-advance" type="button">
+                    Vender anticipada <span aria-hidden="true">→</span>
+                  </button>
+                </article>
+
+                <article class="ticket-sale-card ticket-sale-card-door">
+                  <div class="ticket-sale-card-icon" aria-hidden="true">🚪</div>
+                  <div class="ticket-sale-card-copy">
+                    <span class="ticket-sale-label">VENTA EN PUERTA</span>
+                    <h3>Registrar ingreso</h3>
+                    <p>Guardá los datos del asistente y marcá el ingreso automáticamente.</p>
+                    <strong id="ticket-door-price">$0,00</strong>
+                  </div>
+                  <button id="open-door-ticket-btn" class="ticket-action-button ticket-action-door" type="button">
+                    Vender en puerta <span aria-hidden="true">→</span>
+                  </button>
+                </article>
+
+                <aside class="ticket-quick-actions">
+                  <span>Acciones rápidas</span>
+                  <button id="btn-door-sale" type="button"><span aria-hidden="true">⚡</span><span><strong>Ingreso sin datos</strong><small>Venta en efectivo</small></span></button>
+                  <button id="btn-scan-qr" type="button"><span aria-hidden="true">▣</span><span><strong>Escanear QR</strong><small>Validar anticipada</small></span></button>
+                  <button id="open-courtesy-ticket-btn" class="admin-only" type="button"><span aria-hidden="true">🎁</span><span><strong>Registrar cortesía</strong><small>Sin cargo</small></span></button>
+                </aside>
               </div>
 
-              <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;align-items:center">
-                <button id="open-quick-ticket-btn" style="padding:10px 14px;">📝 Registrar venta de entrada</button>
-                <button id="btn-door-sale" style="padding:10px 14px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600">⚡ Venta rápida en puerta</button>
-                <button id="btn-scan-qr" style="padding:10px 14px;background:#6366f1;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600">📷 Escanear QR</button>
+              <div class="ticket-summary" aria-label="Resumen de entradas">
+                <article><span>Entradas vendidas</span><strong id="ticket-stat-sold">0</strong></article>
+                <article><span>Ingresos registrados</span><strong id="ticket-stat-entered">0</strong></article>
+                <article><span>Pendientes de ingreso</span><strong id="ticket-stat-pending">0</strong></article>
+                <article><span>Recaudación</span><strong id="ticket-stat-revenue">$0,00</strong></article>
               </div>
 
-              <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:8px">
-                <input id="ticket-search" name="no_auto_search" type="search" placeholder="🔍 Buscar por nombre/apellido/DNI" style="width:300px;padding:8px" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" />
+              <div class="ticket-list-header">
+                <div><h3>Entradas registradas</h3><p>Buscá asistentes y gestioná sus accesos.</p></div>
+                <label class="ticket-search"><span aria-hidden="true">⌕</span><input id="ticket-search" name="no_auto_search" type="search" placeholder="Buscar por nombre, apellido o DNI" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" /></label>
               </div>
 
-              <div id="ticket-table-wrapper" class="table-wrap" style="overflow-x:auto">
-                <table id="tickets-table" style="width:100%;border-collapse:collapse;text-align:left">
+              <div id="ticket-table-wrapper" class="table-wrap ticket-table-wrap">
+                <table id="tickets-table" class="ticket-table">
                   <thead>
                     <tr>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Nombre</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Apellido</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">DNI</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Cantidad</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Tipo</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">P. Unitario</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Total</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Vendedor</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Ingresó</th>
-                      <th style="border-bottom:1px solid #ccc;padding:8px">Acciones</th>
+                      <th>Nombre</th><th>Apellido</th><th>DNI</th><th>Cantidad</th><th>Tipo</th>
+                      <th>P. Unitario</th><th>Total</th><th>Vendedor</th><th>Ingresó</th><th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="tickets-body"></tbody>
@@ -868,7 +906,7 @@
         <p style="color:var(--muted);margin-bottom:20px;font-size:14px">¿Cuántas entradas desea registrar hoy?</p>
         
         <div style="margin-bottom:24px">
-          <input id="door-sale-qty-input" type="number" value="1" min="1" max="100" 
+          <input id="door-sale-qty-input" type="number" value="1" min="1" max="50"
                  style="width:100%;font-size:28px;text-align:center;padding:12px;border-radius:12px;border:2px solid var(--accent);background:rgba(255,107,53,0.05);color:var(--text);font-weight:700">
         </div>
 
@@ -1100,54 +1138,34 @@
       </div>
     </div>
 
-    <!-- Modal Agregar Entrada Rápida -->
+    <!-- Modal de venta de entrada -->
     <div id="quick-ticket-modal" class="modal-overlay hidden">
-      <div class="modal" style="width:400px">
-        <h3>Agregar Entrada Rápida</h3>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Nombre</label>
-            <input id="quick-ticket-firstname" type="text" style="width:100%" required>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Apellido</label>
-            <input id="quick-ticket-lastname" type="text" style="width:100%" required>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">DNI</label>
-            <input id="quick-ticket-dni" type="text" style="width:100%" required>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Forma de Pago</label>
-            <select id="quick-ticket-payment" style="width:100%" required>
-              <option value="cash">💵 Efectivo</option>
-              <option value="mercadopago">📱 MercadoPago</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Tipo de Entrada</label>
-            <select id="quick-ticket-type" style="width:100%" required>
-              <option value="anticipada">Anticipada</option>
-              <option value="puerta">En Puerta</option>
-              <option value="cortesia">Entrada de cortesía</option>
-            </select>
-            <small id="quick-ticket-price" style="display:block;margin-top:6px;color:var(--muted)">Valor: -</small>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Vendedor</label>
-            <select id="quick-ticket-user" style="width:100%" required>
-              <option value="">-- Seleccionar Vendedor --</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">Cantidad de Entradas</label>
-            <input id="quick-ticket-qty" type="number" value="1" min="1" max="50" style="width:100%" required>
-          </div>
+      <div class="modal ticket-sale-modal" role="dialog" aria-modal="true" aria-labelledby="ticket-sale-modal-title">
+        <div class="ticket-sale-modal-header">
+          <div class="ticket-sale-modal-icon" id="ticket-sale-modal-icon" aria-hidden="true">🎟️</div>
+          <div><span id="ticket-sale-modal-kicker">VENTA ANTICIPADA</span><h3 id="ticket-sale-modal-title">Nueva entrada anticipada</h3><p id="ticket-sale-modal-description">Se generará una entrada con código QR.</p></div>
+          <button id="quick-ticket-close" class="ticket-modal-close" type="button" aria-label="Cerrar formulario">×</button>
         </div>
-        <div style="margin-top:24px;display:flex;gap:10px">
-          <button id="quick-ticket-cancel" class="btn-ghost" style="flex:1">Cancelar</button>
-          <button id="quick-ticket-confirm" style="flex:1">Agregar Entrada</button>
+        <div class="ticket-sale-type-summary">
+          <span id="quick-ticket-type-badge">Anticipada</span>
+          <strong id="quick-ticket-price">Valor unitario: -</strong>
         </div>
+        <form id="ticket-sale-form">
+          <input id="quick-ticket-type" type="hidden" value="anticipada">
+          <div class="ticket-sale-form-grid">
+            <label><span>Nombre</span><input id="quick-ticket-firstname" type="text" autocomplete="given-name" required></label>
+            <label><span>Apellido</span><input id="quick-ticket-lastname" type="text" autocomplete="family-name" required></label>
+            <label><span>DNI</span><input id="quick-ticket-dni" type="text" inputmode="numeric" autocomplete="off" required></label>
+            <label><span>Forma de pago</span><select id="quick-ticket-payment" required><option value="cash">Efectivo</option><option value="mercadopago">Mercado Pago</option></select></label>
+            <label><span>Vendedor</span><select id="quick-ticket-user" required><option value="">Seleccionar vendedor</option></select></label>
+            <label><span>Cantidad</span><input id="quick-ticket-qty" type="number" value="1" min="1" max="50" required></label>
+          </div>
+          <p id="ticket-sale-entry-note" class="ticket-sale-entry-note hidden">Las entradas de puerta se registrarán como ingresadas.</p>
+          <div class="ticket-sale-form-actions">
+            <button id="quick-ticket-cancel" class="btn-ghost" type="button">Cancelar</button>
+            <button id="quick-ticket-confirm" type="submit">Confirmar venta</button>
+          </div>
+        </form>
       </div>
     </div>
 

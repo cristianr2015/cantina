@@ -10,6 +10,7 @@ const { buildTicketPdf } = require('../lib/ticketPdf');
 const ticketRoles = ['admin', 'puerta'];
 const validTicketTypes = new Set(['anticipada', 'puerta', 'cortesia']);
 const validPaymentMethods = new Set(['cash', 'mercadopago']);
+const ADVANCE_SALE_CUTOFF_MS = 60 * 60 * 1000;
 
 function parseQuantity(value) {
   const quantity = Number.parseInt(value ?? 1, 10);
@@ -31,6 +32,13 @@ function priceForType(type, settings) {
 
 function createQrToken(type) {
   return type === 'anticipada' ? crypto.randomBytes(32).toString('hex') : null;
+}
+
+function canSellAdvanceTicket(eventDate, currentDate = new Date()) {
+  const eventTime = new Date(eventDate).getTime();
+  const currentTime = new Date(currentDate).getTime();
+  if (!Number.isFinite(eventTime) || !Number.isFinite(currentTime)) return false;
+  return currentTime <= eventTime - ADVANCE_SALE_CUTOFF_MS;
 }
 
 async function loadTicketsByIds(connection, ids, eventId) {
@@ -94,7 +102,8 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
 
     await connection.beginTransaction();
     const [settingRows] = await connection.query(
-      `SELECT ticket_price_advance, ticket_price_door
+      `SELECT ticket_price_advance, ticket_price_door, date,
+              DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR) AS current_time
        FROM events WHERE id = ? LIMIT 1 FOR SHARE`,
       [req.eventId]
     );
@@ -103,6 +112,12 @@ router.post('/', auth(ticketRoles), requireEvent, async (req, res) => {
       return res.status(404).json({ error: 'El evento activo ya no existe' });
     }
     const settings = settingRows[0] || {};
+    if (ticketType === 'anticipada' && !canSellAdvanceTicket(settings.date, settings.current_time)) {
+      await connection.rollback();
+      return res.status(409).json({
+        error: 'La venta anticipada está cerrada: solo se permite hasta una hora antes del evento'
+      });
+    }
     const pricePaid = priceForType(ticketType, settings);
     const enteredValue = ticketType === 'puerta' && entered ? 1 : 0;
     const enteredAt = enteredValue ? new Date() : null;
@@ -297,4 +312,10 @@ router.delete('/:id', auth(ticketRoles), requireAdminApproval('delete:ticket'), 
 });
 
 module.exports = router;
-module.exports.__test = { parseQuantity, parseTicketIds, priceForType, createQrToken };
+module.exports.__test = {
+  parseQuantity,
+  parseTicketIds,
+  priceForType,
+  createQrToken,
+  canSellAdvanceTicket
+};

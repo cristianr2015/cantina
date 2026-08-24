@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeExpense } = require('../lib/expenseValidation');
+const { normalizeExpense, normalizeSettlementPaymentMethod } = require('../lib/expenseValidation');
 
 test('normaliza un gasto válido', () => {
   const result = normalizeExpense({
@@ -36,4 +36,11 @@ test('usa pendiente como estado inicial cuando no se especifica', () => {
     description: 'Compra menor', category: 'Otros', amount: 100, expense_date: '2026-08-24'
   });
   assert.equal(result.value.status, 'pending');
+});
+
+test('valida el medio al marcar un gasto como pagado', () => {
+  assert.equal(normalizeSettlementPaymentMethod('cash'), 'cash');
+  assert.equal(normalizeSettlementPaymentMethod('mercadopago'), 'mercadopago');
+  assert.equal(normalizeSettlementPaymentMethod('transfer'), null);
+  assert.equal(normalizeSettlementPaymentMethod(), null);
 });

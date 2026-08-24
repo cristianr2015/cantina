@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 const { requireEvent } = require('../middleware/eventContext');
-const { normalizeExpense } = require('../lib/expenseValidation');
+const { normalizeExpense, normalizeSettlementPaymentMethod } = require('../lib/expenseValidation');
 
 router.get('/', auth(['admin']), requireEvent, async (req, res) => {
   try {
@@ -66,9 +66,11 @@ router.put('/:id', auth(['admin']), requireEvent, async (req, res) => {
 
 router.patch('/:id/pay', auth(['admin']), requireEvent, async (req, res) => {
   try {
+    const paymentMethod = normalizeSettlementPaymentMethod(req.body?.payment_method);
+    if (!paymentMethod) return res.status(400).json({ error: 'Seleccioná Efectivo o Mercado Pago' });
     const [result] = await db.query(
-      "UPDATE expenses SET status = 'paid' WHERE id = ? AND event_id = ? AND status <> 'paid'",
-      [req.params.id, req.eventId]
+      "UPDATE expenses SET status = 'paid', payment_method = ? WHERE id = ? AND event_id = ? AND status <> 'paid'",
+      [paymentMethod, req.params.id, req.eventId]
     );
     if (!result.affectedRows) {
       const [rows] = await db.query('SELECT status FROM expenses WHERE id = ? AND event_id = ? LIMIT 1', [req.params.id, req.eventId]);

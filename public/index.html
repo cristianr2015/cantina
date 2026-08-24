@@ -1035,6 +1035,33 @@
       </div>
     </div>
 
+    <!-- Selección del medio de pago al pagar un gasto pendiente -->
+    <div id="expense-pay-modal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal expense-pay-modal" role="dialog" aria-modal="true" aria-labelledby="expense-pay-title">
+        <div class="expense-pay-icon" aria-hidden="true">✓</div>
+        <span class="expense-eyebrow">CONFIRMAR PAGO</span>
+        <h3 id="expense-pay-title">Marcar gasto como pagado</h3>
+        <p id="expense-pay-description">Elegí el medio con el que se realizará este pago.</p>
+        <fieldset class="expense-pay-options">
+          <legend>Método de pago</legend>
+          <div>
+            <label>
+              <input type="radio" name="expense-pay-method" value="cash" checked>
+              <span><strong aria-hidden="true">💵</strong><small>Efectivo</small></span>
+            </label>
+            <label>
+              <input type="radio" name="expense-pay-method" value="mercadopago">
+              <span><strong aria-hidden="true">📱</strong><small>Mercado Pago</small></span>
+            </label>
+          </div>
+        </fieldset>
+        <div class="expense-pay-actions">
+          <button id="expense-pay-cancel" class="btn-ghost" type="button">Cancelar</button>
+          <button id="expense-pay-confirm" type="button">Confirmar pago</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal de Confirmación -->
     <div id="user-modal" class="modal-overlay hidden" aria-hidden="true">
       <div class="modal user-form-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">

@@ -2855,6 +2855,7 @@ async function closeAllOpenPopups() {
   closeAdminApprovalModal(null);
   closeDeleteTicketModal();
   closeTicketDeliveryModal();
+  closeExpensePaymentModal();
   closeUserModal();
   document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(modal => {
     modal.classList.add('hidden');
@@ -3027,7 +3028,7 @@ let expensesCache = [];
 const DEFAULT_EXPENSE_CATEGORIES = ['Mercadería e insumos', 'Servicios', 'Logística', 'Mantenimiento', 'Personal', 'Otros'];
 
 function expensePaymentLabel(method) {
-  return ({ cash: 'Efectivo', mercadopago: 'MercadoPago', transfer: 'Transferencia' })[method] || method || '-';
+  return ({ cash: 'Efectivo', mercadopago: 'Mercado Pago', transfer: 'Transferencia' })[method] || method || '-';
 }
 
 function expenseResponsible(expense) {
@@ -3193,20 +3194,62 @@ document.getElementById('expense-form')?.addEventListener('submit', async event 
   await loadExpenses();
 });
 
+let pendingExpensePaymentId = null;
+
+function closeExpensePaymentModal() {
+  const modal = document.getElementById('expense-pay-modal');
+  modal?.classList.add('hidden');
+  modal?.setAttribute('aria-hidden', 'true');
+  pendingExpensePaymentId = null;
+  const confirmButton = document.getElementById('expense-pay-confirm');
+  if (confirmButton) confirmButton.disabled = false;
+}
+
+function openExpensePaymentModal(expense) {
+  if (!expense) return;
+  pendingExpensePaymentId = Number(expense.id);
+  const currentMethod = ['cash', 'mercadopago'].includes(expense.payment_method) ? expense.payment_method : 'cash';
+  const methodInput = document.querySelector(`input[name="expense-pay-method"][value="${currentMethod}"]`);
+  if (methodInput) methodInput.checked = true;
+  const description = document.getElementById('expense-pay-description');
+  if (description) description.textContent = `Elegí cómo se pagará "${expense.description}" por ${formatMoney(expense.amount)}.`;
+  const modal = document.getElementById('expense-pay-modal');
+  modal?.classList.remove('hidden');
+  modal?.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('expense-pay-confirm')?.focus(), 0);
+}
+
+document.getElementById('expense-pay-cancel')?.addEventListener('click', closeExpensePaymentModal);
+document.getElementById('expense-pay-modal')?.addEventListener('click', event => {
+  if (event.target === event.currentTarget) closeExpensePaymentModal();
+});
+document.getElementById('expense-pay-confirm')?.addEventListener('click', async () => {
+  if (!pendingExpensePaymentId) return;
+  const paymentMethod = document.querySelector('input[name="expense-pay-method"]:checked')?.value;
+  if (!['cash', 'mercadopago'].includes(paymentMethod)) return showToast('Seleccioná un método de pago', 'error');
+  const expenseId = pendingExpensePaymentId;
+  const confirmButton = document.getElementById('expense-pay-confirm');
+  confirmButton.disabled = true;
+  const result = await api(`/expenses/${expenseId}/pay`, {
+    method: 'PATCH',
+    body: JSON.stringify({ payment_method: paymentMethod })
+  });
+  if (result.error) {
+    confirmButton.disabled = false;
+    return showToast(result.error, 'error');
+  }
+  closeExpensePaymentModal();
+  showToast(`Gasto pagado con ${expensePaymentLabel(paymentMethod)}`, 'success');
+  await loadExpenses();
+});
+
 document.getElementById('expenses-body')?.addEventListener('click', event => {
   const payButton = event.target.closest('.pay-expense');
   const editButton = event.target.closest('.edit-expense');
   const deleteButton = event.target.closest('.delete-expense');
   if (payButton) {
-    payButton.disabled = true;
-    api(`/expenses/${payButton.dataset.id}/pay`, { method: 'PATCH' }).then(async result => {
-      if (result.error) {
-        payButton.disabled = false;
-        return showToast(result.error, 'error');
-      }
-      showToast('Gasto marcado como pagado', 'success');
-      await loadExpenses();
-    });
+    const expense = expensesCache.find(item => Number(item.id) === Number(payButton.dataset.id));
+    if (expense) openExpensePaymentModal(expense);
     return;
   }
   if (editButton) {
